@@ -124,11 +124,15 @@ const App: React.FC = () => {
     if (window.Telegram?.WebApp) {
       // 1. Send data to Bot
       try {
+        if (window.Telegram.WebApp.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        }
         window.Telegram.WebApp.sendData(JSON.stringify(payload));
         // CLOSE THE WEBAPP so the user sees the invoice in the chat
+        // Timeout 300ms to allow Telegram client to process the data event
         setTimeout(() => {
             window.Telegram.WebApp.close();
-        }, 100);
+        }, 300);
       } catch (e) {
         console.error("sendData error", e);
         alert("Ошибка отправки. Попробуйте перезайти в бот.");
