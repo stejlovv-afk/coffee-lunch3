@@ -45,6 +45,7 @@ const App: React.FC = () => {
   const [showAdminAuth, setShowAdminAuth] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   
   // Modals
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -101,7 +102,8 @@ const App: React.FC = () => {
   }, [cart]);
 
   const handleCheckout = useCallback(() => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || isSending) return;
+    setIsSending(true);
 
     const payload: WebAppPayload = {
       action: 'order',
@@ -139,17 +141,19 @@ const App: React.FC = () => {
         // Close manually after a short delay
         setTimeout(() => {
             tg.close();
-        }, 100); 
+        }, 500); // 500ms delay to see the feedback
       } catch (e) {
-        alert("Ошибка отправки! Попробуйте обновить бота.");
+        setIsSending(false);
+        alert("Ошибка отправки! Запустите бота заново.");
       }
     } else {
       console.log("Order Payload:", payload);
       alert(`[Тест браузера] Заказ на ${payload.total}р сформирован.`);
+      setIsSending(false);
     }
-  }, [cart, cartTotal]);
+  }, [cart, cartTotal, isSending]);
 
-  // Sync MainButton
+  // Sync MainButton (optional, but good for backup)
   useEffect(() => {
     if (!window.Telegram?.WebApp) return;
     const tg = window.Telegram.WebApp;
@@ -157,7 +161,7 @@ const App: React.FC = () => {
 
     if (isCartOpen && cart.length > 0) {
         mainBtn.setText(`ОПЛАТИТЬ ${cartTotal}₽`);
-        mainBtn.show();
+        // mainBtn.show(); // We use custom button, uncomment if you want native button
         mainBtn.onClick(handleCheckout);
     } else {
         mainBtn.hide();
@@ -436,9 +440,19 @@ const App: React.FC = () => {
             <div className="pt-2 bg-white safe-area-bottom">
               <button 
                 onClick={handleCheckout}
-                className="w-full bg-coffee-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-all mb-2"
+                disabled={isSending}
+                className={`w-full text-white py-4 rounded-2xl font-bold text-lg shadow-lg transition-all mb-2 flex items-center justify-center gap-2 ${
+                  isSending ? 'bg-coffee-500/80' : 'bg-coffee-500 active:scale-95'
+                }`}
               >
-                Оплатить {cartTotal}₽
+                {isSending ? (
+                   <>
+                     <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"/>
+                     Отправка...
+                   </>
+                ) : (
+                   `Оплатить ${cartTotal}₽`
+                )}
               </button>
             </div>
           </div>
