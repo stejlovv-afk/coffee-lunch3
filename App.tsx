@@ -45,6 +45,7 @@ const App: React.FC = () => {
   const [showAdminAuth, setShowAdminAuth] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [isOrdering, setIsOrdering] = useState(false);
   
   // Modals
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -81,6 +82,8 @@ const App: React.FC = () => {
         tg.setHeaderColor('#fdf8f6');
         tg.setBackgroundColor('#fdf8f6');
         tg.enableClosingConfirmation();
+        // Notify TG we are ready
+        if (!tg.isExpanded) tg.expand();
       } catch (e) {
         console.log('TG styling failed', e);
       }
@@ -98,6 +101,9 @@ const App: React.FC = () => {
 
   const handleCheckout = useCallback(() => {
     if (cart.length === 0) return;
+    if (isOrdering) return;
+
+    setIsOrdering(true);
 
     const payload: WebAppPayload = {
       action: 'order',
@@ -122,27 +128,33 @@ const App: React.FC = () => {
     };
 
     if (window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      
       // 1. Send data to Bot
       try {
-        if (window.Telegram.WebApp.HapticFeedback) {
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        if (tg.HapticFeedback) {
+            tg.HapticFeedback.notificationOccurred('success');
         }
-        window.Telegram.WebApp.sendData(JSON.stringify(payload));
-        // CLOSE THE WEBAPP so the user sees the invoice in the chat
-        // Timeout 300ms to allow Telegram client to process the data event
+        
+        console.log("Sending data to bot:", payload);
+        tg.sendData(JSON.stringify(payload));
+        
+        // Forced close fallback if sendData doesn't close automatically on some clients
         setTimeout(() => {
-            window.Telegram.WebApp.close();
-        }, 300);
+            tg.close();
+        }, 500); 
       } catch (e) {
         console.error("sendData error", e);
-        alert("Ошибка отправки. Попробуйте перезайти в бот.");
+        alert("Ошибка отправки данных. Проверьте подключение.");
+        setIsOrdering(false);
       }
     } else {
       // Browser Test Mode
       console.log("Order Payload:", payload);
-      alert(`Заказ сформирован (Тест):\nИтого: ${payload.total}р\n(В Telegram окно закроется и придет счет)`);
+      alert(`[Тест] Данные отправлены:\nИтого: ${payload.total}р`);
+      setIsOrdering(false);
     }
-  }, [cart, cartTotal]);
+  }, [cart, cartTotal, isOrdering]);
 
   // Sync MainButton with Cart State (Optional Native Button)
   useEffect(() => {
@@ -151,8 +163,19 @@ const App: React.FC = () => {
     const mainBtn = tg.MainButton;
 
     if (isCartOpen && cart.length > 0) {
-        mainBtn.setText(`ОПЛАТИТЬ ${cartTotal}₽`);
+        mainBtn.setText(isOrdering ? 'ОТПРАВКА...' : `ОПЛАТИТЬ ${cartTotal}₽`);
+        
+        if (isOrdering) {
+            mainBtn.showProgress();
+            mainBtn.disable();
+        } else {
+            mainBtn.hideProgress();
+            mainBtn.enable();
+        }
+        
         mainBtn.show();
+        // Remove old listeners to prevent duplicates
+        mainBtn.offClick(handleCheckout);
         mainBtn.onClick(handleCheckout);
     } else {
         mainBtn.hide();
@@ -162,7 +185,7 @@ const App: React.FC = () => {
     return () => {
         mainBtn.offClick(handleCheckout);
     };
-  }, [isCartOpen, cart.length, cartTotal, handleCheckout]);
+  }, [isCartOpen, cart.length, cartTotal, handleCheckout, isOrdering]);
 
   useEffect(() => {
     localStorage.setItem('favorites', JSON.stringify(favorites));
@@ -430,9 +453,12 @@ const App: React.FC = () => {
             <div className="pt-2 bg-white safe-area-bottom">
               <button 
                 onClick={handleCheckout}
-                className="w-full bg-coffee-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform mb-2"
+                disabled={isOrdering}
+                className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-all mb-2 ${
+                    isOrdering ? 'bg-gray-400 cursor-not-allowed' : 'bg-coffee-500 text-white'
+                }`}
               >
-                Оплатить {cartTotal}₽
+                {isOrdering ? 'Отправка заказа...' : `Оплатить ${cartTotal}₽`}
               </button>
             </div>
           </div>
