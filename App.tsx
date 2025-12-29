@@ -68,6 +68,13 @@ const App: React.FC = () => {
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
+      // Устанавливаем цвет шапки в цвет фона
+      try {
+        window.Telegram.WebApp.setHeaderColor('#fdf8f6');
+        window.Telegram.WebApp.setBackgroundColor('#fdf8f6');
+      } catch (e) {
+        console.log('Set header color failed');
+      }
     }
   }, []);
 
@@ -146,18 +153,17 @@ const App: React.FC = () => {
       total: cartTotal
     };
 
-    const message = `Заказ:\n${payload.items.map(i => `- ${i.name} (${i.details}) x${i.count} = ${i.price * i.count}р`).join('\n')}\n\nИтого: ${payload.total}р`;
-
     if (window.Telegram?.WebApp) {
+      // Отправляем данные боту
       window.Telegram.WebApp.sendData(JSON.stringify(payload));
-      // For UX inside bot, we usually assume the bot closes the webapp after receiving data,
-      // but let's clear cart here just in case.
+      // Очищаем корзину и закрываем окно после отправки (или можно подождать)
       setCart([]);
       setIsCartOpen(false);
-      alert("Заказ отправлен! Можно закрыть окно."); 
+      window.Telegram.WebApp.close(); 
     } else {
+      // Для отладки в браузере
       console.log("Order Payload:", payload);
-      alert(`Debug Checkout (Not in Telegram):\n\n${message}`);
+      alert(`Заказ сформирован (Тест):\nИтого: ${payload.total}р`);
     }
   };
 
@@ -198,7 +204,7 @@ const App: React.FC = () => {
     <div className="min-h-screen pb-24 font-sans text-gray-800">
       
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md shadow-sm px-4 py-3 flex justify-between items-center">
+      <header className="sticky top-0 z-20 bg-coffee-50/95 backdrop-blur-md shadow-sm px-4 py-3 flex justify-between items-center transition-colors">
         <div>
           <h1 
             {...longPressEvents}
@@ -214,14 +220,14 @@ const App: React.FC = () => {
             if (favs.length === 0) return alert("Избранное пусто");
             alert("Ваши избранные товары: " + favs.map(i => i.name).join(', ')); 
           }}
-          className="p-2 bg-coffee-50 rounded-full text-coffee-500 transition-transform active:scale-90"
+          className="p-2 bg-coffee-100/50 rounded-full text-coffee-500 transition-transform active:scale-90"
         >
           <HeartIcon className="w-6 h-6" fill={favorites.length > 0} />
         </button>
       </header>
 
       {/* Category Nav */}
-      <nav className="sticky top-[60px] z-10 bg-white/95 backdrop-blur shadow-sm py-2 overflow-x-auto no-scrollbar">
+      <nav className="sticky top-[60px] z-10 bg-coffee-50/95 backdrop-blur shadow-sm py-2 overflow-x-auto no-scrollbar">
         <div className="flex px-4 gap-3 min-w-max">
           {categories.map(cat => (
             <button
@@ -230,7 +236,7 @@ const App: React.FC = () => {
               className={`px-5 py-2 rounded-2xl text-sm font-bold transition-all ${
                 activeCategory === cat.id 
                   ? 'bg-coffee-500 text-white shadow-lg scale-105' 
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'
               }`}
             >
               {cat.label}
