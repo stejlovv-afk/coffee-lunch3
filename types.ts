@@ -38,7 +38,9 @@ export interface Review {
   date: string;
 }
 
-export interface OrderPayload {
+// Data sent to Bot for an Order
+export interface OrderActionPayload {
+  action: 'order';
   items: {
     name: string;
     size: string;
@@ -48,3 +50,11 @@ export interface OrderPayload {
   }[];
   total: number;
 }
+
+// Data sent to Bot to update Menu
+export interface MenuUpdateActionPayload {
+  action: 'update_menu';
+  hiddenItems: string[];
+}
+
+export type WebAppPayload = OrderActionPayload | MenuUpdateActionPayload;
