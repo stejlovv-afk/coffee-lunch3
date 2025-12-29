@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
 import { Category, Product, CartItem, WebAppPayload, Review } from './types';
-import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, CheckIcon } from './components/ui/Icons';
+import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon } from './components/ui/Icons';
 import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 
@@ -55,85 +55,40 @@ const App: React.FC = () => {
 
   // --- Effects ---
   useEffect(() => {
-    // 1. Load favorites/reviews from localStorage (User preferences)
+    // 1. Load favorites/reviews
     const savedFavs = localStorage.getItem('favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
 
     const savedReviews = localStorage.getItem('reviews');
     if (savedReviews) setReviews(JSON.parse(savedReviews));
 
-    // 2. Load GLOBAL HIDDEN ITEMS from URL Search Params
-    // The bot will append ?hidden=id1,id2 when opening the app
+    // 2. Load GLOBAL HIDDEN ITEMS from URL
     const params = new URLSearchParams(window.location.search);
     const hiddenParam = params.get('hidden');
     if (hiddenParam) {
       setHiddenItems(hiddenParam.split(','));
     } else {
-       // Fallback to local storage if opened directly (testing)
        const savedHidden = localStorage.getItem('hiddenItems');
        if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
     }
 
-    // Telegram MainButton setup
+    // 3. Setup Telegram WebApp
     if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.ready();
-      window.Telegram.WebApp.expand();
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand(); // Open full screen
       try {
-        window.Telegram.WebApp.setHeaderColor('#fdf8f6');
-        window.Telegram.WebApp.setBackgroundColor('#fdf8f6');
-        window.Telegram.WebApp.enableClosingConfirmation();
+        tg.setHeaderColor('#fdf8f6');
+        tg.setBackgroundColor('#fdf8f6');
+        tg.enableClosingConfirmation();
       } catch (e) {
-        console.log('Set header color failed');
+        console.log('TG styling failed', e);
       }
     }
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-  }, [favorites]);
-
-  useEffect(() => {
-    // We still save locally for admin convenience, but the source of truth is the URL
-    localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems));
-  }, [hiddenItems]);
-
-  // --- Logic ---
-  const toggleFavorite = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    setFavorites(prev => 
-      prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
-    );
-  };
-
-  const addToCart = (productId: string, variantIdx: number, quantity: number, options: any) => {
-    const product = MENU_ITEMS.find(p => p.id === productId);
-    if (!product) return;
-
-    // Create unique ID for cart item based on options to group effectively
-    const uniqueId = `${productId}-${variantIdx}-${JSON.stringify(options)}`;
-
-    setCart(prev => {
-      const existing = prev.find(item => item.uniqueId === uniqueId);
-      if (existing) {
-        return prev.map(item => 
-          item.uniqueId === uniqueId 
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      }
-      return [...prev, { uniqueId, productId, variantIndex: variantIdx, quantity, options }];
-    });
-    
-    // Haptic feedback
-    if(window.Telegram?.WebApp?.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-    }
-  };
-
-  const removeFromCart = (uniqueId: string) => {
-    setCart(prev => prev.filter(i => i.uniqueId !== uniqueId));
-  };
-
+  // --- Telegram MainButton Logic ---
+  // This is crucial: we use the NATIVE button for checkout to ensure sendData works
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => {
       const product = MENU_ITEMS.find(p => p.id === item.productId);
@@ -142,8 +97,7 @@ const App: React.FC = () => {
     }, 0);
   }, [cart]);
 
-  // --- Checkout ---
-  const handleCheckout = () => {
+  const handleCheckout = useCallback(() => {
     const payload: WebAppPayload = {
       action: 'order',
       items: cart.map(item => {
@@ -167,12 +121,79 @@ const App: React.FC = () => {
     };
 
     if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.sendData(JSON.stringify(payload));
-      // Telegram closes app automatically on sendData usually, but we can clean up
+      try {
+        window.Telegram.WebApp.sendData(JSON.stringify(payload));
+      } catch (e) {
+        alert("Ошибка отправки заказа. Попробуйте еще раз.");
+      }
     } else {
       console.log("Order Payload:", payload);
       alert(`Заказ сформирован (Тест):\nИтого: ${payload.total}р`);
     }
+  }, [cart, cartTotal]);
+
+  // Sync MainButton with Cart State
+  useEffect(() => {
+    if (!window.Telegram?.WebApp) return;
+    const tg = window.Telegram.WebApp;
+    const mainBtn = tg.MainButton;
+
+    if (isCartOpen && cart.length > 0) {
+        mainBtn.setText(`ОПЛАТИТЬ ${cartTotal}₽`);
+        mainBtn.show();
+        mainBtn.onClick(handleCheckout);
+    } else {
+        mainBtn.hide();
+        mainBtn.offClick(handleCheckout);
+    }
+
+    return () => {
+        mainBtn.offClick(handleCheckout);
+    };
+  }, [isCartOpen, cart.length, cartTotal, handleCheckout]);
+
+  useEffect(() => {
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+  }, [favorites]);
+
+  useEffect(() => {
+    localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems));
+  }, [hiddenItems]);
+
+  // --- Logic ---
+  const toggleFavorite = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setFavorites(prev => 
+      prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
+    );
+  };
+
+  const addToCart = (productId: string, variantIdx: number, quantity: number, options: any) => {
+    const product = MENU_ITEMS.find(p => p.id === productId);
+    if (!product) return;
+
+    // Create unique ID for cart item based on options
+    const uniqueId = `${productId}-${variantIdx}-${JSON.stringify(options)}`;
+
+    setCart(prev => {
+      const existing = prev.find(item => item.uniqueId === uniqueId);
+      if (existing) {
+        return prev.map(item => 
+          item.uniqueId === uniqueId 
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
+      }
+      return [...prev, { uniqueId, productId, variantIndex: variantIdx, quantity, options }];
+    });
+    
+    if(window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+    }
+  };
+
+  const removeFromCart = (uniqueId: string) => {
+    setCart(prev => prev.filter(i => i.uniqueId !== uniqueId));
   };
 
   // --- Admin Save Logic ---
@@ -191,12 +212,12 @@ const App: React.FC = () => {
   };
 
   // --- Admin Auth ---
-  const handleLongPress = () => {
+  const handleLongPress = useLongPress(() => {
     setShowAdminAuth(true);
     if(window.Telegram?.WebApp?.HapticFeedback) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
     }
-  };
+  });
 
   const verifyAdmin = () => {
     if (adminPassword === '7654') {
@@ -208,7 +229,7 @@ const App: React.FC = () => {
       alert('Неверный пароль');
       if(window.Telegram?.WebApp?.HapticFeedback) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-    }
+      }
     }
   };
 
@@ -227,8 +248,6 @@ const App: React.FC = () => {
     { id: 'soda', label: 'Напитки' },
   ];
 
-  const longPressEvents = useLongPress(handleLongPress);
-
   return (
     <div className="min-h-screen pb-24 font-sans text-gray-800">
       
@@ -236,7 +255,7 @@ const App: React.FC = () => {
       <header className="sticky top-0 z-20 bg-coffee-50/95 backdrop-blur-md shadow-sm px-4 py-3 flex justify-between items-center transition-colors">
         <div>
           <h1 
-            {...longPressEvents}
+            {...handleLongPress}
             className="text-2xl font-black text-coffee-800 tracking-tight select-none cursor-pointer active:scale-95 transition-transform"
           >
             COFFEE LUNCH
@@ -357,7 +376,7 @@ const App: React.FC = () => {
               <button onClick={() => setIsCartOpen(false)} className="text-gray-500 font-bold p-2">Закрыть</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 pb-20">
               {cart.length === 0 ? (
                 <div className="text-center text-gray-400 mt-10">Корзина пуста</div>
               ) : (
@@ -393,19 +412,10 @@ const App: React.FC = () => {
                 })
               )}
             </div>
-
-            <div className="mt-6 border-t pt-4">
-              <div className="flex justify-between mb-4">
-                 <span className="text-gray-500 font-medium">Итого к оплате</span>
-                 <span className="text-2xl font-black text-gray-900">{cartTotal}₽</span>
-              </div>
-              <button 
-                disabled={cart.length === 0}
-                onClick={handleCheckout}
-                className="w-full bg-coffee-500 disabled:bg-gray-300 text-white py-4 rounded-2xl font-bold text-xl shadow-lg active:scale-95 transition-transform"
-              >
-                Оплатить заказ
-              </button>
+            
+            {/* Note: Checkout button is now the NATIVE Telegram MainButton (bottom of screen) */}
+            <div className="text-center text-xs text-gray-400 pb-2">
+               Нажмите большую кнопку "ОПЛАТИТЬ" внизу экрана
             </div>
           </div>
         </div>
