@@ -55,12 +55,17 @@ const App: React.FC = () => {
 
   // --- Effects ---
   useEffect(() => {
+    // 1. Load data
     const savedFavs = localStorage.getItem('favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
 
     const savedReviews = localStorage.getItem('reviews');
     if (savedReviews) setReviews(JSON.parse(savedReviews));
 
+    const savedAdmin = localStorage.getItem('isAdmin');
+    if (savedAdmin === 'true') setIsAdmin(true);
+
+    // 2. Load GLOBAL HIDDEN ITEMS from URL
     const params = new URLSearchParams(window.location.search);
     const hiddenParam = params.get('hidden');
     if (hiddenParam) {
@@ -70,6 +75,7 @@ const App: React.FC = () => {
        if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
     }
 
+    // 3. Setup Telegram WebApp
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.ready();
@@ -131,7 +137,6 @@ const App: React.FC = () => {
         tg.sendData(JSON.stringify(payload));
         
         // Close manually after a short delay
-        // Increase delay to ensure mobile clients process it
         setTimeout(() => {
             tg.close();
         }, 100); 
@@ -171,6 +176,10 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems));
   }, [hiddenItems]);
+
+  useEffect(() => {
+    localStorage.setItem('isAdmin', String(isAdmin));
+  }, [isAdmin]);
 
   // --- Logic ---
   const toggleFavorite = (e: React.MouseEvent, id: string) => {
@@ -265,7 +274,8 @@ const App: React.FC = () => {
         <div>
           <h1 
             {...handleLongPress}
-            className="text-2xl font-black text-coffee-800 tracking-tight select-none cursor-pointer active:scale-95 transition-transform"
+            className="text-2xl font-black text-coffee-800 tracking-tight select-none cursor-pointer active:scale-95 transition-transform user-select-none"
+            style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
           >
             COFFEE LUNCH
           </h1>
