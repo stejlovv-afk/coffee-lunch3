@@ -125,15 +125,18 @@ const App: React.FC = () => {
       // 1. Send data to Bot
       try {
         window.Telegram.WebApp.sendData(JSON.stringify(payload));
+        // CLOSE THE WEBAPP so the user sees the invoice in the chat
+        setTimeout(() => {
+            window.Telegram.WebApp.close();
+        }, 100);
       } catch (e) {
         console.error("sendData error", e);
-        // Fallback for debug
         alert("Ошибка отправки. Попробуйте перезайти в бот.");
       }
     } else {
       // Browser Test Mode
       console.log("Order Payload:", payload);
-      alert(`Заказ сформирован (Тест):\nИтого: ${payload.total}р\n(В Telegram это окно закроется и придет счет)`);
+      alert(`Заказ сформирован (Тест):\nИтого: ${payload.total}р\n(В Telegram окно закроется и придет счет)`);
     }
   }, [cart, cartTotal]);
 
@@ -210,6 +213,7 @@ const App: React.FC = () => {
 
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.sendData(JSON.stringify(payload));
+      setTimeout(() => window.Telegram.WebApp.close(), 100);
     } else {
       console.log("Menu Update Payload:", payload);
       alert("Меню отправлено боту (Тест)");
