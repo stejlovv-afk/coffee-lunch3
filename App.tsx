@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MENU_ITEMS } from './constants';
-import { Category, Product, CartItem, OrderPayload, Review } from './types';
+import { Category, Product, CartItem, WebAppPayload, Review } from './types';
 import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, CheckIcon } from './components/ui/Icons';
 import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
@@ -49,29 +49,39 @@ const App: React.FC = () => {
   // Modals
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState<string | null>(null); // Product ID for review
+  
+  // Reviews (Placeholder for UI)
   const [reviews, setReviews] = useState<Record<string, Review[]>>({});
 
   // --- Effects ---
   useEffect(() => {
-    // Load from local storage
-    const savedHidden = localStorage.getItem('hiddenItems');
-    if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
-    
+    // 1. Load favorites/reviews from localStorage (User preferences)
     const savedFavs = localStorage.getItem('favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
 
     const savedReviews = localStorage.getItem('reviews');
     if (savedReviews) setReviews(JSON.parse(savedReviews));
 
+    // 2. Load GLOBAL HIDDEN ITEMS from URL Search Params
+    // The bot will append ?hidden=id1,id2 when opening the app
+    const params = new URLSearchParams(window.location.search);
+    const hiddenParam = params.get('hidden');
+    if (hiddenParam) {
+      setHiddenItems(hiddenParam.split(','));
+    } else {
+       // Fallback to local storage if opened directly (testing)
+       const savedHidden = localStorage.getItem('hiddenItems');
+       if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
+    }
+
     // Telegram MainButton setup
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
-      // Устанавливаем цвет шапки в цвет фона
       try {
         window.Telegram.WebApp.setHeaderColor('#fdf8f6');
         window.Telegram.WebApp.setBackgroundColor('#fdf8f6');
+        window.Telegram.WebApp.enableClosingConfirmation();
       } catch (e) {
         console.log('Set header color failed');
       }
@@ -79,16 +89,13 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems));
-  }, [hiddenItems]);
-
-  useEffect(() => {
     localStorage.setItem('favorites', JSON.stringify(favorites));
   }, [favorites]);
 
   useEffect(() => {
-    localStorage.setItem('reviews', JSON.stringify(reviews));
-  }, [reviews]);
+    // We still save locally for admin convenience, but the source of truth is the URL
+    localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems));
+  }, [hiddenItems]);
 
   // --- Logic ---
   const toggleFavorite = (e: React.MouseEvent, id: string) => {
@@ -116,6 +123,11 @@ const App: React.FC = () => {
       }
       return [...prev, { uniqueId, productId, variantIndex: variantIdx, quantity, options }];
     });
+    
+    // Haptic feedback
+    if(window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+    }
   };
 
   const removeFromCart = (uniqueId: string) => {
@@ -132,7 +144,8 @@ const App: React.FC = () => {
 
   // --- Checkout ---
   const handleCheckout = () => {
-    const payload: OrderPayload = {
+    const payload: WebAppPayload = {
+      action: 'order',
       items: cart.map(item => {
         const product = MENU_ITEMS.find(p => p.id === item.productId)!;
         const variant = product.variants[item.variantIndex];
@@ -154,22 +167,35 @@ const App: React.FC = () => {
     };
 
     if (window.Telegram?.WebApp) {
-      // Отправляем данные боту
       window.Telegram.WebApp.sendData(JSON.stringify(payload));
-      // Очищаем корзину и закрываем окно после отправки (или можно подождать)
-      setCart([]);
-      setIsCartOpen(false);
-      window.Telegram.WebApp.close(); 
+      // Telegram closes app automatically on sendData usually, but we can clean up
     } else {
-      // Для отладки в браузере
       console.log("Order Payload:", payload);
       alert(`Заказ сформирован (Тест):\nИтого: ${payload.total}р`);
     }
   };
 
-  // --- Admin Logic ---
+  // --- Admin Save Logic ---
+  const handleSaveMenuToBot = () => {
+    const payload: WebAppPayload = {
+      action: 'update_menu',
+      hiddenItems: hiddenItems
+    };
+
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.sendData(JSON.stringify(payload));
+    } else {
+      console.log("Menu Update Payload:", payload);
+      alert("Меню отправлено боту (Тест)");
+    }
+  };
+
+  // --- Admin Auth ---
   const handleLongPress = () => {
     setShowAdminAuth(true);
+    if(window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
+    }
   };
 
   const verifyAdmin = () => {
@@ -180,6 +206,9 @@ const App: React.FC = () => {
       setAdminPassword('');
     } else {
       alert('Неверный пароль');
+      if(window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+    }
     }
   };
 
@@ -218,7 +247,7 @@ const App: React.FC = () => {
           onClick={() => {
             const favs = MENU_ITEMS.filter(i => favorites.includes(i.id));
             if (favs.length === 0) return alert("Избранное пусто");
-            alert("Ваши избранные товары: " + favs.map(i => i.name).join(', ')); 
+            alert("Ваши избранные товары:\n" + favs.map(i => i.name).join(', ')); 
           }}
           className="p-2 bg-coffee-100/50 rounded-full text-coffee-500 transition-transform active:scale-90"
         >
@@ -259,7 +288,7 @@ const App: React.FC = () => {
                 src={item.image} 
                 alt={item.name} 
                 className="w-full aspect-square object-cover rounded-2xl"
-                onClick={() => setSelectedProduct(item)} // Open full details/review view
+                onClick={() => setSelectedProduct(item)} 
               />
               <button 
                 onClick={(e) => toggleFavorite(e, item.id)}
@@ -407,6 +436,7 @@ const App: React.FC = () => {
         <AdminPanel 
           hiddenItems={hiddenItems}
           onToggleHidden={(id) => setHiddenItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+          onSaveToBot={handleSaveMenuToBot}
           onClose={() => setShowAdminPanel(false)}
         />
       )}
