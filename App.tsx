@@ -87,8 +87,7 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- Telegram MainButton Logic ---
-  // This is crucial: we use the NATIVE button for checkout to ensure sendData works
+  // --- Checkout Logic ---
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => {
       const product = MENU_ITEMS.find(p => p.id === item.productId);
@@ -98,6 +97,8 @@ const App: React.FC = () => {
   }, [cart]);
 
   const handleCheckout = useCallback(() => {
+    if (cart.length === 0) return;
+
     const payload: WebAppPayload = {
       action: 'order',
       items: cart.map(item => {
@@ -121,18 +122,22 @@ const App: React.FC = () => {
     };
 
     if (window.Telegram?.WebApp) {
+      // 1. Send data to Bot
       try {
         window.Telegram.WebApp.sendData(JSON.stringify(payload));
       } catch (e) {
-        alert("Ошибка отправки заказа. Попробуйте еще раз.");
+        console.error("sendData error", e);
+        // Fallback for debug
+        alert("Ошибка отправки. Попробуйте перезайти в бот.");
       }
     } else {
+      // Browser Test Mode
       console.log("Order Payload:", payload);
-      alert(`Заказ сформирован (Тест):\nИтого: ${payload.total}р`);
+      alert(`Заказ сформирован (Тест):\nИтого: ${payload.total}р\n(В Telegram это окно закроется и придет счет)`);
     }
   }, [cart, cartTotal]);
 
-  // Sync MainButton with Cart State
+  // Sync MainButton with Cart State (Optional Native Button)
   useEffect(() => {
     if (!window.Telegram?.WebApp) return;
     const tg = window.Telegram.WebApp;
@@ -339,7 +344,7 @@ const App: React.FC = () => {
         ))}
       </main>
 
-      {/* Glass Cart Bar */}
+      {/* Glass Cart Bar (Bottom) */}
       {cart.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 p-4 z-40 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none">
           <button 
@@ -376,7 +381,7 @@ const App: React.FC = () => {
               <button onClick={() => setIsCartOpen(false)} className="text-gray-500 font-bold p-2">Закрыть</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 pb-20">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 pb-4">
               {cart.length === 0 ? (
                 <div className="text-center text-gray-400 mt-10">Корзина пуста</div>
               ) : (
@@ -412,10 +417,15 @@ const App: React.FC = () => {
                 })
               )}
             </div>
-            
-            {/* Note: Checkout button is now the NATIVE Telegram MainButton (bottom of screen) */}
-            <div className="text-center text-xs text-gray-400 pb-2">
-               Нажмите большую кнопку "ОПЛАТИТЬ" внизу экрана
+
+            {/* Custom Brown Button (Always Visible) */}
+            <div className="pt-2 bg-white safe-area-bottom">
+              <button 
+                onClick={handleCheckout}
+                className="w-full bg-coffee-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform mb-2"
+              >
+                Оплатить {cartTotal}₽
+              </button>
             </div>
           </div>
         </div>
