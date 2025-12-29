@@ -103,6 +103,21 @@ const App: React.FC = () => {
 
   const handleCheckout = useCallback(() => {
     if (cart.length === 0 || isSending) return;
+
+    // VALIDATION: Minimum amount for Telegram Payments (approx 70-100 RUB required)
+    if (cartTotal < 100) {
+        if (window.Telegram?.WebApp?.showPopup) {
+            window.Telegram.WebApp.showPopup({
+                title: 'Сумма заказа',
+                message: 'Минимальная сумма для онлайн-оплаты — 100₽. Пожалуйста, добавьте еще товары.',
+                buttons: [{type: 'ok'}]
+            });
+        } else {
+            alert("Минимальная сумма заказа — 100₽");
+        }
+        return;
+    }
+
     setIsSending(true);
 
     const payload: WebAppPayload = {
@@ -141,7 +156,7 @@ const App: React.FC = () => {
         // Close manually after a short delay
         setTimeout(() => {
             tg.close();
-        }, 500); // 500ms delay to see the feedback
+        }, 500); 
       } catch (e) {
         setIsSending(false);
         alert("Ошибка отправки! Запустите бота заново.");
