@@ -45,7 +45,6 @@ const App: React.FC = () => {
   const [showAdminAuth, setShowAdminAuth] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [isOrdering, setIsOrdering] = useState(false);
   
   // Modals
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -56,14 +55,12 @@ const App: React.FC = () => {
 
   // --- Effects ---
   useEffect(() => {
-    // 1. Load favorites/reviews
     const savedFavs = localStorage.getItem('favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
 
     const savedReviews = localStorage.getItem('reviews');
     if (savedReviews) setReviews(JSON.parse(savedReviews));
 
-    // 2. Load GLOBAL HIDDEN ITEMS from URL
     const params = new URLSearchParams(window.location.search);
     const hiddenParam = params.get('hidden');
     if (hiddenParam) {
@@ -73,16 +70,14 @@ const App: React.FC = () => {
        if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
     }
 
-    // 3. Setup Telegram WebApp
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.ready();
-      tg.expand(); // Open full screen
+      tg.expand();
       try {
         tg.setHeaderColor('#fdf8f6');
         tg.setBackgroundColor('#fdf8f6');
         tg.enableClosingConfirmation();
-        // Notify TG we are ready
         if (!tg.isExpanded) tg.expand();
       } catch (e) {
         console.log('TG styling failed', e);
@@ -101,9 +96,6 @@ const App: React.FC = () => {
 
   const handleCheckout = useCallback(() => {
     if (cart.length === 0) return;
-    if (isOrdering) return;
-
-    setIsOrdering(true);
 
     const payload: WebAppPayload = {
       action: 'order',
@@ -130,52 +122,37 @@ const App: React.FC = () => {
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       
-      // 1. Send data to Bot
       try {
         if (tg.HapticFeedback) {
             tg.HapticFeedback.notificationOccurred('success');
         }
         
-        console.log("Sending data to bot:", payload);
+        // Send data
         tg.sendData(JSON.stringify(payload));
         
-        // Forced close fallback if sendData doesn't close automatically on some clients
+        // Close manually after a short delay
+        // Increase delay to ensure mobile clients process it
         setTimeout(() => {
             tg.close();
-        }, 500); 
+        }, 100); 
       } catch (e) {
-        console.error("sendData error", e);
-        alert("Ошибка отправки данных. Проверьте подключение.");
-        setIsOrdering(false);
+        alert("Ошибка отправки! Попробуйте обновить бота.");
       }
     } else {
-      // Browser Test Mode
       console.log("Order Payload:", payload);
-      alert(`[Тест] Данные отправлены:\nИтого: ${payload.total}р`);
-      setIsOrdering(false);
+      alert(`[Тест браузера] Заказ на ${payload.total}р сформирован.`);
     }
-  }, [cart, cartTotal, isOrdering]);
+  }, [cart, cartTotal]);
 
-  // Sync MainButton with Cart State (Optional Native Button)
+  // Sync MainButton
   useEffect(() => {
     if (!window.Telegram?.WebApp) return;
     const tg = window.Telegram.WebApp;
     const mainBtn = tg.MainButton;
 
     if (isCartOpen && cart.length > 0) {
-        mainBtn.setText(isOrdering ? 'ОТПРАВКА...' : `ОПЛАТИТЬ ${cartTotal}₽`);
-        
-        if (isOrdering) {
-            mainBtn.showProgress();
-            mainBtn.disable();
-        } else {
-            mainBtn.hideProgress();
-            mainBtn.enable();
-        }
-        
+        mainBtn.setText(`ОПЛАТИТЬ ${cartTotal}₽`);
         mainBtn.show();
-        // Remove old listeners to prevent duplicates
-        mainBtn.offClick(handleCheckout);
         mainBtn.onClick(handleCheckout);
     } else {
         mainBtn.hide();
@@ -185,7 +162,7 @@ const App: React.FC = () => {
     return () => {
         mainBtn.offClick(handleCheckout);
     };
-  }, [isCartOpen, cart.length, cartTotal, handleCheckout, isOrdering]);
+  }, [isCartOpen, cart.length, cartTotal, handleCheckout]);
 
   useEffect(() => {
     localStorage.setItem('favorites', JSON.stringify(favorites));
@@ -207,7 +184,6 @@ const App: React.FC = () => {
     const product = MENU_ITEMS.find(p => p.id === productId);
     if (!product) return;
 
-    // Create unique ID for cart item based on options
     const uniqueId = `${productId}-${variantIdx}-${JSON.stringify(options)}`;
 
     setCart(prev => {
@@ -243,7 +219,7 @@ const App: React.FC = () => {
       setTimeout(() => window.Telegram.WebApp.close(), 100);
     } else {
       console.log("Menu Update Payload:", payload);
-      alert("Меню отправлено боту (Тест)");
+      alert("Меню сохранено (Тест)");
     }
   };
 
@@ -263,9 +239,6 @@ const App: React.FC = () => {
       setAdminPassword('');
     } else {
       alert('Неверный пароль');
-      if(window.Telegram?.WebApp?.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-      }
     }
   };
 
@@ -453,12 +426,9 @@ const App: React.FC = () => {
             <div className="pt-2 bg-white safe-area-bottom">
               <button 
                 onClick={handleCheckout}
-                disabled={isOrdering}
-                className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-all mb-2 ${
-                    isOrdering ? 'bg-gray-400 cursor-not-allowed' : 'bg-coffee-500 text-white'
-                }`}
+                className="w-full bg-coffee-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-all mb-2"
               >
-                {isOrdering ? 'Отправка заказа...' : `Оплатить ${cartTotal}₽`}
+                Оплатить {cartTotal}₽
               </button>
             </div>
           </div>
