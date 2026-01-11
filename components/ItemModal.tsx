@@ -43,6 +43,8 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart }) 
   const [honey, setHoney] = useState<boolean>(false);
   const [filtered, setFiltered] = useState<boolean>(false);
   const [showFilterHelp, setShowFilterHelp] = useState(false);
+  const [heat, setHeat] = useState<boolean>(false);
+  const [cutlery, setCutlery] = useState<boolean>(false);
   const [sugar, setSugar] = useState(0);
   const [cinnamon, setCinnamon] = useState(false);
 
@@ -54,21 +56,16 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart }) 
   const isBuckthorn = product.id === 'punch_buckthorn';
   const isSeasonal = product.category === 'seasonal';
   const isCoffee = product.category === 'coffee';
-  
-  // Milk logic: Coffee only, exclude Raf, exclude Bumble (usually no milk choice for bumble in basic menu unless specified, assuming standard OJ+Espresso)
-  // User said: "Add alt milk to every coffee except Raf".
+  const isFood = ['sandwiches', 'hot', 'salads'].includes(product.category);
+  const canHeat = ['sandwiches', 'hot'].includes(product.category);
+
+  // Milk logic
   const showMilk = isCoffee && !isRaf && !isBumble;
 
-  // Syrup logic: "Add to every coffee...". Usually tea too, but user said "to every coffee". 
-  // User said: "In seasonal do not add syrups".
-  const showSyrup = isCoffee && !isSeasonal && !isRaf && !isBumble; // Raf usually has its own syrup, but okay to add more? Usually Raf is a complete drink. User said "Except Raf" for milk, implied logic for syrups is usually "Custom syrups for basic drinks". Let's allow for Latte/Cappuccino/Americano/Espresso.
+  // Syrup logic
+  const showSyrup = isCoffee && !isSeasonal && !isRaf && !isBumble; 
 
   // --- PRICING CALCULATOR ---
-  // Milk: 70 (250ml), 80 (350ml), 90 (450ml)
-  // Syrups: 30 (250ml), 40 (350ml), 50 (450ml)
-  // We assume variant 0 is small, 1 medium, 2 large. 
-  // If only 2 variants (Espresso), logic maps 0->Small, 1->Medium.
-  
   const getModifierPrice = (baseSmall: number, baseMed: number, baseLarge: number) => {
     if (variantIdx === 0) return baseSmall;
     if (variantIdx === 1) return baseMed;
@@ -89,6 +86,8 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart }) 
       syrup: showSyrup && syrup ? syrup : undefined,
       honey: isBuckthorn ? honey : undefined,
       filtered: isPunch ? filtered : undefined,
+      heat: canHeat ? heat : undefined,
+      cutlery: isFood ? cutlery : undefined,
       sugar: (isCoffee || product.category === 'tea') ? sugar : undefined,
       cinnamon: (isCoffee || product.category === 'tea') ? cinnamon : undefined
     }, finalPrice);
@@ -115,7 +114,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart }) 
 
         {/* --- SIZE --- */}
         <div className="mb-6">
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Объем</label>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Размер</label>
           <div className="flex flex-wrap gap-2">
             {product.variants.map((v, idx) => (
               <button
@@ -132,6 +131,35 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart }) 
             ))}
           </div>
         </div>
+
+        {/* --- FOOD OPTIONS (Heat/Cutlery) --- */}
+        {isFood && (
+          <div className="mb-6 space-y-3">
+             <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Опции для еды</label>
+             
+             {canHeat && (
+               <div className="flex items-center justify-between bg-orange-50 p-3 rounded-xl border border-orange-100">
+                  <span className="font-bold text-orange-800 text-sm">Подогреть?</span>
+                  <div 
+                    onClick={() => setHeat(!heat)}
+                    className={`w-12 h-7 rounded-full transition-colors relative cursor-pointer ${heat ? 'bg-orange-500' : 'bg-gray-300'}`}
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm ${heat ? 'left-6' : 'left-1'}`} />
+                  </div>
+               </div>
+             )}
+
+             <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100">
+                <span className="font-bold text-gray-700 text-sm">Нужны приборы?</span>
+                <div 
+                  onClick={() => setCutlery(!cutlery)}
+                  className={`w-12 h-7 rounded-full transition-colors relative cursor-pointer ${cutlery ? 'bg-coffee-500' : 'bg-gray-300'}`}
+                >
+                  <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm ${cutlery ? 'left-6' : 'left-1'}`} />
+                </div>
+             </div>
+          </div>
+        )}
 
         {/* --- BUMBLE TEMP --- */}
         {isBumble && (
