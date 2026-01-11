@@ -11,32 +11,31 @@ declare global {
   }
 }
 
-// --- ICONS for Bottom Nav ---
+// --- ICONS (Thinner strokes for iOS style) ---
 const HomeIcon: React.FC<{ className?: string, fill?: boolean }> = ({ className, fill }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill={fill ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+  <svg xmlns="http://www.w3.org/2000/svg" fill={fill ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72m-13.5 8.65h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
   </svg>
 );
 
 const ShoppingBagIcon: React.FC<{ className?: string, fill?: boolean }> = ({ className, fill }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill={fill ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+  <svg xmlns="http://www.w3.org/2000/svg" fill={fill ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
   </svg>
 );
 
 const ArrowPathIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
   </svg>
 );
 
 const ClockIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
   </svg>
 );
 
-// --- Helper Hook for Long Press ---
 function useLongPress(callback: () => void, ms = 1500) {
   const [startLongPress, setStartLongPress] = useState(false);
   const timerId = useRef<any>(undefined);
@@ -59,9 +58,7 @@ function useLongPress(callback: () => void, ms = 1500) {
   };
 }
 
-// --- Main Component ---
 const App: React.FC = () => {
-  // --- State ---
   const [activeCategory, setActiveCategory] = useState<Category>('coffee');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -72,19 +69,23 @@ const App: React.FC = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isSending, setIsSending] = useState(false);
   
-  // Tabs
   const [activeTab, setActiveTab] = useState<'menu' | 'fav'>('menu');
-
-  // Checkout State
   const [orderTimeType, setOrderTimeType] = useState<'asap' | 'scheduled'>('asap');
   const [scheduledTime, setScheduledTime] = useState('');
   const [orderComment, setOrderComment] = useState('');
 
-  // Modals
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   
-  // --- Effects ---
+  // Scrolled state for Header effect
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   useEffect(() => {
     const savedFavs = localStorage.getItem('favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
@@ -111,8 +112,8 @@ const App: React.FC = () => {
       tg.ready();
       tg.expand();
       try {
-        tg.setHeaderColor('#fdf8f6');
-        tg.setBackgroundColor('#fdf8f6');
+        tg.setHeaderColor('#F2F2F7'); // Match iOS bg
+        tg.setBackgroundColor('#F2F2F7');
         tg.enableClosingConfirmation();
       } catch (e) {
         console.log('TG styling failed', e);
@@ -140,7 +141,7 @@ const App: React.FC = () => {
         if (window.Telegram?.WebApp?.showPopup) {
             window.Telegram.WebApp.showPopup({
                 title: 'Сумма заказа',
-                message: 'Минимальная сумма для онлайн-оплаты — 100₽.',
+                message: 'Минимальная сумма — 100₽.',
                 buttons: [{type: 'ok'}]
             });
         } else {
@@ -150,7 +151,7 @@ const App: React.FC = () => {
     }
 
     if (orderTimeType === 'scheduled' && !scheduledTime) {
-      alert("Пожалуйста, выберите время готовности");
+      alert("Выберите время");
       return;
     }
 
@@ -165,7 +166,6 @@ const App: React.FC = () => {
         const variant = product.variants[item.variantIndex];
         
         let details = variant.size;
-        // Modifiers text generation
         if (item.options.temperature) details += `, ${item.options.temperature === 'warm' ? 'Теплый' : 'Холодный'}`;
         if (item.options.gas !== undefined) details += `, ${item.options.gas ? 'Газ' : 'Без газа'}`;
         if (item.options.milk) {
@@ -180,7 +180,6 @@ const App: React.FC = () => {
         if (item.options.sugar && item.options.sugar > 0) details += `, Сахар: ${item.options.sugar}г`;
         if (item.options.cinnamon) details += `, Корица`;
 
-        // Calculate unit price based on total (hacky but effective for Telegram Invoice line items)
         const unitPrice = item.totalPrice / item.quantity;
 
         return {
@@ -188,7 +187,7 @@ const App: React.FC = () => {
           name: product.name,
           size: variant.size,
           count: item.quantity,
-          price: unitPrice, // Sending calculated price including modifiers
+          price: unitPrice, 
           details
         };
       }),
@@ -208,12 +207,11 @@ const App: React.FC = () => {
       }
     } else {
       console.log("Order Payload:", payload);
-      alert(`[Тест] Заказ на ${payload.total}р сформирован. Время: ${pickupTimeStr}. Коммент: ${orderComment}`);
+      alert(`[Тест] Заказ на ${payload.total}р сформирован.`);
       setIsSending(false);
     }
   }, [cart, cartTotal, isSending, orderTimeType, scheduledTime, orderComment]);
 
-  // Storage sync
   useEffect(() => { localStorage.setItem('favorites', JSON.stringify(favorites)); }, [favorites]);
   useEffect(() => { localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems)); }, [hiddenItems]);
   useEffect(() => { localStorage.setItem('isAdmin', String(isAdmin)); }, [isAdmin]);
@@ -229,13 +227,11 @@ const App: React.FC = () => {
     const product = MENU_ITEMS.find(p => p.id === productId);
     if (!product) return;
 
-    // Create deep unique ID based on ALL options
     const uniqueId = `${productId}-${variantIdx}-${JSON.stringify(options)}`;
 
     setCart(prev => {
       const existing = prev.find(item => item.uniqueId === uniqueId);
       if (existing) {
-        // Update quantity and total price
         return prev.map(item => 
           item.uniqueId === uniqueId 
             ? { ...item, quantity: item.quantity + quantity, totalPrice: item.totalPrice + totalPrice }
@@ -305,36 +301,37 @@ const App: React.FC = () => {
     : MENU_ITEMS.filter(item => favorites.includes(item.id));
 
   return (
-    <div className="min-h-screen pb-32 font-sans text-gray-800 bg-[#fdf8f6]">
+    <div className="min-h-screen pb-24 font-sans text-ios-text bg-ios-bg selection:bg-coffee-accent selection:text-black">
       
-      {/* --- HEADER --- */}
-      <header className="sticky top-0 z-20 bg-[#fdf8f6]/95 backdrop-blur-md px-4 py-3 flex justify-between items-center">
-        <div>
-          <h1 
-            {...handleLongPress}
-            className="text-2xl font-black text-coffee-800 tracking-tight select-none cursor-pointer"
-            style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
-          >
-            COFFEE LUNCH
-          </h1>
-          <p className="text-xs text-coffee-500 font-bold">
-             {activeTab === 'menu' ? 'Лучший кофе в городе' : 'Ваше избранное'}
-          </p>
+      {/* --- HEADER (Large Title + Glass) --- */}
+      <header className={`sticky top-0 z-20 px-4 pt-10 pb-2 transition-all duration-300 ${isScrolled ? 'glass-panel' : ''}`}>
+        <div className="flex justify-between items-end mb-2">
+          <div className="flex flex-col">
+            <h1 
+              {...handleLongPress}
+              className={`font-bold tracking-tight text-coffee-primary transition-all duration-300 ${isScrolled ? 'text-xl text-center w-full absolute left-0' : 'text-3xl'}`}
+            >
+              Coffee Lunch
+            </h1>
+            <span className={`text-ios-hint font-medium text-sm transition-opacity duration-300 ${isScrolled ? 'opacity-0 h-0' : 'opacity-100'}`}>
+              {activeTab === 'menu' ? 'Меню' : 'Избранное'}
+            </span>
+          </div>
         </div>
       </header>
 
-      {/* --- CATEGORY NAV (Only in Menu Tab) --- */}
+      {/* --- CATEGORY PILLS --- */}
       {activeTab === 'menu' && (
-        <nav className="sticky top-[56px] z-10 bg-[#fdf8f6]/95 backdrop-blur py-2 overflow-x-auto no-scrollbar border-b border-coffee-100/50">
+        <nav className={`sticky z-10 py-2 overflow-x-auto no-scrollbar transition-all duration-300 ${isScrolled ? 'top-[50px] glass-panel' : 'top-[100px] bg-ios-bg'}`}>
           <div className="flex px-4 gap-2 min-w-max pb-2">
             {categories.map(cat => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                className={`px-5 py-2.5 rounded-full text-[15px] font-semibold transition-all active:scale-95 ${
                   activeCategory === cat.id 
-                    ? 'bg-coffee-500 text-white shadow-md' 
-                    : 'bg-white text-gray-500 border border-gray-100'
+                    ? 'bg-coffee-primary text-white shadow-lg' 
+                    : 'bg-white text-ios-hint'
                 }`}
               >
                 {cat.label}
@@ -347,111 +344,115 @@ const App: React.FC = () => {
       {/* --- PRODUCT GRID --- */}
       <main className="p-4 grid grid-cols-2 gap-4">
         {displayedItems.length === 0 && activeTab === 'fav' && (
-             <div className="col-span-2 text-center mt-20 text-gray-400 font-medium">
-                 В избранном пока пусто :(
+             <div className="col-span-2 flex flex-col items-center justify-center mt-20 text-ios-hint font-medium opacity-60">
+                 <HeartIcon className="w-12 h-12 mb-2" />
+                 <p>В избранном пусто</p>
              </div>
         )}
         {displayedItems.map(item => (
           <div 
             key={item.id} 
-            className={`bg-white rounded-3xl p-3 shadow-sm flex flex-col justify-between relative transition-transform ${
-              hiddenItems.includes(item.id) ? 'opacity-50 grayscale' : ''
+            onClick={() => setSelectedProduct(item)}
+            className={`bg-white rounded-[24px] p-0 shadow-ios flex flex-col relative active:scale-press transition-transform duration-200 overflow-hidden group ${
+              hiddenItems.includes(item.id) ? 'opacity-60 grayscale' : ''
             }`}
           >
-            <div className="relative mb-2">
+            <div className="relative w-full aspect-square">
               <img 
                 src={item.image} 
                 alt={item.name} 
-                className="w-full aspect-square object-cover rounded-2xl"
-                onClick={() => setSelectedProduct(item)} 
+                className="w-full h-full object-cover"
+                loading="lazy"
               />
               <button 
                 onClick={(e) => toggleFavorite(e, item.id)}
-                className="absolute top-2 right-2 p-1.5 bg-white/60 backdrop-blur rounded-full text-red-500 transition-transform active:scale-110"
+                className="absolute top-2.5 right-2.5 w-9 h-9 flex items-center justify-center bg-white/70 backdrop-blur-md rounded-full text-red-500 shadow-sm transition-transform active:scale-90 z-10"
               >
                 <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
               </button>
               {hiddenItems.includes(item.id) && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-2xl">
-                  <EyeSlashIcon className="w-8 h-8 text-white" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
+                  <EyeSlashIcon className="w-10 h-10 text-white drop-shadow-md" />
                 </div>
               )}
             </div>
             
-            <div>
-              <h3 className="font-bold text-gray-900 leading-tight mb-1 text-sm sm:text-base">{item.name}</h3>
-              <p className="text-coffee-500 font-extrabold text-lg">
-                {item.variants[0].price}₽
-              </p>
+            <div className="p-3.5 flex flex-col flex-1">
+              <div className="flex-1">
+                 <h3 className="font-semibold text-coffee-primary text-[15px] leading-snug mb-1">{item.name}</h3>
+                 <p className="text-ios-hint text-xs line-clamp-2">{item.description}</p>
+              </div>
+              
+              <div className="flex justify-between items-end mt-3">
+                <span className="text-[17px] font-bold text-coffee-primary">
+                  {item.variants[0].price}₽
+                </span>
+                <div className="w-8 h-8 rounded-full bg-coffee-accent text-coffee-primary flex items-center justify-center shadow-sm">
+                   <PlusIcon className="w-5 h-5" />
+                </div>
+              </div>
             </div>
-
-            <button 
-              onClick={() => setSelectedProduct(item)}
-              className="mt-3 w-full py-3 bg-gray-100 hover:bg-coffee-100 text-coffee-800 rounded-2xl flex items-center justify-center transition-all active:scale-95 group"
-            >
-              <PlusIcon className="w-6 h-6" />
-            </button>
           </div>
         ))}
       </main>
 
-      {/* --- FLOATING CART BUTTON (Above Nav) --- */}
+      {/* --- CART FLOATING BUTTON --- */}
       {cart.length > 0 && !isCartOpen && (
         <div className="fixed bottom-24 left-4 right-4 z-30 animate-slide-up">
            <button 
             onClick={() => setIsCartOpen(true)}
-            className="w-full bg-coffee-800/90 backdrop-blur text-white rounded-2xl p-4 shadow-xl flex items-center justify-between active:scale-[0.98] transition-transform"
+            className="w-full bg-coffee-primary/95 backdrop-blur text-white rounded-[20px] p-4 shadow-xl flex items-center justify-between active:scale-[0.98] transition-transform"
            >
              <div className="flex items-center gap-3">
-               <div className="bg-white/20 px-2.5 py-1 rounded-lg font-bold text-sm">
+               <div className="bg-coffee-accent text-coffee-primary px-3 py-1 rounded-full font-bold text-sm">
                  {cart.reduce((a, b) => a + b.quantity, 0)}
                </div>
-               <span className="font-bold">Перейти к оплате</span>
+               <span className="font-semibold text-[17px]">Оформить заказ</span>
              </div>
-             <span className="font-black text-lg">{cartTotal}₽</span>
+             <span className="font-bold text-[17px]">{cartTotal}₽</span>
            </button>
         </div>
       )}
 
-      {/* --- BOTTOM NAVIGATION BAR --- */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 py-2 px-6 pb-6 z-40 flex justify-between items-center shadow-[0_-5px_15px_rgba(0,0,0,0.02)] safe-area-bottom">
+      {/* --- TAB BAR (Glassmorphism) --- */}
+      <div className="fixed bottom-0 left-0 right-0 glass-tabbar pb-[env(safe-area-inset-bottom)] pt-2 px-6 z-40 flex justify-between items-center h-[88px]">
          <button 
             onClick={() => setActiveTab('menu')}
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'menu' ? 'text-coffee-800' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 transition-all w-16 ${activeTab === 'menu' ? 'text-coffee-primary' : 'text-ios-hint'}`}
          >
-            <HomeIcon className="w-7 h-7" fill={activeTab === 'menu'} />
-            <span className="text-[10px] font-bold">Меню</span>
+            <HomeIcon className="w-6 h-6" fill={activeTab === 'menu'} />
+            <span className="text-[10px] font-medium">Меню</span>
          </button>
 
          <button 
             onClick={() => setActiveTab('fav')}
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'fav' ? 'text-red-500' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 transition-all w-16 ${activeTab === 'fav' ? 'text-coffee-primary' : 'text-ios-hint'}`}
          >
-            <HeartIcon className="w-7 h-7" fill={activeTab === 'fav'} />
-            <span className="text-[10px] font-bold">Избранное</span>
+            <HeartIcon className="w-6 h-6" fill={activeTab === 'fav'} />
+            <span className="text-[10px] font-medium">Избранное</span>
          </button>
          
          <button 
             onClick={handleRefresh}
-            className="flex flex-col items-center gap-1 text-gray-400 active:text-coffee-500 transition-colors"
+            className="flex flex-col items-center gap-1 text-ios-hint active:text-coffee-primary transition-all w-16"
          >
-            <ArrowPathIcon className="w-7 h-7" />
-            <span className="text-[10px] font-bold">Обновить</span>
+            <ArrowPathIcon className="w-6 h-6" />
+            <span className="text-[10px] font-medium">Обновить</span>
          </button>
 
          <button 
             onClick={() => setIsCartOpen(true)}
-            className={`flex flex-col items-center gap-1 transition-colors ${cart.length > 0 ? 'text-coffee-500' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 transition-all w-16 ${cart.length > 0 ? 'text-coffee-primary' : 'text-ios-hint'}`}
          >
             <div className="relative">
-               <ShoppingBagIcon className="w-7 h-7" fill={cart.length > 0} />
+               <ShoppingBagIcon className="w-6 h-6" fill={cart.length > 0} />
                {cart.length > 0 && (
-                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                 <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-[#fdf8f6]">
                     {cart.reduce((a, b) => a + b.quantity, 0)}
                  </span>
                )}
             </div>
-            <span className="text-[10px] font-bold">Корзина</span>
+            <span className="text-[10px] font-medium">Корзина</span>
          </button>
       </div>
 
@@ -466,52 +467,55 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Cart Sheet */}
+      {/* --- CART SHEET --- */}
       {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setIsCartOpen(false)} />
-          <div className="bg-white w-full max-w-md h-[95vh] rounded-t-3xl sm:rounded-3xl p-6 relative z-10 flex flex-col animate-slide-up">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-black text-gray-900">Ваш заказ</h2>
-              <button onClick={() => setIsCartOpen(false)} className="text-gray-500 font-bold p-2">Закрыть</button>
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity" onClick={() => setIsCartOpen(false)} />
+          <div className="bg-ios-bg w-full h-[92vh] rounded-t-[32px] relative z-10 flex flex-col animate-slide-up shadow-2xl overflow-hidden">
+            
+            {/* Grabber */}
+            <div className="w-full h-8 flex items-center justify-center bg-ios-bg pt-3 pb-1" onClick={() => setIsCartOpen(false)}>
+                <div className="w-10 h-1.5 rounded-full bg-gray-300"></div>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 pb-4 no-scrollbar">
+            <div className="px-6 pb-4 flex justify-between items-center bg-ios-bg border-b border-gray-200">
+              <h2 className="text-[28px] font-bold text-coffee-primary">Корзина</h2>
+              <button onClick={() => setIsCartOpen(false)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold">✕</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
               {cart.length === 0 ? (
-                <div className="text-center text-gray-400 mt-10">Корзина пуста</div>
+                <div className="flex flex-col items-center justify-center h-full text-ios-hint">
+                    <ShoppingBagIcon className="w-16 h-16 opacity-20 mb-4" />
+                    <p className="text-lg font-medium">Корзина пуста</p>
+                </div>
               ) : (
                 <>
-                  {/* Cart Items */}
                   {cart.map((item) => {
                     const product = MENU_ITEMS.find(p => p.id === item.productId);
                     if (!product) return null;
                     const variant = product.variants[item.variantIndex];
                     return (
-                      <div key={item.uniqueId} className="flex gap-4 items-start bg-gray-50 p-3 rounded-2xl">
-                        <img src={product.image} className="w-16 h-16 rounded-xl object-cover" />
+                      <div key={item.uniqueId} className="flex gap-4 items-start bg-white p-4 rounded-[20px] shadow-sm">
+                        <img src={product.image} className="w-16 h-16 rounded-[14px] object-cover bg-gray-100" />
                         <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <h4 className="font-bold text-gray-800 text-sm">{product.name}</h4>
-                            <span className="font-bold text-coffee-500">{item.totalPrice}₽</span>
+                          <div className="flex justify-between items-start mb-1">
+                            <h4 className="font-semibold text-coffee-primary">{product.name}</h4>
+                            <span className="font-semibold text-coffee-primary">{item.totalPrice}₽</span>
                           </div>
-                          <p className="text-[10px] text-gray-500 font-medium leading-tight mt-1">
+                          <p className="text-[13px] text-gray-500 leading-snug mb-3">
                             {variant.size}
-                            {item.options.milk && ` • ${item.options.milk === 'lactose_free' ? 'Безлакт' : item.options.milk === 'almond' ? 'Миндаль' : item.options.milk === 'banana' ? 'Банан' : 'Кокос'}`}
+                            {item.options.milk && ` • ${item.options.milk}`}
                             {item.options.syrup && ` • ${item.options.syrup}`}
-                            {item.options.temperature && ` • ${item.options.temperature === 'warm' ? 'Тепл' : 'Хол'}`}
-                            {item.options.gas !== undefined && ` • ${item.options.gas ? 'Газ' : 'Без газа'}`}
-                            {item.options.filtered && ` • Фильтр`}
                             {item.options.heat && ` • Подогреть`}
-                            {item.options.cutlery && ` • +Приборы`}
-                            {item.options.honey && ` • Мед`}
-                            {item.options.sugar && item.options.sugar > 0 && ` • Сахар ${item.options.sugar}г`}
-                            {item.options.cinnamon && ` • Корица`}
+                            {item.options.cutlery && ` • Приборы`}
+                            {item.options.sugar > 0 && ` • Сахар ${item.options.sugar}г`}
                           </p>
-                          <div className="flex justify-between items-center mt-3">
-                             <div className="flex items-center gap-3 bg-white px-2 rounded-lg shadow-sm border border-gray-100">
-                                <span className="font-bold text-sm text-gray-600">x{item.quantity}</span>
+                          <div className="flex justify-between items-center">
+                             <div className="flex items-center gap-3 bg-gray-100 px-3 py-1 rounded-[10px]">
+                                <span className="font-semibold text-sm text-gray-800">x{item.quantity}</span>
                              </div>
-                             <button onClick={() => removeFromCart(item.uniqueId)} className="text-red-400 p-1">
+                             <button onClick={() => removeFromCart(item.uniqueId)} className="text-red-400 p-2 active:opacity-50">
                                <TrashIcon className="w-5 h-5" />
                              </button>
                           </div>
@@ -520,25 +524,23 @@ const App: React.FC = () => {
                     );
                   })}
 
-                  {/* --- Order Details (Time & Comment) --- */}
-                  <div className="pt-4 border-t border-dashed border-gray-200">
-                    <h3 className="font-bold text-lg mb-3 text-gray-900">Детали получения</h3>
+                  <div className="mt-8">
+                    <h3 className="font-bold text-xl mb-4 text-coffee-primary px-2">Детали заказа</h3>
                     
-                    {/* Time Selection */}
-                    <div className="mb-4 bg-gray-50 p-3 rounded-2xl">
-                       <div className="flex bg-white rounded-xl p-1 shadow-sm mb-3">
+                    <div className="bg-white rounded-[20px] p-4 shadow-sm mb-4">
+                       <div className="flex bg-gray-100/80 p-1 rounded-[12px] mb-4 relative">
                          <button 
                            onClick={() => setOrderTimeType('asap')}
-                           className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${
-                             orderTimeType === 'asap' ? 'bg-coffee-500 text-white shadow' : 'text-gray-500'
+                           className={`flex-1 py-2 text-[13px] font-semibold rounded-[10px] transition-all z-10 ${
+                             orderTimeType === 'asap' ? 'bg-white shadow-sm text-black' : 'text-gray-500'
                            }`}
                          >
                            Как можно скорее
                          </button>
                          <button 
                            onClick={() => setOrderTimeType('scheduled')}
-                           className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${
-                             orderTimeType === 'scheduled' ? 'bg-coffee-500 text-white shadow' : 'text-gray-500'
+                           className={`flex-1 py-2 text-[13px] font-semibold rounded-[10px] transition-all z-10 ${
+                             orderTimeType === 'scheduled' ? 'bg-white shadow-sm text-black' : 'text-gray-500'
                            }`}
                          >
                            Ко времени
@@ -546,26 +548,25 @@ const App: React.FC = () => {
                        </div>
                        
                        {orderTimeType === 'scheduled' && (
-                         <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-gray-200 animate-slide-up">
+                         <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-[14px] border border-gray-100 animate-slide-up">
                            <ClockIcon className="w-5 h-5 text-gray-400" />
                            <input 
                              type="time" 
                              value={scheduledTime}
                              onChange={(e) => setScheduledTime(e.target.value)}
-                             className="flex-1 outline-none text-sm font-bold text-gray-800"
+                             className="flex-1 outline-none bg-transparent text-base font-semibold text-coffee-primary"
                            />
                          </div>
                        )}
                     </div>
 
-                    {/* Comments */}
-                    <div className="mb-2">
-                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Пожелания бариста</label>
+                    <div className="bg-white rounded-[20px] p-4 shadow-sm">
+                      <label className="block text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-2 pl-1">Комментарий</label>
                       <textarea 
                         value={orderComment}
                         onChange={(e) => setOrderComment(e.target.value)}
-                        placeholder="Например: поменьше льда, позвонить когда будет готово..."
-                        className="w-full bg-gray-50 p-3 rounded-xl text-sm outline-none focus:ring-2 ring-coffee-500 transition-all resize-none h-20"
+                        placeholder="Пожелания к заказу..."
+                        className="w-full bg-gray-50 p-3 rounded-[14px] text-[15px] outline-none border border-transparent focus:bg-white focus:border-coffee-accent transition-all resize-none h-24"
                       />
                     </div>
                   </div>
@@ -573,21 +574,21 @@ const App: React.FC = () => {
               )}
             </div>
 
-            <div className="pt-2 bg-white safe-area-bottom">
+            <div className="p-4 bg-white border-t border-gray-100 safe-area-bottom">
               <button 
                 onClick={handleCheckout}
                 disabled={isSending}
-                className={`w-full text-white py-4 rounded-2xl font-bold text-lg shadow-lg transition-all mb-2 flex items-center justify-center gap-2 ${
-                  isSending ? 'bg-coffee-500/80' : 'bg-coffee-500 active:scale-95'
+                className={`w-full text-coffee-primary py-4 rounded-[18px] font-bold text-[17px] shadow-lg transition-all flex items-center justify-center gap-2 ${
+                  isSending ? 'bg-coffee-accent/50' : 'bg-coffee-accent active:scale-[0.98]'
                 }`}
               >
                 {isSending ? (
                    <>
-                     <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"/>
+                     <span className="animate-spin h-5 w-5 border-2 border-coffee-primary border-t-transparent rounded-full"/>
                      Отправка...
                    </>
                 ) : (
-                   `Оплатить ${cartTotal}₽`
+                   `Оплатить Apple Pay ${cartTotal}₽`
                 )}
               </button>
             </div>
@@ -595,21 +596,20 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Admin Auth Modal */}
       {showAdminAuth && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur">
-          <div className="bg-white p-6 rounded-3xl w-80 shadow-2xl animate-slide-up">
-            <h3 className="text-xl font-bold mb-4 text-center">Вход для админа</h3>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white p-6 rounded-[24px] w-80 shadow-2xl animate-slide-up">
+            <h3 className="text-xl font-bold mb-6 text-center text-coffee-primary">Вход в Админку</h3>
             <input 
               type="password" 
               value={adminPassword}
               onChange={(e) => setAdminPassword(e.target.value)}
               placeholder="Пароль"
-              className="w-full p-3 bg-gray-100 rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-coffee-500"
+              className="w-full p-4 bg-gray-100 rounded-[16px] mb-4 text-center text-lg outline-none focus:ring-2 ring-coffee-accent"
             />
-            <div className="flex gap-2">
-              <button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-gray-500 font-bold">Отмена</button>
-              <button onClick={verifyAdmin} className="flex-1 py-3 bg-coffee-500 text-white rounded-xl font-bold">Войти</button>
+            <div className="flex gap-3">
+              <button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-gray-500 font-semibold rounded-[14px] bg-gray-50">Отмена</button>
+              <button onClick={verifyAdmin} className="flex-1 py-3 bg-coffee-primary text-white rounded-[14px] font-semibold">Войти</button>
             </div>
           </div>
         </div>
