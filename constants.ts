@@ -1,8 +1,5 @@
 import { Product } from './types';
 
-// Картинки привязаны к файлам из папки public/img
-// Названия файлов взяты с вашего скриншота
-
 export const MENU_ITEMS: Product[] = [
   // --- COFFEE ---
   {
@@ -57,7 +54,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Флат Уайт',
     category: 'coffee',
     isDrink: true,
-    image: './img/kapuchino.jpg', // Используем фото капучино, так как отдельного нет
+    image: './img/kapuchino.jpg',
     variants: [
       { size: '250мл', price: 220 },
       { size: '350мл', price: 260 },
@@ -69,7 +66,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Раф',
     category: 'coffee',
     isDrink: true,
-    image: './img/latte.jpg', // Используем фото латте, так как отдельного для классического рафа нет
+    image: './img/latte.jpg',
     variants: [
       { size: '250мл', price: 210 },
       { size: '350мл', price: 250 },
@@ -81,7 +78,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Бамбл Теплый',
     category: 'coffee',
     isDrink: true,
-    image: './img/espresso1.jpg', // Временная замена
+    image: './img/babblteplo.jpg', // Updated
     variants: [
       { size: '250мл', price: 270 },
       { size: '350мл', price: 270 },
@@ -93,7 +90,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Бамбл Холодный',
     category: 'coffee',
     isDrink: true,
-    image: './img/espresso1.jpg', // Временная замена
+    image: './img/icebambl.jpg', // Updated
     variants: [
       { size: '250мл', price: 270 },
       { size: '350мл', price: 300 },
@@ -116,7 +113,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Айс Латте',
     category: 'coffee',
     isDrink: true,
-    image: './img/latte.jpg', // Используем обычный латте
+    image: './img/icelatte.jpg', // Updated
     variants: [
       { size: '250мл', price: 240 },
       { size: '350мл', price: 280 },
@@ -301,6 +298,125 @@ export const MENU_ITEMS: Product[] = [
     ],
   },
 
+  // --- SANDWICHES ---
+  {
+    id: 'sandwich_chicken',
+    name: 'Сэндвич с курицей',
+    category: 'sandwiches',
+    isDrink: false,
+    image: './img/sendvitchchiken.jpg',
+    variants: [{ size: 'порция', price: 280 }],
+  },
+  {
+    id: 'sandwich_pork',
+    name: 'Сэндвич с бужениной',
+    category: 'sandwiches',
+    isDrink: false,
+    image: './img/unnamed (1).jpg', // Assuming this is the third sandwich image
+    variants: [{ size: 'порция', price: 280 }],
+  },
+  {
+    id: 'sandwich_ham',
+    name: 'Сэндвич с ветчиной',
+    category: 'sandwiches',
+    isDrink: false,
+    image: './img/sendvitchvetcina.jpg',
+    variants: [{ size: 'порция', price: 280 }],
+  },
+
+  // --- HOT DISHES (MEAT/LUNCH) ---
+  {
+    id: 'chicken_escalope',
+    name: 'Куриный эскалоп',
+    category: 'hot',
+    isDrink: false,
+    image: './img/eskalop.jpg',
+    variants: [{ size: 'порция', price: 250 }],
+  },
+  {
+    id: 'fillet_cheese',
+    name: 'Филе в сыре',
+    category: 'hot',
+    isDrink: false,
+    image: './img/filevsire.jpg',
+    variants: [{ size: 'порция', price: 270 }],
+  },
+  {
+    id: 'cutlets',
+    name: 'Рубленные котлеты',
+    category: 'hot',
+    isDrink: false,
+    image: './img/rublenakotleta.jpg',
+    variants: [{ size: 'порция', price: 270 }],
+  },
+  {
+    id: 'carbonara',
+    name: 'Карбонара',
+    category: 'hot',
+    isDrink: false,
+    image: './img/karbonara.jpg',
+    variants: [{ size: 'порция', price: 240 }],
+  },
+  {
+    id: 'grilled_veggies',
+    name: 'Овощи гриль',
+    category: 'hot',
+    isDrink: false,
+    image: './img/ovoshigrill.jpg',
+    variants: [{ size: 'порция', price: 150 }],
+  },
+  {
+    id: 'puree',
+    name: 'Пюре картофельное',
+    category: 'hot',
+    isDrink: false,
+    image: './img/pure.jpg',
+    variants: [{ size: 'порция', price: 90 }],
+  },
+
+  // --- SALADS ---
+  {
+    id: 'salad_olivier',
+    name: 'Оливье',
+    category: 'salads',
+    isDrink: false,
+    image: './img/olivie.jpg',
+    variants: [{ size: 'порция', price: 200 }],
+  },
+  {
+    id: 'salad_crab',
+    name: 'Крабовый салат',
+    category: 'salads',
+    isDrink: false,
+    image: './img/salatcrab.jpg',
+    variants: [{ size: 'порция', price: 220 }],
+  },
+  {
+    id: 'salad_greek',
+    name: 'Греческий салат',
+    category: 'salads',
+    isDrink: false,
+    image: './img/salatgrek.jpg',
+    variants: [{ size: 'порция', price: 270 }],
+  },
+  {
+    id: 'salad_beetroot',
+    name: 'Салат со свеклой',
+    category: 'salads',
+    isDrink: false,
+    image: './img/salatsvekla.jpg',
+    description: 'Со свеклой, сыром и грецким орехом',
+    variants: [{ size: 'порция', price: 220 }],
+  },
+  {
+    id: 'salad_caesar',
+    name: 'Цезарь',
+    category: 'salads',
+    isDrink: false,
+    image: './img/salatcezar.jpg',
+    variants: [{ size: 'порция', price: 270 }],
+  },
+
   // --- SWEETS ---
   {
     id: 'bombbar_hazel',
@@ -445,7 +561,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Лимонад Авторский',
     category: 'soda',
     isDrink: true,
-    image: './img/granattonic.jpg', // Временная замена, так как нет фото "Лимонад"
+    image: './img/granattonic.jpg',
     description: 'Скиви-Фейхоа, Манго-Маракуйя, Смородина-Мята',
     variants: [
       { size: '250мл', price: 260 },
