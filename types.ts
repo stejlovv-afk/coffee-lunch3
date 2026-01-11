@@ -16,7 +16,19 @@ export interface Product {
 }
 
 export interface CartItemOption {
-  temperature?: 'hot' | 'cold';
+  // Drink specifics
+  temperature?: 'warm' | 'cold'; // Only for Bumble
+  gas?: boolean; // For water (true = gas, false = no gas)
+  
+  // Modifiers
+  milk?: string;
+  syrup?: string;
+  
+  // Punch specifics
+  honey?: boolean;
+  filtered?: boolean;
+
+  // Legacy/Basic
   sugar?: number;
   cinnamon?: boolean;
 }
@@ -27,6 +39,7 @@ export interface CartItem {
   variantIndex: number;
   quantity: number;
   options: CartItemOption;
+  totalPrice: number; // Added to track price with modifiers
 }
 
 export interface Review {
@@ -42,6 +55,7 @@ export interface Review {
 export interface OrderActionPayload {
   action: 'order';
   items: {
+    id: string;
     name: string;
     size: string;
     count: number;
