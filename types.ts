@@ -63,6 +63,8 @@ export interface OrderActionPayload {
     details: string;
   }[];
   total: number;
+  pickupTime: string; // "Как можно скорее" or specific time like "14:30"
+  comment: string;
 }
 
 // Data sent to Bot to update Menu
