@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
 import { Category, Product, CartItem, WebAppPayload, Review } from './types';
-import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon } from './components/ui/Icons';
+import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, CheckIcon } from './components/ui/Icons';
 import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 
@@ -56,7 +56,7 @@ const App: React.FC = () => {
 
   // --- Effects ---
   useEffect(() => {
-    // 1. Load data
+    // 1. Load basic local settings
     const savedFavs = localStorage.getItem('favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
 
@@ -66,12 +66,16 @@ const App: React.FC = () => {
     const savedAdmin = localStorage.getItem('isAdmin');
     if (savedAdmin === 'true') setIsAdmin(true);
 
-    // 2. Load GLOBAL HIDDEN ITEMS from URL
+    // 2. CRITICAL: Load HIDDEN ITEMS from URL (This syncs with Bot)
+    // The Bot adds ?hidden=id1,id2 to the URL when opening the app
     const params = new URLSearchParams(window.location.search);
     const hiddenParam = params.get('hidden');
+    
     if (hiddenParam) {
+      // If URL has params, use them (Master Source)
       setHiddenItems(hiddenParam.split(','));
     } else {
+       // Fallback to local storage only if URL is clean
        const savedHidden = localStorage.getItem('hiddenItems');
        if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
     }
@@ -120,6 +124,7 @@ const App: React.FC = () => {
 
     setIsSending(true);
 
+    // Prepare payload for Bot
     const payload: WebAppPayload = {
       action: 'order',
       items: cart.map(item => {
@@ -128,7 +133,7 @@ const App: React.FC = () => {
         
         let details = variant.size;
         if (item.options.temperature) details += `, ${item.options.temperature === 'hot' ? 'Гор' : 'Хол'}`;
-        if (item.options.sugar !== undefined) details += `, Сахар: ${item.options.sugar}г`;
+        if (item.options.sugar !== undefined && item.options.sugar > 0) details += `, Сахар: ${item.options.sugar}г`;
         if (item.options.cinnamon) details += `, Корица`;
 
         return {
@@ -150,13 +155,11 @@ const App: React.FC = () => {
             tg.HapticFeedback.notificationOccurred('success');
         }
         
-        // Send data
+        // Send data to Bot
         tg.sendData(JSON.stringify(payload));
         
-        // Close manually after a short delay
-        setTimeout(() => {
-            tg.close();
-        }, 500); 
+        // Don't close immediately in dev mode, but in prod we close
+        // setTimeout(() => tg.close(), 500); 
       } catch (e) {
         setIsSending(false);
         alert("Ошибка отправки! Запустите бота заново.");
@@ -176,7 +179,7 @@ const App: React.FC = () => {
 
     if (isCartOpen && cart.length > 0) {
         mainBtn.setText(`ОПЛАТИТЬ ${cartTotal}₽`);
-        // mainBtn.show(); // We use custom button, uncomment if you want native button
+        // mainBtn.show(); 
         mainBtn.onClick(handleCheckout);
     } else {
         mainBtn.hide();
@@ -188,6 +191,7 @@ const App: React.FC = () => {
     };
   }, [isCartOpen, cart.length, cartTotal, handleCheckout]);
 
+  // Sync local storage on state change
   useEffect(() => {
     localStorage.setItem('favorites', JSON.stringify(favorites));
   }, [favorites]);
@@ -235,7 +239,7 @@ const App: React.FC = () => {
     setCart(prev => prev.filter(i => i.uniqueId !== uniqueId));
   };
 
-  // --- Admin Save Logic ---
+  // --- Admin Save Logic (SYNC WITH BOT) ---
   const handleSaveMenuToBot = () => {
     const payload: WebAppPayload = {
       action: 'update_menu',
@@ -243,11 +247,12 @@ const App: React.FC = () => {
     };
 
     if (window.Telegram?.WebApp) {
+      // Send the list of hidden items to the bot
+      // The bot will store this and append ?hidden=... to future URLs
       window.Telegram.WebApp.sendData(JSON.stringify(payload));
-      setTimeout(() => window.Telegram.WebApp.close(), 100);
     } else {
       console.log("Menu Update Payload:", payload);
-      alert("Меню сохранено (Тест)");
+      alert("Меню сохранено (Тест). В Telegram бот получил бы список скрытых товаров.");
     }
   };
 
