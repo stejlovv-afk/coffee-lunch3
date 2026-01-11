@@ -30,6 +30,12 @@ const ArrowPathIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+const ClockIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+  </svg>
+);
+
 // --- Helper Hook for Long Press ---
 function useLongPress(callback: () => void, ms = 1500) {
   const [startLongPress, setStartLongPress] = useState(false);
@@ -68,6 +74,11 @@ const App: React.FC = () => {
   
   // Tabs
   const [activeTab, setActiveTab] = useState<'menu' | 'fav'>('menu');
+
+  // Checkout State
+  const [orderTimeType, setOrderTimeType] = useState<'asap' | 'scheduled'>('asap');
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [orderComment, setOrderComment] = useState('');
 
   // Modals
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -138,7 +149,14 @@ const App: React.FC = () => {
         return;
     }
 
+    if (orderTimeType === 'scheduled' && !scheduledTime) {
+      alert("Пожалуйста, выберите время готовности");
+      return;
+    }
+
     setIsSending(true);
+
+    const pickupTimeStr = orderTimeType === 'asap' ? 'Как можно скорее' : scheduledTime;
 
     const payload: WebAppPayload = {
       action: 'order',
@@ -172,7 +190,9 @@ const App: React.FC = () => {
           details
         };
       }),
-      total: cartTotal
+      total: cartTotal,
+      pickupTime: pickupTimeStr,
+      comment: orderComment
     };
 
     if (window.Telegram?.WebApp) {
@@ -186,10 +206,10 @@ const App: React.FC = () => {
       }
     } else {
       console.log("Order Payload:", payload);
-      alert(`[Тест] Заказ на ${payload.total}р сформирован.`);
+      alert(`[Тест] Заказ на ${payload.total}р сформирован. Время: ${pickupTimeStr}. Коммент: ${orderComment}`);
       setIsSending(false);
     }
-  }, [cart, cartTotal, isSending]);
+  }, [cart, cartTotal, isSending, orderTimeType, scheduledTime, orderComment]);
 
   // Storage sync
   useEffect(() => { localStorage.setItem('favorites', JSON.stringify(favorites)); }, [favorites]);
@@ -445,7 +465,7 @@ const App: React.FC = () => {
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setIsCartOpen(false)} />
-          <div className="bg-white w-full max-w-md h-[85vh] rounded-t-3xl sm:rounded-3xl p-6 relative z-10 flex flex-col animate-slide-up">
+          <div className="bg-white w-full max-w-md h-[95vh] rounded-t-3xl sm:rounded-3xl p-6 relative z-10 flex flex-col animate-slide-up">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-black text-gray-900">Ваш заказ</h2>
               <button onClick={() => setIsCartOpen(false)} className="text-gray-500 font-bold p-2">Закрыть</button>
@@ -455,41 +475,94 @@ const App: React.FC = () => {
               {cart.length === 0 ? (
                 <div className="text-center text-gray-400 mt-10">Корзина пуста</div>
               ) : (
-                cart.map((item) => {
-                  const product = MENU_ITEMS.find(p => p.id === item.productId);
-                  if (!product) return null;
-                  const variant = product.variants[item.variantIndex];
-                  return (
-                    <div key={item.uniqueId} className="flex gap-4 items-start bg-gray-50 p-3 rounded-2xl">
-                      <img src={product.image} className="w-16 h-16 rounded-xl object-cover" />
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-gray-800 text-sm">{product.name}</h4>
-                          <span className="font-bold text-coffee-500">{item.totalPrice}₽</span>
-                        </div>
-                        <p className="text-[10px] text-gray-500 font-medium leading-tight mt-1">
-                          {variant.size}
-                          {item.options.milk && ` • ${item.options.milk === 'lactose_free' ? 'Безлакт' : item.options.milk === 'almond' ? 'Миндаль' : item.options.milk === 'banana' ? 'Банан' : 'Кокос'}`}
-                          {item.options.syrup && ` • ${item.options.syrup}`}
-                          {item.options.temperature && ` • ${item.options.temperature === 'warm' ? 'Тепл' : 'Хол'}`}
-                          {item.options.gas !== undefined && ` • ${item.options.gas ? 'Газ' : 'Без газа'}`}
-                          {item.options.filtered && ` • Фильтр`}
-                          {item.options.honey && ` • Мед`}
-                          {item.options.sugar && item.options.sugar > 0 && ` • Сахар ${item.options.sugar}г`}
-                          {item.options.cinnamon && ` • Корица`}
-                        </p>
-                        <div className="flex justify-between items-center mt-3">
-                           <div className="flex items-center gap-3 bg-white px-2 rounded-lg shadow-sm border border-gray-100">
-                              <span className="font-bold text-sm text-gray-600">x{item.quantity}</span>
-                           </div>
-                           <button onClick={() => removeFromCart(item.uniqueId)} className="text-red-400 p-1">
-                             <TrashIcon className="w-5 h-5" />
-                           </button>
+                <>
+                  {/* Cart Items */}
+                  {cart.map((item) => {
+                    const product = MENU_ITEMS.find(p => p.id === item.productId);
+                    if (!product) return null;
+                    const variant = product.variants[item.variantIndex];
+                    return (
+                      <div key={item.uniqueId} className="flex gap-4 items-start bg-gray-50 p-3 rounded-2xl">
+                        <img src={product.image} className="w-16 h-16 rounded-xl object-cover" />
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-bold text-gray-800 text-sm">{product.name}</h4>
+                            <span className="font-bold text-coffee-500">{item.totalPrice}₽</span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 font-medium leading-tight mt-1">
+                            {variant.size}
+                            {item.options.milk && ` • ${item.options.milk === 'lactose_free' ? 'Безлакт' : item.options.milk === 'almond' ? 'Миндаль' : item.options.milk === 'banana' ? 'Банан' : 'Кокос'}`}
+                            {item.options.syrup && ` • ${item.options.syrup}`}
+                            {item.options.temperature && ` • ${item.options.temperature === 'warm' ? 'Тепл' : 'Хол'}`}
+                            {item.options.gas !== undefined && ` • ${item.options.gas ? 'Газ' : 'Без газа'}`}
+                            {item.options.filtered && ` • Фильтр`}
+                            {item.options.honey && ` • Мед`}
+                            {item.options.sugar && item.options.sugar > 0 && ` • Сахар ${item.options.sugar}г`}
+                            {item.options.cinnamon && ` • Корица`}
+                          </p>
+                          <div className="flex justify-between items-center mt-3">
+                             <div className="flex items-center gap-3 bg-white px-2 rounded-lg shadow-sm border border-gray-100">
+                                <span className="font-bold text-sm text-gray-600">x{item.quantity}</span>
+                             </div>
+                             <button onClick={() => removeFromCart(item.uniqueId)} className="text-red-400 p-1">
+                               <TrashIcon className="w-5 h-5" />
+                             </button>
+                          </div>
                         </div>
                       </div>
+                    );
+                  })}
+
+                  {/* --- Order Details (Time & Comment) --- */}
+                  <div className="pt-4 border-t border-dashed border-gray-200">
+                    <h3 className="font-bold text-lg mb-3 text-gray-900">Детали получения</h3>
+                    
+                    {/* Time Selection */}
+                    <div className="mb-4 bg-gray-50 p-3 rounded-2xl">
+                       <div className="flex bg-white rounded-xl p-1 shadow-sm mb-3">
+                         <button 
+                           onClick={() => setOrderTimeType('asap')}
+                           className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${
+                             orderTimeType === 'asap' ? 'bg-coffee-500 text-white shadow' : 'text-gray-500'
+                           }`}
+                         >
+                           Как можно скорее
+                         </button>
+                         <button 
+                           onClick={() => setOrderTimeType('scheduled')}
+                           className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${
+                             orderTimeType === 'scheduled' ? 'bg-coffee-500 text-white shadow' : 'text-gray-500'
+                           }`}
+                         >
+                           Ко времени
+                         </button>
+                       </div>
+                       
+                       {orderTimeType === 'scheduled' && (
+                         <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-gray-200 animate-slide-up">
+                           <ClockIcon className="w-5 h-5 text-gray-400" />
+                           <input 
+                             type="time" 
+                             value={scheduledTime}
+                             onChange={(e) => setScheduledTime(e.target.value)}
+                             className="flex-1 outline-none text-sm font-bold text-gray-800"
+                           />
+                         </div>
+                       )}
                     </div>
-                  );
-                })
+
+                    {/* Comments */}
+                    <div className="mb-2">
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Пожелания бариста</label>
+                      <textarea 
+                        value={orderComment}
+                        onChange={(e) => setOrderComment(e.target.value)}
+                        placeholder="Например: поменьше льда, позвонить когда будет готово..."
+                        className="w-full bg-gray-50 p-3 rounded-xl text-sm outline-none focus:ring-2 ring-coffee-500 transition-all resize-none h-20"
+                      />
+                    </div>
+                  </div>
+                </>
               )}
             </div>
 
