@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Product, CartItemOption } from '../types';
 
 interface ItemModalProps {
@@ -7,48 +7,23 @@ interface ItemModalProps {
   onAddToCart: (variantIdx: number, quantity: number, options: CartItemOption, totalPrice: number) => void;
 }
 
-// --- CONSTANTS ---
-const MILK_OPTIONS = [
-  { id: 'classic', label: 'Обычное', price: 0 },
-  { id: 'banana', label: 'Банановое', price: 70 }, // Base price for small
-  { id: 'coconut', label: 'Кокосовое', price: 70 },
-  { id: 'lactose_free', label: 'Безлактозное', price: 70 },
-  { id: 'almond', label: 'Миндальное', price: 70 },
-];
-
-const SYRUP_GROUPS = [
-  {
-    name: 'Ореховые',
-    items: ['Фисташка', 'Лесной орех', 'Кокос', 'Миндаль']
-  },
-  {
-    name: 'Фруктовые / Ягодные',
-    items: ['Красный апельсин', 'Клубника', 'Персик', 'Дыня', 'Яблоко', 'Малина', 'Вишня', 'Лемонграсс']
-  },
-  {
-    name: 'Десертные',
-    items: ['Лаванда', 'Имбирный пряник', 'Сливки', 'Попкорн', 'Бамбл гам', 'Соленая карамель']
-  }
-];
-
 const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart }) => {
   const [variantIdx, setVariantIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
   
   // Options
   const [temp, setTemp] = useState<'warm' | 'cold'>('cold');
-  const [gas, setGas] = useState<boolean>(true); // true = gas, false = no gas
+  const [gas, setGas] = useState<boolean>(true);
   const [milk, setMilk] = useState<string>('classic');
   const [syrup, setSyrup] = useState<string | null>(null);
   const [honey, setHoney] = useState<boolean>(false);
   const [filtered, setFiltered] = useState<boolean>(false);
-  const [showFilterHelp, setShowFilterHelp] = useState(false);
   const [heat, setHeat] = useState<boolean>(false);
   const [cutlery, setCutlery] = useState<boolean>(false);
   const [sugar, setSugar] = useState(0);
   const [cinnamon, setCinnamon] = useState(false);
 
-  // --- LOGIC HELPERS ---
+  // Logic Helpers
   const isRaf = product.id.includes('raf');
   const isBumble = product.id.includes('bumble');
   const isWater = product.id === 'chern_water';
@@ -59,13 +34,10 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart }) 
   const isFood = ['sandwiches', 'hot', 'salads'].includes(product.category);
   const canHeat = ['sandwiches', 'hot'].includes(product.category);
 
-  // Milk logic
   const showMilk = isCoffee && !isRaf && !isBumble;
-
-  // Syrup logic
   const showSyrup = isCoffee && !isSeasonal && !isRaf && !isBumble; 
 
-  // --- PRICING CALCULATOR ---
+  // Pricing
   const getModifierPrice = (baseSmall: number, baseMed: number, baseLarge: number) => {
     if (variantIdx === 0) return baseSmall;
     if (variantIdx === 1) return baseMed;
@@ -95,272 +67,159 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart }) 
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto transition-opacity" onClick={onClose} />
+    <div className="fixed inset-0 z-[60] flex items-end justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[4px] transition-opacity" onClick={onClose} />
       
-      <div className="bg-white w-full max-w-md rounded-t-[32px] sm:rounded-3xl p-6 relative z-10 animate-slide-up pointer-events-auto max-h-[90vh] overflow-y-auto no-scrollbar shadow-2xl">
+      <div className="bg-white w-full max-w-lg rounded-t-[32px] relative z-10 animate-slide-up max-h-[90vh] overflow-y-auto no-scrollbar shadow-2xl pb-safe">
         
-        {/* Header */}
-        <div className="flex gap-5 mb-6">
-          <img src={product.image} alt={product.name} className="w-28 h-28 object-cover rounded-2xl shadow-lg" />
-          <div className="flex flex-col justify-center">
-            <h3 className="text-2xl font-black text-gray-900 leading-tight mb-1">{product.name}</h3>
-            {product.description && <p className="text-xs text-gray-500 mb-2">{product.description}</p>}
-            <p className="text-coffee-500 font-black text-2xl">
-              {finalPrice}₽
-            </p>
-          </div>
+        {/* Grabber */}
+        <div className="sticky top-0 bg-white z-20 w-full flex justify-center pt-3 pb-4 rounded-t-[32px]">
+           <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
         </div>
 
-        {/* --- SIZE --- */}
-        <div className="mb-6">
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Размер</label>
-          <div className="flex flex-wrap gap-2">
-            {product.variants.map((v, idx) => (
-              <button
-                key={idx}
-                onClick={() => setVariantIdx(idx)}
-                className={`px-5 py-3 rounded-xl text-sm font-bold transition-all border-2 ${
-                  variantIdx === idx 
-                    ? 'border-coffee-500 bg-coffee-50 text-coffee-800 shadow-sm' 
-                    : 'border-transparent bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                {v.size}
-              </button>
-            ))}
+        <div className="px-6 pb-6">
+          {/* Header */}
+          <div className="flex gap-5 mb-8">
+            <img src={product.image} alt={product.name} className="w-32 h-32 object-cover rounded-[20px] shadow-md bg-gray-100" />
+            <div className="flex flex-col justify-center">
+              <h3 className="text-3xl font-bold text-coffee-primary leading-tight mb-2">{product.name}</h3>
+              <p className="text-3xl font-bold text-coffee-primary">{finalPrice}₽</p>
+            </div>
           </div>
-        </div>
 
-        {/* --- FOOD OPTIONS (Heat/Cutlery) --- */}
-        {isFood && (
-          <div className="mb-6 space-y-3">
-             <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Опции для еды</label>
-             
-             {canHeat && (
-               <div className="flex items-center justify-between bg-orange-50 p-3 rounded-xl border border-orange-100">
-                  <span className="font-bold text-orange-800 text-sm">Подогреть?</span>
-                  <div 
-                    onClick={() => setHeat(!heat)}
-                    className={`w-12 h-7 rounded-full transition-colors relative cursor-pointer ${heat ? 'bg-orange-500' : 'bg-gray-300'}`}
-                  >
-                    <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm ${heat ? 'left-6' : 'left-1'}`} />
-                  </div>
-               </div>
-             )}
-
-             <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100">
-                <span className="font-bold text-gray-700 text-sm">Нужны приборы?</span>
-                <div 
-                  onClick={() => setCutlery(!cutlery)}
-                  className={`w-12 h-7 rounded-full transition-colors relative cursor-pointer ${cutlery ? 'bg-coffee-500' : 'bg-gray-300'}`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm ${cutlery ? 'left-6' : 'left-1'}`} />
-                </div>
-             </div>
-          </div>
-        )}
-
-        {/* --- BUMBLE TEMP --- */}
-        {isBumble && (
-          <div className="mb-6">
-             <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Температура</label>
-             <div className="flex bg-gray-100 p-1.5 rounded-2xl">
-                <button 
-                  onClick={() => setTemp('warm')}
-                  className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${temp === 'warm' ? 'bg-white shadow text-orange-500' : 'text-gray-500'}`}
-                >
-                  Теплый
-                </button>
-                <button 
-                  onClick={() => setTemp('cold')}
-                  className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${temp === 'cold' ? 'bg-white shadow text-blue-500' : 'text-gray-500'}`}
-                >
-                  Холодный
-                </button>
-             </div>
-          </div>
-        )}
-
-        {/* --- WATER GAS --- */}
-        {isWater && (
-          <div className="mb-6">
-             <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Газация</label>
-             <div className="flex bg-gray-100 p-1.5 rounded-2xl">
-                <button 
-                  onClick={() => setGas(true)}
-                  className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${gas ? 'bg-white shadow text-blue-500' : 'text-gray-500'}`}
-                >
-                  Газ
-                </button>
-                <button 
-                  onClick={() => setGas(false)}
-                  className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${!gas ? 'bg-white shadow text-blue-500' : 'text-gray-500'}`}
-                >
-                  Без газа
-                </button>
-             </div>
-          </div>
-        )}
-
-        {/* --- MILK (Coffee, No Raf) --- */}
-        {showMilk && (
-          <div className="mb-6">
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-               Молоко {milk !== 'classic' && <span className="text-coffee-500">+{milkPrice}₽</span>}
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {MILK_OPTIONS.map((m) => (
+          {/* Size Selector (Segmented Control Style) */}
+          <div className="mb-8">
+            <label className="block text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Размер</label>
+            <div className="bg-gray-100 p-1 rounded-[14px] flex">
+              {product.variants.map((v, idx) => (
                 <button
-                  key={m.id}
-                  onClick={() => setMilk(m.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                    milk === m.id
-                      ? 'border-coffee-500 bg-coffee-50 text-coffee-800'
-                      : 'border-gray-200 bg-white text-gray-600'
+                  key={idx}
+                  onClick={() => setVariantIdx(idx)}
+                  className={`flex-1 py-2.5 rounded-[12px] text-[15px] font-semibold transition-all ${
+                    variantIdx === idx 
+                      ? 'bg-white text-black shadow-sm' 
+                      : 'text-gray-500'
                   }`}
                 >
-                  {m.label}
+                  {v.size}
                 </button>
               ))}
             </div>
           </div>
-        )}
 
-        {/* --- SYRUPS (Coffee, No Seasonal) --- */}
-        {showSyrup && (
-          <div className="mb-6">
-             <div className="flex justify-between items-center mb-2">
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Сироп {syrup && <span className="text-coffee-500">+{syrupPrice}₽</span>}
-                </label>
-                {syrup && <button onClick={() => setSyrup(null)} className="text-xs text-red-400 font-bold">Сбросить</button>}
-             </div>
-             
-             <div className="space-y-3">
-               {SYRUP_GROUPS.map(group => (
-                 <div key={group.name}>
-                   <p className="text-[10px] text-gray-400 font-bold mb-1 ml-1">{group.name}</p>
-                   <div className="flex flex-wrap gap-1.5">
-                     {group.items.map(item => (
-                       <button
-                         key={item}
-                         onClick={() => setSyrup(item === syrup ? null : item)}
-                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                           syrup === item
-                             ? 'border-coffee-500 bg-coffee-500 text-white'
-                             : 'border-gray-200 bg-gray-50 text-gray-600'
-                         }`}
-                       >
-                         {item}
-                       </button>
-                     ))}
-                   </div>
+          {/* Food Options */}
+          {isFood && (
+            <div className="mb-8 space-y-4">
+               {canHeat && (
+                 <div className="flex items-center justify-between py-1">
+                    <span className="text-[17px] font-medium text-black">Подогреть</span>
+                    <input type="checkbox" className="ios-switch" checked={heat} onChange={() => setHeat(!heat)} />
                  </div>
-               ))}
-             </div>
-          </div>
-        )}
-
-        {/* --- PUNCH OPTIONS --- */}
-        {isPunch && (
-          <div className="mb-6 space-y-3">
-             {/* Honey for Buckthorn */}
-             {isBuckthorn && (
-               <div className="flex items-center justify-between bg-yellow-50 p-3 rounded-xl border border-yellow-100">
-                  <span className="font-bold text-yellow-800 text-sm">Добавить мед?</span>
-                  <div 
-                    onClick={() => setHoney(!honey)}
-                    className={`w-12 h-7 rounded-full transition-colors relative cursor-pointer ${honey ? 'bg-yellow-500' : 'bg-gray-300'}`}
-                  >
-                    <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm ${honey ? 'left-6' : 'left-1'}`} />
-                  </div>
+               )}
+               <div className="w-full h-[1px] bg-gray-100"></div>
+               <div className="flex items-center justify-between py-1">
+                  <span className="text-[17px] font-medium text-black">Приборы</span>
+                  <input type="checkbox" className="ios-switch" checked={cutlery} onChange={() => setCutlery(!cutlery)} />
                </div>
-             )}
+            </div>
+          )}
 
-             {/* Filter with Tooltip */}
-             <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100 relative">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-700 text-sm">Профильтровать?</span>
-                  <button 
-                    onClick={() => setShowFilterHelp(!showFilterHelp)}
-                    className="w-5 h-5 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center text-xs font-bold"
+          {/* Bumble Temp */}
+          {isBumble && (
+            <div className="mb-8">
+               <label className="block text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Температура</label>
+               <div className="bg-gray-100 p-1 rounded-[14px] flex">
+                  <button onClick={() => setTemp('warm')} className={`flex-1 py-2 rounded-[12px] text-sm font-bold ${temp === 'warm' ? 'bg-white shadow text-orange-500' : 'text-gray-500'}`}>Теплый</button>
+                  <button onClick={() => setTemp('cold')} className={`flex-1 py-2 rounded-[12px] text-sm font-bold ${temp === 'cold' ? 'bg-white shadow text-blue-500' : 'text-gray-500'}`}>Холодный</button>
+               </div>
+            </div>
+          )}
+
+          {/* Milk Options */}
+          {showMilk && (
+            <div className="mb-8">
+              <label className="block text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Молоко</label>
+              <div className="flex flex-wrap gap-2">
+                {[{ id: 'classic', label: 'Обычное' }, { id: 'banana', label: 'Банан' }, { id: 'coconut', label: 'Кокос' }, { id: 'lactose_free', label: 'Безлакт' }, { id: 'almond', label: 'Миндаль' }].map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setMilk(m.id)}
+                    className={`px-4 py-2 rounded-full text-[15px] font-medium transition-all border ${
+                      milk === m.id
+                        ? 'bg-coffee-primary border-coffee-primary text-white'
+                        : 'bg-white border-gray-200 text-gray-600'
+                    }`}
                   >
-                    ?
+                    {m.label}
                   </button>
-                </div>
-                
-                {/* Tooltip */}
-                {showFilterHelp && (
-                  <div className="absolute top-10 left-0 bg-gray-800 text-white text-xs p-2 rounded-lg z-20 shadow-xl w-64">
-                    Если не фильтровать, в напитке будут ягоды, но могут попадаться косточки.
-                  </div>
-                )}
+                ))}
+              </div>
+            </div>
+          )}
 
-                <div 
-                  onClick={() => setFiltered(!filtered)}
-                  className={`w-12 h-7 rounded-full transition-colors relative cursor-pointer ${filtered ? 'bg-coffee-500' : 'bg-gray-300'}`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all shadow-sm ${filtered ? 'left-6' : 'left-1'}`} />
+          {/* Syrups */}
+          {showSyrup && (
+            <div className="mb-8">
+               <div className="flex justify-between items-center mb-3">
+                  <label className="text-[13px] font-semibold text-gray-400 uppercase tracking-wide">Сироп</label>
+                  {syrup && <button onClick={() => setSyrup(null)} className="text-[13px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">Сбросить</button>}
+               </div>
+               <div className="space-y-4">
+                 <div className="flex flex-wrap gap-2">
+                   {['Фисташка', 'Лесной орех', 'Кокос', 'Карамель', 'Ваниль', 'Лаванда'].map(item => (
+                     <button
+                       key={item}
+                       onClick={() => setSyrup(item === syrup ? null : item)}
+                       className={`px-4 py-2 rounded-full text-[15px] font-medium transition-all border ${
+                         syrup === item
+                           ? 'bg-coffee-accent border-coffee-accent text-coffee-primary'
+                           : 'bg-white border-gray-200 text-gray-600'
+                       }`}
+                     >
+                       {item}
+                     </button>
+                   ))}
+                 </div>
+               </div>
+            </div>
+          )}
+
+          {/* Sugar & Cinnamon */}
+          {(isCoffee || product.category === 'tea') && (
+             <div className="mb-8 bg-gray-50 p-5 rounded-[20px]">
+                <div className="mb-6">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-[15px] font-medium">Сахар</span>
+                    <span className="text-[15px] font-bold text-gray-500">{sugar}г</span>
+                  </div>
+                  <input 
+                    type="range" min="0" max="10" step="5" value={sugar}
+                    onChange={(e) => setSugar(Number(e.target.value))}
+                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[17px] font-medium">Корица</span>
+                  <input type="checkbox" className="ios-switch" checked={cinnamon} onChange={() => setCinnamon(!cinnamon)} />
                 </div>
              </div>
-          </div>
-        )}
+          )}
 
-        {/* --- BASIC OPTIONS (Sugar/Cinnamon) --- */}
-        {(isCoffee || product.category === 'tea') && (
-           <div className="mb-6 bg-gray-50 p-4 rounded-2xl">
-              <div className="mb-4">
-                <label className="block text-xs font-bold text-gray-500 mb-2">Сахар ({sugar}г)</label>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="10" 
-                  step="5" 
-                  value={sugar}
-                  onChange={(e) => setSugar(Number(e.target.value))}
-                  className="w-full accent-coffee-500 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-gray-400 mt-1 font-bold">
-                  <span>0г</span>
-                  <span>5г</span>
-                  <span>10г</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-gray-600">Добавить корицу?</span>
-                <div 
-                  onClick={() => setCinnamon(!cinnamon)}
-                  className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${cinnamon ? 'bg-coffee-500' : 'bg-gray-300'}`}
-                >
-                  <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all shadow-sm ${cinnamon ? 'left-6' : 'left-1'}`} />
-                </div>
-              </div>
-           </div>
-        )}
-
-        {/* --- ACTIONS --- */}
-        <div className="flex gap-3 items-center pt-2 safe-area-bottom">
-          <div className="flex items-center bg-gray-100 rounded-2xl px-1 h-14">
+          {/* Action Bar */}
+          <div className="flex gap-4 items-center pt-2">
+            <div className="flex items-center bg-gray-100 rounded-[16px] px-2 h-14">
+              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-12 h-full text-2xl text-gray-500 font-medium pb-1">-</button>
+              <span className="w-6 text-center font-bold text-xl">{quantity}</span>
+              <button onClick={() => setQuantity(quantity + 1)} className="w-12 h-full text-2xl text-gray-500 font-medium pb-1">+</button>
+            </div>
+            
             <button 
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-12 h-full text-2xl font-bold text-gray-500 hover:text-gray-800"
-            >-</button>
-            <span className="w-8 text-center font-black text-lg">{quantity}</span>
-            <button 
-              onClick={() => setQuantity(quantity + 1)}
-              className="w-12 h-full text-2xl font-bold text-gray-500 hover:text-gray-800"
-            >+</button>
+              onClick={handleAdd}
+              className="flex-1 bg-coffee-primary text-white h-14 rounded-[16px] font-bold text-[17px] shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
+            >
+              Добавить за {finalPrice}₽
+            </button>
           </div>
-          
-          <button 
-            onClick={handleAdd}
-            className="flex-1 bg-coffee-500 text-white h-14 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
-          >
-            <span>Добавить</span>
-            <span className="bg-white/20 px-2 py-0.5 rounded-lg text-sm">{finalPrice}₽</span>
-          </button>
         </div>
       </div>
     </div>
