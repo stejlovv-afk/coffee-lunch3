@@ -15,24 +15,25 @@
             },
             colors: {
               ios: {
-                bg: 'var(--tg-theme-secondary-bg-color, #F2F2F7)',
-                card: 'var(--tg-theme-bg-color, #FFFFFF)',
-                text: 'var(--tg-theme-text-color, #000000)',
-                hint: 'var(--tg-theme-hint-color, #8E8E93)',
+                bg: '#F2F2F7', // iOS System Gray 6
+                card: '#FFFFFF',
+                text: '#000000',
+                hint: '#8E8E93',
                 separator: '#C6C6C8',
                 blue: '#007AFF',
                 green: '#34C759',
+                red: '#FF3B30',
               },
               coffee: {
-                primary: '#1C1C1E', // Почти черный (Dark iOS vibe)
-                secondary: '#6F4E37', // Кофейный классический
+                primary: '#1C1C1E', // Почти черный (Dark UI)
+                secondary: '#6F4E37', // Классический кофейный
                 accent: '#FFD60A', // iOS System Yellow
-                light: '#FFF9F0',
+                surface: '#FFF9F0',
               }
             },
             boxShadow: {
-              'ios': '0 4px 20px rgba(0, 0, 0, 0.04)',
-              'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.07)',
+              'ios': '0 4px 24px rgba(0, 0, 0, 0.06)',
+              'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.04)',
             },
             animation: {
               'slide-up': 'slide-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
@@ -59,8 +60,8 @@
       }
       body {
         -webkit-tap-highlight-color: transparent;
-        background-color: var(--tg-theme-secondary-bg-color, #F2F2F7);
-        color: var(--tg-theme-text-color, #000000);
+        background-color: #F2F2F7;
+        color: #000000;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
       }
@@ -74,7 +75,7 @@
       
       /* Glassmorphism Utilities */
       .glass-panel {
-        background: rgba(255, 255, 255, 0.75);
+        background: rgba(255, 255, 255, 0.8);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
         border-bottom: 0.5px solid rgba(0, 0, 0, 0.05);
@@ -82,8 +83,8 @@
       
       .glass-tabbar {
         background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(25px);
-        -webkit-backdrop-filter: blur(25px);
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
         border-top: 0.5px solid rgba(0, 0, 0, 0.1);
       }
 
@@ -118,7 +119,7 @@
         transform: translateX(20px);
       }
 
-      /* Range Slider */
+      /* Custom Range Slider */
       input[type=range] {
         -webkit-appearance: none;
         background: transparent;
@@ -129,7 +130,7 @@
         width: 28px;
         border-radius: 50%;
         background: #ffffff;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         margin-top: -12px;
         border: 0.5px solid rgba(0,0,0,0.04);
       }
@@ -139,6 +140,10 @@
         cursor: pointer;
         background: #E5E5EA;
         border-radius: 2px;
+      }
+      
+      .pb-safe {
+        padding-bottom: var(--safe-area-bottom);
       }
     </style>
   <script type="importmap">
