@@ -1,4 +1,4 @@
-export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'sandwiches' | 'hot' | 'salads' | 'sweets' | 'soda';
+export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'sweets' | 'soda';
 
 export interface ProductVariant {
   size: string;
@@ -16,23 +16,7 @@ export interface Product {
 }
 
 export interface CartItemOption {
-  // Drink specifics
-  temperature?: 'warm' | 'cold'; // Only for Bumble
-  gas?: boolean; // For water (true = gas, false = no gas)
-  
-  // Modifiers
-  milk?: string;
-  syrup?: string;
-  
-  // Punch specifics
-  honey?: boolean;
-  filtered?: boolean;
-
-  // Food specifics
-  heat?: boolean;
-  cutlery?: boolean;
-
-  // Legacy/Basic
+  temperature?: 'hot' | 'cold';
   sugar?: number;
   cinnamon?: boolean;
 }
@@ -43,7 +27,6 @@ export interface CartItem {
   variantIndex: number;
   quantity: number;
   options: CartItemOption;
-  totalPrice: number;
 }
 
 export interface Review {
@@ -59,7 +42,6 @@ export interface Review {
 export interface OrderActionPayload {
   action: 'order';
   items: {
-    id: string;
     name: string;
     size: string;
     count: number;
@@ -67,8 +49,6 @@ export interface OrderActionPayload {
     details: string;
   }[];
   total: number;
-  pickupTime: string;
-  comment: string;
 }
 
 // Data sent to Bot to update Menu
@@ -78,7 +58,7 @@ export interface MenuUpdateActionPayload {
 }
 
 export interface RefreshMenuPayload {
-    action: 'refresh_menu';
+  action: 'refresh_menu';
 }
 
 export type WebAppPayload = OrderActionPayload | MenuUpdateActionPayload | RefreshMenuPayload;
