@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
-import { Category, Product, CartItem, WebAppPayload, Review } from './types';
-import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, CheckIcon } from './components/ui/Icons';
+import { Category, Product, CartItem, WebAppPayload, Review, CartItemOption } from './types';
+import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon } from './components/ui/Icons';
 import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 
@@ -11,7 +11,19 @@ declare global {
   }
 }
 
-// --- Icons ---
+// --- ICONS for Bottom Nav ---
+const HomeIcon: React.FC<{ className?: string, fill?: boolean }> = ({ className, fill }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill={fill ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72m-13.5 8.65h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
+  </svg>
+);
+
+const ShoppingBagIcon: React.FC<{ className?: string, fill?: boolean }> = ({ className, fill }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill={fill ? "currentColor" : "none"} viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+  </svg>
+);
+
 const ArrowPathIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
@@ -54,26 +66,21 @@ const App: React.FC = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isSending, setIsSending] = useState(false);
   
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'menu' | 'fav'>('menu');
+
   // Modals
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   
-  // Reviews (Placeholder for UI)
-  const [reviews, setReviews] = useState<Record<string, Review[]>>({});
-
   // --- Effects ---
   useEffect(() => {
-    // 1. Load basic local settings
     const savedFavs = localStorage.getItem('favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
-
-    const savedReviews = localStorage.getItem('reviews');
-    if (savedReviews) setReviews(JSON.parse(savedReviews));
 
     const savedAdmin = localStorage.getItem('isAdmin');
     if (savedAdmin === 'true') setIsAdmin(true);
 
-    // 2. CRITICAL: Load HIDDEN ITEMS from URL
     const params = new URLSearchParams(window.location.search);
     const hiddenParam = params.get('hidden');
     
@@ -88,7 +95,6 @@ const App: React.FC = () => {
        if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
     }
 
-    // 3. Setup Telegram WebApp
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.ready();
@@ -97,17 +103,14 @@ const App: React.FC = () => {
         tg.setHeaderColor('#fdf8f6');
         tg.setBackgroundColor('#fdf8f6');
         tg.enableClosingConfirmation();
-        if (!tg.isExpanded) tg.expand();
       } catch (e) {
         console.log('TG styling failed', e);
       }
     }
   }, []);
 
-  // --- REFRESH ACTION ---
   const handleRefresh = () => {
      if (window.Telegram?.WebApp) {
-        // Send a signal to bot to send a new link
         window.Telegram.WebApp.sendData(JSON.stringify({ action: 'refresh_menu' }));
         setTimeout(() => window.Telegram.WebApp.close(), 100);
      } else {
@@ -116,11 +119,7 @@ const App: React.FC = () => {
   };
 
   const cartTotal = useMemo(() => {
-    return cart.reduce((total, item) => {
-      const product = MENU_ITEMS.find(p => p.id === item.productId);
-      if (!product) return total;
-      return total + (product.variants[item.variantIndex].price * item.quantity);
-    }, 0);
+    return cart.reduce((total, item) => total + item.totalPrice, 0);
   }, [cart]);
 
   const handleCheckout = useCallback(() => {
@@ -148,16 +147,28 @@ const App: React.FC = () => {
         const variant = product.variants[item.variantIndex];
         
         let details = variant.size;
-        if (item.options.temperature) details += `, ${item.options.temperature === 'hot' ? 'Гор' : 'Хол'}`;
-        if (item.options.sugar !== undefined && item.options.sugar > 0) details += `, Сахар: ${item.options.sugar}г`;
+        // Modifiers text generation
+        if (item.options.temperature) details += `, ${item.options.temperature === 'warm' ? 'Теплый' : 'Холодный'}`;
+        if (item.options.gas !== undefined) details += `, ${item.options.gas ? 'Газ' : 'Без газа'}`;
+        if (item.options.milk) {
+            const milkLabels: Record<string, string> = { banana: 'Банан', coconut: 'Кокос', lactose_free: 'Безлакт', almond: 'Миндаль' };
+            details += `, Мол: ${milkLabels[item.options.milk] || 'Альтерн'}`;
+        }
+        if (item.options.syrup) details += `, Сироп: ${item.options.syrup}`;
+        if (item.options.honey) details += `, +Мед`;
+        if (item.options.filtered) details += `, Фильтр`;
+        if (item.options.sugar && item.options.sugar > 0) details += `, Сахар: ${item.options.sugar}г`;
         if (item.options.cinnamon) details += `, Корица`;
+
+        // Calculate unit price based on total (hacky but effective for Telegram Invoice line items)
+        const unitPrice = item.totalPrice / item.quantity;
 
         return {
           id: product.id,
           name: product.name,
           size: variant.size,
           count: item.quantity,
-          price: variant.price,
+          price: unitPrice, // Sending calculated price including modifiers
           details
         };
       }),
@@ -180,18 +191,10 @@ const App: React.FC = () => {
     }
   }, [cart, cartTotal, isSending]);
 
-  // Sync local storage on state change
-  useEffect(() => {
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-  }, [favorites]);
-
-  useEffect(() => {
-    localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems));
-  }, [hiddenItems]);
-
-  useEffect(() => {
-    localStorage.setItem('isAdmin', String(isAdmin));
-  }, [isAdmin]);
+  // Storage sync
+  useEffect(() => { localStorage.setItem('favorites', JSON.stringify(favorites)); }, [favorites]);
+  useEffect(() => { localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems)); }, [hiddenItems]);
+  useEffect(() => { localStorage.setItem('isAdmin', String(isAdmin)); }, [isAdmin]);
 
   const toggleFavorite = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -200,22 +203,24 @@ const App: React.FC = () => {
     );
   };
 
-  const addToCart = (productId: string, variantIdx: number, quantity: number, options: any) => {
+  const addToCart = (productId: string, variantIdx: number, quantity: number, options: CartItemOption, totalPrice: number) => {
     const product = MENU_ITEMS.find(p => p.id === productId);
     if (!product) return;
 
+    // Create deep unique ID based on ALL options
     const uniqueId = `${productId}-${variantIdx}-${JSON.stringify(options)}`;
 
     setCart(prev => {
       const existing = prev.find(item => item.uniqueId === uniqueId);
       if (existing) {
+        // Update quantity and total price
         return prev.map(item => 
           item.uniqueId === uniqueId 
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { ...item, quantity: item.quantity + quantity, totalPrice: item.totalPrice + totalPrice }
             : item
         );
       }
-      return [...prev, { uniqueId, productId, variantIndex: variantIdx, quantity, options }];
+      return [...prev, { uniqueId, productId, variantIndex: variantIdx, quantity, options, totalPrice }];
     });
     
     if(window.Telegram?.WebApp?.HapticFeedback) {
@@ -232,13 +237,9 @@ const App: React.FC = () => {
       action: 'update_menu',
       hiddenItems: hiddenItems
     };
-
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.sendData(JSON.stringify(payload));
       setTimeout(() => window.Telegram.WebApp.close(), 100);
-    } else {
-      console.log("Menu Update Payload:", payload);
-      alert("Меню сохранено (Тест).");
     }
   };
 
@@ -274,66 +275,58 @@ const App: React.FC = () => {
     { id: 'soda', label: 'Напитки' },
   ];
 
+  const displayedItems = activeTab === 'menu' 
+    ? visibleItems 
+    : MENU_ITEMS.filter(item => favorites.includes(item.id));
+
   return (
-    <div className="min-h-screen pb-24 font-sans text-gray-800">
+    <div className="min-h-screen pb-32 font-sans text-gray-800 bg-[#fdf8f6]">
       
-      {/* Header */}
-      <header className="sticky top-0 z-20 bg-coffee-50/95 backdrop-blur-md shadow-sm px-4 py-3 flex justify-between items-center transition-colors">
-        <div className="flex gap-3 items-center">
-            {/* Refresh Button - Restored */}
-            <button 
-              onClick={handleRefresh}
-              className="p-2 bg-gray-100 rounded-full text-gray-500 active:bg-gray-200 active:rotate-180 transition-all"
-              title="Обновить меню"
-            >
-              <ArrowPathIcon className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 
-                {...handleLongPress}
-                className="text-2xl font-black text-coffee-800 tracking-tight select-none cursor-pointer active:scale-95 transition-transform user-select-none"
-                style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
-              >
-                COFFEE LUNCH
-              </h1>
-              <p className="text-xs text-coffee-500 font-bold">Лучший кофе в городе</p>
-            </div>
+      {/* --- HEADER --- */}
+      <header className="sticky top-0 z-20 bg-[#fdf8f6]/95 backdrop-blur-md px-4 py-3 flex justify-between items-center">
+        <div>
+          <h1 
+            {...handleLongPress}
+            className="text-2xl font-black text-coffee-800 tracking-tight select-none cursor-pointer"
+            style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
+          >
+            COFFEE LUNCH
+          </h1>
+          <p className="text-xs text-coffee-500 font-bold">
+             {activeTab === 'menu' ? 'Лучший кофе в городе' : 'Ваше избранное'}
+          </p>
         </div>
-        
-        <button 
-          onClick={() => {
-            const favs = MENU_ITEMS.filter(i => favorites.includes(i.id));
-            if (favs.length === 0) return alert("Избранное пусто");
-            alert("Ваши избранные товары:\n" + favs.map(i => i.name).join(', ')); 
-          }}
-          className="p-2 bg-coffee-100/50 rounded-full text-coffee-500 transition-transform active:scale-90"
-        >
-          <HeartIcon className="w-6 h-6" fill={favorites.length > 0} />
-        </button>
       </header>
 
-      {/* Category Nav */}
-      <nav className="sticky top-[60px] z-10 bg-coffee-50/95 backdrop-blur shadow-sm py-2 overflow-x-auto no-scrollbar">
-        <div className="flex px-4 gap-3 min-w-max">
-          {categories.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              className={`px-5 py-2 rounded-2xl text-sm font-bold transition-all ${
-                activeCategory === cat.id 
-                  ? 'bg-coffee-500 text-white shadow-lg scale-105' 
-                  : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-      </nav>
+      {/* --- CATEGORY NAV (Only in Menu Tab) --- */}
+      {activeTab === 'menu' && (
+        <nav className="sticky top-[56px] z-10 bg-[#fdf8f6]/95 backdrop-blur py-2 overflow-x-auto no-scrollbar border-b border-coffee-100/50">
+          <div className="flex px-4 gap-2 min-w-max pb-2">
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                  activeCategory === cat.id 
+                    ? 'bg-coffee-500 text-white shadow-md' 
+                    : 'bg-white text-gray-500 border border-gray-100'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
 
-      {/* Product Grid */}
+      {/* --- PRODUCT GRID --- */}
       <main className="p-4 grid grid-cols-2 gap-4">
-        {visibleItems.map(item => (
+        {displayedItems.length === 0 && activeTab === 'fav' && (
+             <div className="col-span-2 text-center mt-20 text-gray-400 font-medium">
+                 В избранном пока пусто :(
+             </div>
+        )}
+        {displayedItems.map(item => (
           <div 
             key={item.id} 
             className={`bg-white rounded-3xl p-3 shadow-sm flex flex-col justify-between relative transition-transform ${
@@ -349,7 +342,7 @@ const App: React.FC = () => {
               />
               <button 
                 onClick={(e) => toggleFavorite(e, item.id)}
-                className="absolute top-2 right-2 p-1.5 bg-white/60 backdrop-blur rounded-full text-red-500 transition-transform active:scale-125"
+                className="absolute top-2 right-2 p-1.5 bg-white/60 backdrop-blur rounded-full text-red-500 transition-transform active:scale-110"
               >
                 <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
               </button>
@@ -369,38 +362,82 @@ const App: React.FC = () => {
 
             <button 
               onClick={() => setSelectedProduct(item)}
-              className="mt-3 w-full py-3 bg-gray-100 hover:bg-coffee-100 text-coffee-800 rounded-2xl flex items-center justify-center transition-all active:scale-95 active:bg-coffee-200 group"
+              className="mt-3 w-full py-3 bg-gray-100 hover:bg-coffee-100 text-coffee-800 rounded-2xl flex items-center justify-center transition-all active:scale-95 group"
             >
-              <PlusIcon className="w-6 h-6 group-active:animate-bounce-short" />
+              <PlusIcon className="w-6 h-6" />
             </button>
           </div>
         ))}
       </main>
 
-      {/* Glass Cart Bar (Bottom) */}
-      {cart.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 z-40 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none">
-          <button 
+      {/* --- FLOATING CART BUTTON (Above Nav) --- */}
+      {cart.length > 0 && !isCartOpen && (
+        <div className="fixed bottom-24 left-4 right-4 z-30 animate-slide-up">
+           <button 
             onClick={() => setIsCartOpen(true)}
-            className="w-full pointer-events-auto bg-coffee-500/90 backdrop-blur-md border border-white/20 text-white rounded-3xl p-4 shadow-xl flex items-center justify-between active:scale-[0.98] transition-all animate-slide-up"
-          >
-            <div className="flex items-center gap-3">
-              <div className="bg-white/20 px-3 py-1 rounded-full font-bold">
-                {cart.reduce((a, b) => a + b.quantity, 0)}
-              </div>
-              <span className="font-bold text-lg">Корзина</span>
-            </div>
-            <span className="font-black text-xl tracking-wide">{cartTotal}₽</span>
-          </button>
+            className="w-full bg-coffee-800/90 backdrop-blur text-white rounded-2xl p-4 shadow-xl flex items-center justify-between active:scale-[0.98] transition-transform"
+           >
+             <div className="flex items-center gap-3">
+               <div className="bg-white/20 px-2.5 py-1 rounded-lg font-bold text-sm">
+                 {cart.reduce((a, b) => a + b.quantity, 0)}
+               </div>
+               <span className="font-bold">Перейти к оплате</span>
+             </div>
+             <span className="font-black text-lg">{cartTotal}₽</span>
+           </button>
         </div>
       )}
 
-      {/* Modals */}
+      {/* --- BOTTOM NAVIGATION BAR --- */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 py-2 px-6 pb-6 z-40 flex justify-between items-center shadow-[0_-5px_15px_rgba(0,0,0,0.02)] safe-area-bottom">
+         <button 
+            onClick={() => setActiveTab('menu')}
+            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'menu' ? 'text-coffee-800' : 'text-gray-400'}`}
+         >
+            <HomeIcon className="w-7 h-7" fill={activeTab === 'menu'} />
+            <span className="text-[10px] font-bold">Меню</span>
+         </button>
+
+         <button 
+            onClick={() => setActiveTab('fav')}
+            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'fav' ? 'text-red-500' : 'text-gray-400'}`}
+         >
+            <HeartIcon className="w-7 h-7" fill={activeTab === 'fav'} />
+            <span className="text-[10px] font-bold">Избранное</span>
+         </button>
+         
+         <button 
+            onClick={handleRefresh}
+            className="flex flex-col items-center gap-1 text-gray-400 active:text-coffee-500 transition-colors"
+         >
+            <ArrowPathIcon className="w-7 h-7" />
+            <span className="text-[10px] font-bold">Обновить</span>
+         </button>
+
+         <button 
+            onClick={() => setIsCartOpen(true)}
+            className={`flex flex-col items-center gap-1 transition-colors ${cart.length > 0 ? 'text-coffee-500' : 'text-gray-400'}`}
+         >
+            <div className="relative">
+               <ShoppingBagIcon className="w-7 h-7" fill={cart.length > 0} />
+               {cart.length > 0 && (
+                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                    {cart.reduce((a, b) => a + b.quantity, 0)}
+                 </span>
+               )}
+            </div>
+            <span className="text-[10px] font-bold">Корзина</span>
+         </button>
+      </div>
+
+      {/* --- MODALS --- */}
       {selectedProduct && (
         <ItemModal 
           product={selectedProduct} 
           onClose={() => setSelectedProduct(null)} 
-          onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)}
+          onAddToCart={(variantIdx, quantity, options, totalPrice) => 
+            addToCart(selectedProduct.id, variantIdx, quantity, options, totalPrice)
+          }
         />
       )}
 
@@ -414,7 +451,7 @@ const App: React.FC = () => {
               <button onClick={() => setIsCartOpen(false)} className="text-gray-500 font-bold p-2">Закрыть</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 pb-4">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 pb-4 no-scrollbar">
               {cart.length === 0 ? (
                 <div className="text-center text-gray-400 mt-10">Корзина пуста</div>
               ) : (
@@ -427,16 +464,21 @@ const App: React.FC = () => {
                       <img src={product.image} className="w-16 h-16 rounded-xl object-cover" />
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-gray-800">{product.name}</h4>
-                          <span className="font-bold text-coffee-500">{variant.price * item.quantity}₽</span>
+                          <h4 className="font-bold text-gray-800 text-sm">{product.name}</h4>
+                          <span className="font-bold text-coffee-500">{item.totalPrice}₽</span>
                         </div>
-                        <p className="text-xs text-gray-500 font-medium">
+                        <p className="text-[10px] text-gray-500 font-medium leading-tight mt-1">
                           {variant.size}
-                          {item.options.temperature && ` • ${item.options.temperature === 'hot' ? 'Гор' : 'Хол'}`}
-                          {item.options.sugar !== undefined && item.options.sugar > 0 && ` • Сахар ${item.options.sugar}г`}
+                          {item.options.milk && ` • ${item.options.milk === 'lactose_free' ? 'Безлакт' : item.options.milk === 'almond' ? 'Миндаль' : item.options.milk === 'banana' ? 'Банан' : 'Кокос'}`}
+                          {item.options.syrup && ` • ${item.options.syrup}`}
+                          {item.options.temperature && ` • ${item.options.temperature === 'warm' ? 'Тепл' : 'Хол'}`}
+                          {item.options.gas !== undefined && ` • ${item.options.gas ? 'Газ' : 'Без газа'}`}
+                          {item.options.filtered && ` • Фильтр`}
+                          {item.options.honey && ` • Мед`}
+                          {item.options.sugar && item.options.sugar > 0 && ` • Сахар ${item.options.sugar}г`}
                           {item.options.cinnamon && ` • Корица`}
                         </p>
-                        <div className="flex justify-between items-center mt-2">
+                        <div className="flex justify-between items-center mt-3">
                            <div className="flex items-center gap-3 bg-white px-2 rounded-lg shadow-sm border border-gray-100">
                               <span className="font-bold text-sm text-gray-600">x{item.quantity}</span>
                            </div>
@@ -451,7 +493,6 @@ const App: React.FC = () => {
               )}
             </div>
 
-            {/* Custom Brown Button (Always Visible) */}
             <div className="pt-2 bg-white safe-area-bottom">
               <button 
                 onClick={handleCheckout}
@@ -494,7 +535,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Admin Panel */}
       {showAdminPanel && (
         <AdminPanel 
           hiddenItems={hiddenItems}
@@ -503,7 +543,6 @@ const App: React.FC = () => {
           onClose={() => setShowAdminPanel(false)}
         />
       )}
-
     </div>
   );
 };
