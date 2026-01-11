@@ -175,6 +175,8 @@ const App: React.FC = () => {
         if (item.options.syrup) details += `, Сироп: ${item.options.syrup}`;
         if (item.options.honey) details += `, +Мед`;
         if (item.options.filtered) details += `, Фильтр`;
+        if (item.options.heat) details += `, Подогреть`;
+        if (item.options.cutlery) details += `, +Приборы`;
         if (item.options.sugar && item.options.sugar > 0) details += `, Сахар: ${item.options.sugar}г`;
         if (item.options.cinnamon) details += `, Корица`;
 
@@ -290,6 +292,9 @@ const App: React.FC = () => {
     { id: 'coffee', label: 'Кофе' },
     { id: 'tea', label: 'Чай' },
     { id: 'seasonal', label: 'Сезонное' },
+    { id: 'sandwiches', label: 'Сэндвичи' },
+    { id: 'hot', label: 'Горячее' },
+    { id: 'salads', label: 'Салаты' },
     { id: 'punch', label: 'Пунши' },
     { id: 'sweets', label: 'Сладости' },
     { id: 'soda', label: 'Напитки' },
@@ -496,6 +501,8 @@ const App: React.FC = () => {
                             {item.options.temperature && ` • ${item.options.temperature === 'warm' ? 'Тепл' : 'Хол'}`}
                             {item.options.gas !== undefined && ` • ${item.options.gas ? 'Газ' : 'Без газа'}`}
                             {item.options.filtered && ` • Фильтр`}
+                            {item.options.heat && ` • Подогреть`}
+                            {item.options.cutlery && ` • +Приборы`}
                             {item.options.honey && ` • Мед`}
                             {item.options.sugar && item.options.sugar > 0 && ` • Сахар ${item.options.sugar}г`}
                             {item.options.cinnamon && ` • Корица`}
