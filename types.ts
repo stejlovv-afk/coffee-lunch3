@@ -1,4 +1,4 @@
-export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'sweets' | 'soda';
+export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'sandwiches' | 'hot' | 'salads' | 'sweets' | 'soda';
 
 export interface ProductVariant {
   size: string;
@@ -27,6 +27,10 @@ export interface CartItemOption {
   // Punch specifics
   honey?: boolean;
   filtered?: boolean;
+
+  // Food specifics
+  heat?: boolean;
+  cutlery?: boolean;
 
   // Legacy/Basic
   sugar?: number;
