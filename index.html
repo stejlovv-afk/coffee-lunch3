@@ -2,7 +2,7 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Coffee Lunch</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -10,34 +10,25 @@
       tailwind.config = {
         theme: {
           extend: {
-            fontFamily: {
-              sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Text', 'SF Pro Display', 'system-ui', 'Helvetica Neue', 'sans-serif'],
-            },
             colors: {
-              ios: {
-                bg: '#F2F2F7', 
-                card: '#FFFFFF',
-                text: '#000000',
-                hint: '#8E8E93',
-                separator: '#C6C6C8',
-                blue: '#007AFF',
-                green: '#34C759',
-                red: '#FF3B30',
-              },
               coffee: {
-                primary: '#1C1C1E',
-                secondary: '#6F4E37',
-                accent: '#FFD60A',
-                surface: '#FFF9F0',
+                50: '#fdf8f6',
+                100: '#f2e8e5',
+                200: '#eaddd7',
+                500: '#a36852',
+                800: '#5d3a2e',
+                900: '#3e261e',
               }
             },
-            boxShadow: {
-              'ios': '0 4px 24px rgba(0, 0, 0, 0.06)',
-            },
             animation: {
-              'slide-up': 'slide-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+              'bounce-short': 'bounce-short 0.3s ease-in-out 1',
+              'slide-up': 'slide-up 0.3s ease-out forwards',
             },
             keyframes: {
+              'bounce-short': {
+                '0%, 100%': { transform: 'scale(1)' },
+                '50%': { transform: 'scale(0.95)' },
+              },
               'slide-up': {
                 '0%': { transform: 'translateY(100%)' },
                 '100%': { transform: 'translateY(0)' },
@@ -50,30 +41,23 @@
     <style>
       body {
         -webkit-tap-highlight-color: transparent;
-        background-color: #F2F2F7;
+        background-color: #fdf8f6;
       }
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      .ios-switch {
-        appearance: none; width: 51px; height: 31px; background: #E9E9EA;
-        border-radius: 999px; position: relative; cursor: pointer; transition: background 0.3s;
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
       }
-      .ios-switch::after {
-        content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px;
-        background: white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        transition: transform 0.3s;
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
-      .ios-switch:checked { background: #FFD60A; }
-      .ios-switch:checked::after { transform: translateX(20px); }
-      .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
-      .glass-panel { background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
-      .glass-tabbar { background: rgba(255,255,255,0.85); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-top: 0.5px solid rgba(0,0,0,0.1); }
     </style>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
-    "react/": "https://esm.sh/react@^19.2.3/"
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite": "https://esm.sh/vite@^7.3.1"
   }
 }
 </script>
