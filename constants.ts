@@ -1,12 +1,7 @@
 import { Product } from './types';
 
-// Placeholder images
-const COFFEE_IMG = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=400&q=80";
-const TEA_IMG = "https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9?auto=format&fit=crop&w=400&q=80";
-const SEASONAL_IMG = "https://images.unsplash.com/photo-1612548403247-aa2873e9422d?auto=format&fit=crop&w=400&q=80";
-const PUNCH_IMG = "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=400&q=80";
-const SWEET_IMG = "https://images.unsplash.com/photo-1499195333224-3ce974eecb47?auto=format&fit=crop&w=400&q=80";
-const SODA_IMG = "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80";
+// Картинки привязаны к файлам из папки public/img
+// Названия файлов взяты с вашего скриншота
 
 export const MENU_ITEMS: Product[] = [
   // --- COFFEE ---
@@ -15,7 +10,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Капучино',
     category: 'coffee',
     isDrink: true,
-    image: COFFEE_IMG,
+    image: './img/kapuchino.jpg',
     variants: [
       { size: '250мл', price: 190 },
       { size: '350мл', price: 230 },
@@ -27,7 +22,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Латте',
     category: 'coffee',
     isDrink: true,
-    image: COFFEE_IMG,
+    image: './img/latte.jpg',
     variants: [
       { size: '250мл', price: 190 },
       { size: '350мл', price: 230 },
@@ -39,7 +34,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Эспрессо',
     category: 'coffee',
     isDrink: true,
-    image: COFFEE_IMG,
+    image: './img/espresso1.jpg',
     variants: [
       { size: '30мл', price: 110 },
       { size: '60мл', price: 150 },
@@ -50,7 +45,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Американо',
     category: 'coffee',
     isDrink: true,
-    image: COFFEE_IMG,
+    image: './img/americano.jpg',
     variants: [
       { size: '250мл', price: 180 },
       { size: '350мл', price: 220 },
@@ -62,7 +57,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Флат Уайт',
     category: 'coffee',
     isDrink: true,
-    image: COFFEE_IMG,
+    image: './img/kapuchino.jpg', // Используем фото капучино, так как отдельного нет
     variants: [
       { size: '250мл', price: 220 },
       { size: '350мл', price: 260 },
@@ -74,7 +69,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Раф',
     category: 'coffee',
     isDrink: true,
-    image: COFFEE_IMG,
+    image: './img/latte.jpg', // Используем фото латте, так как отдельного для классического рафа нет
     variants: [
       { size: '250мл', price: 210 },
       { size: '350мл', price: 250 },
@@ -86,7 +81,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Бамбл Теплый',
     category: 'coffee',
     isDrink: true,
-    image: COFFEE_IMG,
+    image: './img/espresso1.jpg', // Временная замена
     variants: [
       { size: '250мл', price: 270 },
       { size: '350мл', price: 270 },
@@ -98,7 +93,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Бамбл Холодный',
     category: 'coffee',
     isDrink: true,
-    image: COFFEE_IMG,
+    image: './img/espresso1.jpg', // Временная замена
     variants: [
       { size: '250мл', price: 270 },
       { size: '350мл', price: 300 },
@@ -109,7 +104,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Эспрессо Тоник',
     category: 'coffee',
     isDrink: true,
-    image: COFFEE_IMG,
+    image: './img/granattonic.jpg',
     description: 'Гранатовый / Обычный',
     variants: [
       { size: '250мл', price: 250 },
@@ -121,7 +116,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Айс Латте',
     category: 'coffee',
     isDrink: true,
-    image: COFFEE_IMG,
+    image: './img/latte.jpg', // Используем обычный латте
     variants: [
       { size: '250мл', price: 240 },
       { size: '350мл', price: 280 },
@@ -130,9 +125,9 @@ export const MENU_ITEMS: Product[] = [
   {
     id: 'matcha',
     name: 'Матча',
-    category: 'coffee', // Kept near coffee as requested logic or use tea
+    category: 'coffee',
     isDrink: true,
-    image: TEA_IMG,
+    image: './img/matcha.jpg',
     variants: [
       { size: '250мл', price: 180 },
       { size: '350мл', price: 220 },
@@ -144,7 +139,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Айс Матча',
     category: 'coffee',
     isDrink: true,
-    image: TEA_IMG,
+    image: './img/matcha.jpg',
     variants: [
       { size: '250мл', price: 230 },
       { size: '350мл', price: 270 },
@@ -155,7 +150,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Какао',
     category: 'coffee',
     isDrink: true,
-    image: COFFEE_IMG,
+    image: './img/kakao.jpg',
     variants: [
       { size: '250мл', price: 180 },
       { size: '350мл', price: 220 },
@@ -169,7 +164,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Чай Черный',
     category: 'tea',
     isDrink: true,
-    image: TEA_IMG,
+    image: './img/teablack.jpg',
     variants: [
         { size: '250мл', price: 120 },
         { size: '350мл', price: 150 },
@@ -181,7 +176,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Чай Зеленый',
     category: 'tea',
     isDrink: true,
-    image: TEA_IMG,
+    image: './img/greentea.jpg',
     variants: [
         { size: '250мл', price: 120 },
         { size: '350мл', price: 150 },
@@ -193,7 +188,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Чай Каркаде',
     category: 'tea',
     isDrink: true,
-    image: TEA_IMG,
+    image: './img/karkadetea.jpg',
     variants: [
         { size: '250мл', price: 120 },
         { size: '350мл', price: 150 },
@@ -205,7 +200,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Чай Жасмин',
     category: 'tea',
     isDrink: true,
-    image: TEA_IMG,
+    image: './img/greenjasmin.jpg',
     variants: [
         { size: '250мл', price: 120 },
         { size: '350мл', price: 150 },
@@ -217,7 +212,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Пряный Чай',
     category: 'tea',
     isDrink: true,
-    image: TEA_IMG,
+    image: './img/pryanytea.jpg',
     variants: [
       { size: '250мл', price: 240 },
       { size: '350мл', price: 280 },
@@ -229,7 +224,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Глинтвейн',
     category: 'tea',
     isDrink: true,
-    image: TEA_IMG,
+    image: './img/glintveinpunch.jpg',
     variants: [
       { size: '350мл', price: 230 },
       { size: '450мл', price: 270 },
@@ -242,7 +237,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Облепиховый пунш',
     category: 'punch',
     isDrink: true,
-    image: PUNCH_IMG,
+    image: './img/oblepihapunch.jpg',
     variants: [
       { size: '350мл', price: 230 },
       { size: '450мл', price: 270 },
@@ -253,7 +248,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Малиновый пунш',
     category: 'punch',
     isDrink: true,
-    image: PUNCH_IMG,
+    image: './img/malinapunsh.jpg',
     variants: [
       { size: '350мл', price: 230 },
       { size: '450мл', price: 270 },
@@ -266,7 +261,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Латте Халва',
     category: 'seasonal',
     isDrink: true,
-    image: SEASONAL_IMG,
+    image: './img/lattehalva.jpg',
     variants: [
       { size: '350мл', price: 290 },
       { size: '450мл', price: 350 },
@@ -277,7 +272,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Латте Тыква',
     category: 'seasonal',
     isDrink: true,
-    image: SEASONAL_IMG,
+    image: './img/lattetikva.jpg',
     variants: [
       { size: '350мл', price: 290 },
       { size: '450мл', price: 350 },
@@ -288,7 +283,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Раф Сникерс',
     category: 'seasonal',
     isDrink: true,
-    image: SEASONAL_IMG,
+    image: './img/rafsnikers.jpg',
     variants: [
       { size: '350мл', price: 320 },
       { size: '450мл', price: 380 },
@@ -299,7 +294,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Латте Orange Christmas',
     category: 'seasonal',
     isDrink: true,
-    image: SEASONAL_IMG,
+    image: './img/latteorangecristmas.jpg',
     variants: [
       { size: '350мл', price: 320 },
       { size: '450мл', price: 380 },
@@ -312,7 +307,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Bombbar Лесной Орех',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/bombbarfunduk.jpg',
     variants: [{ size: 'шт', price: 130 }],
   },
   {
@@ -320,7 +315,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Bombbar Малиновый',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/bombbarmalina.jpg',
     variants: [{ size: 'шт', price: 130 }],
   },
   {
@@ -328,7 +323,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Bombbar Кокос',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/bombbarcocos.jpg',
     variants: [{ size: 'шт', price: 130 }],
   },
   {
@@ -336,7 +331,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Snaqer Орех-Карамель',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/snaqerfunduk.jpg',
     variants: [{ size: 'шт', price: 130 }],
   },
   {
@@ -344,7 +339,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Chika Biscuit Смородина',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/chikabiscuitblackcurrant.jpg',
     variants: [{ size: 'шт', price: 170 }],
   },
   {
@@ -352,7 +347,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Chika Biscuit Банан',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/chikabiscuitbanan.jpg',
     variants: [{ size: 'шт', price: 170 }],
   },
   {
@@ -360,7 +355,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Choko Pie',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/chokopie.jpg',
     variants: [{ size: 'шт', price: 30 }],
   },
   {
@@ -368,7 +363,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Горький Шоколад',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/chokolatgorkiy.jpg',
     variants: [{ size: 'шт', price: 80 }],
   },
   {
@@ -376,7 +371,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Молочный Шоколад',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/chokolatmoloko.jpg',
     variants: [{ size: 'шт', price: 80 }],
   },
   {
@@ -384,7 +379,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Батончик Чудо',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/chudo.jpg',
     variants: [{ size: 'шт', price: 60 }],
   },
   {
@@ -392,7 +387,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Бабаевский Батончик',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/babka.jpg',
     variants: [{ size: 'шт', price: 100 }],
   },
   {
@@ -400,7 +395,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Жвачка Eclipse',
     category: 'sweets',
     isDrink: false,
-    image: SWEET_IMG,
+    image: './img/eclipce.jpg',
     variants: [{ size: 'шт', price: 80 }],
   },
 
@@ -410,7 +405,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Черноголовка Cola',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/colachernogo.jpg',
     variants: [{ size: '0.5', price: 140 }],
   },
   {
@@ -418,7 +413,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Черноголовка Байкал',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/baikalchernogo.jpg',
     variants: [{ size: '0.5', price: 140 }],
   },
   {
@@ -426,7 +421,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Черноголовка Газ/Негаз',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/negazcernogo.jpg',
     variants: [{ size: '0.5', price: 70 }],
   },
   {
@@ -434,7 +429,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Черноголовка Лимонад',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/lemonchernogo.jpg',
     variants: [{ size: '0.5', price: 140 }],
   },
   {
@@ -442,7 +437,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Черноголовка Апельсин-Юдзу',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/chernogolovkaorange.jpg',
     variants: [{ size: 'шт', price: 110 }],
   },
   {
@@ -450,7 +445,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Лимонад Авторский',
     category: 'soda',
     isDrink: true,
-    image: SODA_IMG,
+    image: './img/granattonic.jpg', // Временная замена, так как нет фото "Лимонад"
     description: 'Скиви-Фейхоа, Манго-Маракуйя, Смородина-Мята',
     variants: [
       { size: '250мл', price: 260 },
@@ -462,7 +457,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Cosmos Тропический',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/cosmos.jpg',
     variants: [{ size: 'шт', price: 130 }],
   },
   {
@@ -470,7 +465,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Cosmos Оригинальный',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/cosmosorig.jpg',
     variants: [{ size: 'шт', price: 130 }],
   },
   {
@@ -478,7 +473,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Adrenaline Без сахара',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/adrenalinnosugar.jpg',
     variants: [{ size: 'шт', price: 200 }],
   },
   {
@@ -486,7 +481,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Adrenaline Оригинальный',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/adrenalin.jpg',
     variants: [{ size: 'шт', price: 200 }],
   },
   {
@@ -494,7 +489,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Il Primo Томат',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/iltomato.jpg',
     variants: [{ size: 'шт', price: 120 }],
   },
   {
@@ -502,7 +497,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Il Primo Яблоко',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/ilapple.jpg',
     variants: [{ size: 'шт', price: 120 }],
   },
   {
@@ -510,7 +505,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Il Primo Апельсин',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/ilorange.jpg',
     variants: [{ size: 'шт', price: 120 }],
   },
   {
@@ -518,7 +513,7 @@ export const MENU_ITEMS: Product[] = [
     name: 'Lipton Персик',
     category: 'soda',
     isDrink: false,
-    image: SODA_IMG,
+    image: './img/lipton.jpg',
     variants: [{ size: 'шт', price: 130 }],
   },
 ];
