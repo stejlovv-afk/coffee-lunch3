@@ -15,7 +15,7 @@
             },
             colors: {
               ios: {
-                bg: '#F2F2F7', // iOS System Gray 6
+                bg: '#F2F2F7', 
                 card: '#FFFFFF',
                 text: '#000000',
                 hint: '#8E8E93',
@@ -25,28 +25,22 @@
                 red: '#FF3B30',
               },
               coffee: {
-                primary: '#1C1C1E', // Почти черный (Dark UI)
-                secondary: '#6F4E37', // Классический кофейный
-                accent: '#FFD60A', // iOS System Yellow
+                primary: '#1C1C1E',
+                secondary: '#6F4E37',
+                accent: '#FFD60A',
                 surface: '#FFF9F0',
               }
             },
             boxShadow: {
               'ios': '0 4px 24px rgba(0, 0, 0, 0.06)',
-              'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.04)',
             },
             animation: {
               'slide-up': 'slide-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-              'scale-press': 'scale-press 0.1s ease-in-out',
             },
             keyframes: {
               'slide-up': {
                 '0%': { transform: 'translateY(100%)' },
                 '100%': { transform: 'translateY(0)' },
-              },
-              'scale-press': {
-                '0%': { transform: 'scale(1)' },
-                '100%': { transform: 'scale(0.96)' },
               }
             }
           }
@@ -54,110 +48,35 @@
       }
     </script>
     <style>
-      :root {
-        --safe-area-top: env(safe-area-inset-top, 0px);
-        --safe-area-bottom: env(safe-area-inset-bottom, 20px);
-      }
       body {
         -webkit-tap-highlight-color: transparent;
         background-color: #F2F2F7;
-        color: #000000;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
       }
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
-      
-      /* Glassmorphism Utilities */
-      .glass-panel {
-        background: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border-bottom: 0.5px solid rgba(0, 0, 0, 0.05);
-      }
-      
-      .glass-tabbar {
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(30px);
-        -webkit-backdrop-filter: blur(30px);
-        border-top: 0.5px solid rgba(0, 0, 0, 0.1);
-      }
-
-      /* iOS Toggle Switch */
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       .ios-switch {
-        appearance: none;
-        width: 51px;
-        height: 31px;
-        background: #E9E9EA;
-        border-radius: 999px;
-        position: relative;
-        cursor: pointer;
-        outline: none;
-        transition: background 0.3s;
+        appearance: none; width: 51px; height: 31px; background: #E9E9EA;
+        border-radius: 999px; position: relative; cursor: pointer; transition: background 0.3s;
       }
       .ios-switch::after {
-        content: '';
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        width: 27px;
-        height: 27px;
-        background: white;
-        border-radius: 50%;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px;
+        background: white; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.3s;
       }
-      .ios-switch:checked {
-        background: #FFD60A; /* Yellow Accent */
-      }
-      .ios-switch:checked::after {
-        transform: translateX(20px);
-      }
-
-      /* Custom Range Slider */
-      input[type=range] {
-        -webkit-appearance: none;
-        background: transparent;
-      }
-      input[type=range]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        height: 28px;
-        width: 28px;
-        border-radius: 50%;
-        background: #ffffff;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-        margin-top: -12px;
-        border: 0.5px solid rgba(0,0,0,0.04);
-      }
-      input[type=range]::-webkit-slider-runnable-track {
-        width: 100%;
-        height: 4px;
-        cursor: pointer;
-        background: #E5E5EA;
-        border-radius: 2px;
-      }
-      
-      .pb-safe {
-        padding-bottom: var(--safe-area-bottom);
-      }
+      .ios-switch:checked { background: #FFD60A; }
+      .ios-switch:checked::after { transform: translateX(20px); }
+      .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+      .glass-panel { background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+      .glass-tabbar { background: rgba(255,255,255,0.85); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); border-top: 0.5px solid rgba(0,0,0,0.1); }
     </style>
   <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "vite": "https://esm.sh/vite@^7.3.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <div id="root"></div>
