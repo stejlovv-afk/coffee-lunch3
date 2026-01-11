@@ -34,13 +34,6 @@ function useLongPress(callback: () => void, ms = 1500) {
   };
 }
 
-// --- Refresh Icon Component ---
-const ArrowPathIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-  </svg>
-);
-
 // --- Main Component ---
 const App: React.FC = () => {
   // --- State ---
@@ -74,20 +67,18 @@ const App: React.FC = () => {
     if (savedAdmin === 'true') setIsAdmin(true);
 
     // 2. CRITICAL: Load HIDDEN ITEMS from URL
-    // The Bot adds ?hidden=id1,id2 to the URL.
     const params = new URLSearchParams(window.location.search);
     const hiddenParam = params.get('hidden');
     
-    // ВАЖНОЕ ИСПРАВЛЕНИЕ:
-    // Проверяем на null, так как пустая строка "" это валидное значение (значит скрытых нет)
+    // Если параметр есть (даже пустой), используем его.
+    // Если параметра нет (старая ссылка), пробуем localStorage.
     if (hiddenParam !== null) {
       if (hiddenParam === '') {
-          setHiddenItems([]); // Список пуст, ничего не скрыто
+          setHiddenItems([]); 
       } else {
           setHiddenItems(hiddenParam.split(','));
       }
     } else {
-       // Если параметра вообще нет (например открыли по старой ссылке), пробуем взять из памяти
        const savedHidden = localStorage.getItem('hiddenItems');
        if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
     }
@@ -108,20 +99,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- Logic ---
-
-  // REFRESH MENU LOGIC
-  const handleRefreshMenu = () => {
-    if (window.Telegram?.WebApp) {
-       window.Telegram.WebApp.sendData(JSON.stringify({ action: 'refresh_menu' }));
-       // Закрываем, чтобы пользователь увидел новое сообщение от бота
-       setTimeout(() => window.Telegram.WebApp.close(), 100);
-    } else {
-       alert("В Telegram это отправит команду боту прислать новое меню.");
-       window.location.reload();
-    }
-  };
-
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => {
       const product = MENU_ITEMS.find(p => p.id === item.productId);
@@ -137,7 +114,7 @@ const App: React.FC = () => {
         if (window.Telegram?.WebApp?.showPopup) {
             window.Telegram.WebApp.showPopup({
                 title: 'Сумма заказа',
-                message: 'Минимальная сумма для онлайн-оплаты — 100₽. Пожалуйста, добавьте еще товары.',
+                message: 'Минимальная сумма для онлайн-оплаты — 100₽.',
                 buttons: [{type: 'ok'}]
             });
         } else {
@@ -160,6 +137,7 @@ const App: React.FC = () => {
         if (item.options.cinnamon) details += `, Корица`;
 
         return {
+          id: product.id,
           name: product.name,
           size: variant.size,
           count: item.quantity,
@@ -241,6 +219,7 @@ const App: React.FC = () => {
 
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.sendData(JSON.stringify(payload));
+      setTimeout(() => window.Telegram.WebApp.close(), 100);
     } else {
       console.log("Menu Update Payload:", payload);
       alert("Меню сохранено (Тест).");
@@ -285,15 +264,6 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="sticky top-0 z-20 bg-coffee-50/95 backdrop-blur-md shadow-sm px-4 py-3 flex justify-between items-center transition-colors">
         <div className="flex gap-3 items-center">
-            {/* Refresh Button */}
-            <button 
-              onClick={handleRefreshMenu}
-              className="p-2 bg-gray-100 rounded-full text-gray-500 active:bg-gray-200 active:rotate-180 transition-all"
-              title="Обновить меню"
-            >
-              <ArrowPathIcon className="w-5 h-5" />
-            </button>
-
             <div>
               <h1 
                 {...handleLongPress}
