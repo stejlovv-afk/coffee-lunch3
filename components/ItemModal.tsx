@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 
 interface ItemModalProps {
@@ -8,18 +8,51 @@ interface ItemModalProps {
   initialVariantIdx?: number;
 }
 
+const MILK_OPTIONS = [
+  { id: 'none', label: 'Обычное', price: 0 },
+  { id: 'banana', label: 'Банановое', price: 70 },
+  { id: 'coconut', label: 'Кокосовое', price: 70 },
+  { id: 'almond', label: 'Миндальное', price: 70 },
+  { id: 'oat', label: 'Овсяное', price: 70 },
+];
+
+const SYRUP_OPTIONS = [
+  { id: 'none', label: 'Нет', price: 0 },
+  { id: 'caramel', label: 'Карамель', price: 40 },
+  { id: 'vanilla', label: 'Ваниль', price: 40 },
+  { id: 'hazelnut', label: 'Лесной орех', price: 40 },
+  { id: 'coconut', label: 'Кокос', price: 40 },
+  { id: 'chocolate', label: 'Шоколад', price: 40 },
+];
+
 const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, initialVariantIdx = 0 }) => {
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(initialVariantIdx);
   const [quantity, setQuantity] = useState(1);
   const [temp, setTemp] = useState<'hot' | 'cold'>('hot');
   const [sugar, setSugar] = useState<number>(0);
   const [cinnamon, setCinnamon] = useState<boolean>(false);
+  const [selectedMilk, setSelectedMilk] = useState<string>('none');
+  const [selectedSyrup, setSelectedSyrup] = useState<string>('none');
+
+  const basePrice = product.variants[selectedVariantIdx].price;
+  
+  const totalPrice = useMemo(() => {
+    let price = basePrice;
+    if (product.isDrink) {
+      const milkPrice = MILK_OPTIONS.find(m => m.id === selectedMilk)?.price || 0;
+      const syrupPrice = SYRUP_OPTIONS.find(s => s.id === selectedSyrup)?.price || 0;
+      price += milkPrice + syrupPrice;
+    }
+    return price * quantity;
+  }, [basePrice, quantity, selectedMilk, selectedSyrup, product.isDrink]);
 
   const handleAdd = () => {
     onAddToCart(selectedVariantIdx, quantity, {
       temperature: product.isDrink ? temp : undefined,
       sugar: product.isDrink ? sugar : undefined,
-      cinnamon: product.isDrink ? cinnamon : undefined
+      cinnamon: product.isDrink ? cinnamon : undefined,
+      milk: product.isDrink && selectedMilk !== 'none' ? selectedMilk : undefined,
+      syrup: product.isDrink && selectedSyrup !== 'none' ? selectedSyrup : undefined,
     });
     onClose();
   };
@@ -34,7 +67,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
           <div>
             <h3 className="text-xl font-bold text-gray-900">{product.name}</h3>
             <p className="text-coffee-500 font-bold text-lg">
-              {product.variants[selectedVariantIdx].price * quantity}₽
+              {totalPrice}₽
             </p>
           </div>
         </div>
@@ -78,6 +111,38 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
                   Холодный
                 </button>
               </div>
+            </div>
+
+            {/* Milk Selection */}
+            <div>
+               <label className="block text-sm font-medium text-gray-700 mb-2">Молоко</label>
+               <select 
+                 value={selectedMilk}
+                 onChange={(e) => setSelectedMilk(e.target.value)}
+                 className="w-full bg-gray-100 p-3 rounded-xl outline-none focus:ring-2 ring-coffee-500"
+               >
+                 {MILK_OPTIONS.map(m => (
+                   <option key={m.id} value={m.id}>
+                     {m.label} {m.price > 0 ? `(+${m.price}₽)` : ''}
+                   </option>
+                 ))}
+               </select>
+            </div>
+
+            {/* Syrup Selection */}
+            <div>
+               <label className="block text-sm font-medium text-gray-700 mb-2">Сироп</label>
+               <select 
+                 value={selectedSyrup}
+                 onChange={(e) => setSelectedSyrup(e.target.value)}
+                 className="w-full bg-gray-100 p-3 rounded-xl outline-none focus:ring-2 ring-coffee-500"
+               >
+                 {SYRUP_OPTIONS.map(s => (
+                   <option key={s.id} value={s.id}>
+                     {s.label} {s.price > 0 ? `(+${s.price}₽)` : ''}
+                   </option>
+                 ))}
+               </select>
             </div>
 
             <div>
@@ -128,7 +193,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
             onClick={handleAdd}
             className="flex-1 bg-coffee-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform"
           >
-            Добавить за {product.variants[selectedVariantIdx].price * quantity}₽
+            Добавить за {totalPrice}₽
           </button>
         </div>
       </div>
