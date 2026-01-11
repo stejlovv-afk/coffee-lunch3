@@ -34,6 +34,13 @@ function useLongPress(callback: () => void, ms = 1500) {
   };
 }
 
+// --- Refresh Icon Component ---
+const ArrowPathIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+  </svg>
+);
+
 // --- Main Component ---
 const App: React.FC = () => {
   // --- State ---
@@ -66,16 +73,21 @@ const App: React.FC = () => {
     const savedAdmin = localStorage.getItem('isAdmin');
     if (savedAdmin === 'true') setIsAdmin(true);
 
-    // 2. CRITICAL: Load HIDDEN ITEMS from URL (This syncs with Bot)
-    // The Bot adds ?hidden=id1,id2 to the URL when opening the app
+    // 2. CRITICAL: Load HIDDEN ITEMS from URL
+    // The Bot adds ?hidden=id1,id2 to the URL.
     const params = new URLSearchParams(window.location.search);
     const hiddenParam = params.get('hidden');
     
-    if (hiddenParam) {
-      // If URL has params, use them (Master Source)
-      setHiddenItems(hiddenParam.split(','));
+    // ВАЖНОЕ ИСПРАВЛЕНИЕ:
+    // Проверяем на null, так как пустая строка "" это валидное значение (значит скрытых нет)
+    if (hiddenParam !== null) {
+      if (hiddenParam === '') {
+          setHiddenItems([]); // Список пуст, ничего не скрыто
+      } else {
+          setHiddenItems(hiddenParam.split(','));
+      }
     } else {
-       // Fallback to local storage only if URL is clean
+       // Если параметра вообще нет (например открыли по старой ссылке), пробуем взять из памяти
        const savedHidden = localStorage.getItem('hiddenItems');
        if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
     }
@@ -96,7 +108,20 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- Checkout Logic ---
+  // --- Logic ---
+
+  // REFRESH MENU LOGIC
+  const handleRefreshMenu = () => {
+    if (window.Telegram?.WebApp) {
+       window.Telegram.WebApp.sendData(JSON.stringify({ action: 'refresh_menu' }));
+       // Закрываем, чтобы пользователь увидел новое сообщение от бота
+       setTimeout(() => window.Telegram.WebApp.close(), 100);
+    } else {
+       alert("В Telegram это отправит команду боту прислать новое меню.");
+       window.location.reload();
+    }
+  };
+
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => {
       const product = MENU_ITEMS.find(p => p.id === item.productId);
@@ -108,7 +133,6 @@ const App: React.FC = () => {
   const handleCheckout = useCallback(() => {
     if (cart.length === 0 || isSending) return;
 
-    // VALIDATION: Minimum amount for Telegram Payments (approx 70-100 RUB required)
     if (cartTotal < 100) {
         if (window.Telegram?.WebApp?.showPopup) {
             window.Telegram.WebApp.showPopup({
@@ -124,7 +148,6 @@ const App: React.FC = () => {
 
     setIsSending(true);
 
-    // Prepare payload for Bot
     const payload: WebAppPayload = {
       action: 'order',
       items: cart.map(item => {
@@ -149,47 +172,19 @@ const App: React.FC = () => {
 
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
-      
       try {
-        if (tg.HapticFeedback) {
-            tg.HapticFeedback.notificationOccurred('success');
-        }
-        
-        // Send data to Bot
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         tg.sendData(JSON.stringify(payload));
-        
-        // Don't close immediately in dev mode, but in prod we close
-        // setTimeout(() => tg.close(), 500); 
       } catch (e) {
         setIsSending(false);
         alert("Ошибка отправки! Запустите бота заново.");
       }
     } else {
       console.log("Order Payload:", payload);
-      alert(`[Тест браузера] Заказ на ${payload.total}р сформирован.`);
+      alert(`[Тест] Заказ на ${payload.total}р сформирован.`);
       setIsSending(false);
     }
   }, [cart, cartTotal, isSending]);
-
-  // Sync MainButton (optional, but good for backup)
-  useEffect(() => {
-    if (!window.Telegram?.WebApp) return;
-    const tg = window.Telegram.WebApp;
-    const mainBtn = tg.MainButton;
-
-    if (isCartOpen && cart.length > 0) {
-        mainBtn.setText(`ОПЛАТИТЬ ${cartTotal}₽`);
-        // mainBtn.show(); 
-        mainBtn.onClick(handleCheckout);
-    } else {
-        mainBtn.hide();
-        mainBtn.offClick(handleCheckout);
-    }
-
-    return () => {
-        mainBtn.offClick(handleCheckout);
-    };
-  }, [isCartOpen, cart.length, cartTotal, handleCheckout]);
 
   // Sync local storage on state change
   useEffect(() => {
@@ -204,7 +199,6 @@ const App: React.FC = () => {
     localStorage.setItem('isAdmin', String(isAdmin));
   }, [isAdmin]);
 
-  // --- Logic ---
   const toggleFavorite = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setFavorites(prev => 
@@ -239,7 +233,6 @@ const App: React.FC = () => {
     setCart(prev => prev.filter(i => i.uniqueId !== uniqueId));
   };
 
-  // --- Admin Save Logic (SYNC WITH BOT) ---
   const handleSaveMenuToBot = () => {
     const payload: WebAppPayload = {
       action: 'update_menu',
@@ -247,16 +240,13 @@ const App: React.FC = () => {
     };
 
     if (window.Telegram?.WebApp) {
-      // Send the list of hidden items to the bot
-      // The bot will store this and append ?hidden=... to future URLs
       window.Telegram.WebApp.sendData(JSON.stringify(payload));
     } else {
       console.log("Menu Update Payload:", payload);
-      alert("Меню сохранено (Тест). В Telegram бот получил бы список скрытых товаров.");
+      alert("Меню сохранено (Тест).");
     }
   };
 
-  // --- Admin Auth ---
   const handleLongPress = useLongPress(() => {
     setShowAdminAuth(true);
     if(window.Telegram?.WebApp?.HapticFeedback) {
@@ -275,7 +265,6 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Render ---
   const visibleItems = MENU_ITEMS.filter(item => 
     (item.category === activeCategory) && 
     (isAdmin ? true : !hiddenItems.includes(item.id))
@@ -295,16 +284,28 @@ const App: React.FC = () => {
       
       {/* Header */}
       <header className="sticky top-0 z-20 bg-coffee-50/95 backdrop-blur-md shadow-sm px-4 py-3 flex justify-between items-center transition-colors">
-        <div>
-          <h1 
-            {...handleLongPress}
-            className="text-2xl font-black text-coffee-800 tracking-tight select-none cursor-pointer active:scale-95 transition-transform user-select-none"
-            style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
-          >
-            COFFEE LUNCH
-          </h1>
-          <p className="text-xs text-coffee-500 font-bold">Лучший кофе в городе</p>
+        <div className="flex gap-3 items-center">
+            {/* Refresh Button */}
+            <button 
+              onClick={handleRefreshMenu}
+              className="p-2 bg-gray-100 rounded-full text-gray-500 active:bg-gray-200 active:rotate-180 transition-all"
+              title="Обновить меню"
+            >
+              <ArrowPathIcon className="w-5 h-5" />
+            </button>
+
+            <div>
+              <h1 
+                {...handleLongPress}
+                className="text-2xl font-black text-coffee-800 tracking-tight select-none cursor-pointer active:scale-95 transition-transform user-select-none"
+                style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
+              >
+                COFFEE LUNCH
+              </h1>
+              <p className="text-xs text-coffee-500 font-bold">Лучший кофе в городе</p>
+            </div>
         </div>
+        
         <button 
           onClick={() => {
             const favs = MENU_ITEMS.filter(i => favorites.includes(i.id));
