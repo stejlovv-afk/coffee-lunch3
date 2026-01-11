@@ -43,7 +43,7 @@ export interface CartItem {
   variantIndex: number;
   quantity: number;
   options: CartItemOption;
-  totalPrice: number; // Added to track price with modifiers
+  totalPrice: number;
 }
 
 export interface Review {
@@ -67,7 +67,7 @@ export interface OrderActionPayload {
     details: string;
   }[];
   total: number;
-  pickupTime: string; // "Как можно скорее" or specific time like "14:30"
+  pickupTime: string;
   comment: string;
 }
 
