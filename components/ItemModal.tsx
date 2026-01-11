@@ -1,225 +1,135 @@
 import React, { useState } from 'react';
-import { Product, CartItemOption } from '../types';
+import { Product } from '../types';
 
 interface ItemModalProps {
   product: Product;
   onClose: () => void;
-  onAddToCart: (variantIdx: number, quantity: number, options: CartItemOption, totalPrice: number) => void;
+  onAddToCart: (variantIdx: number, quantity: number, options: any) => void;
+  initialVariantIdx?: number;
 }
 
-const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart }) => {
-  const [variantIdx, setVariantIdx] = useState(0);
+const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, initialVariantIdx = 0 }) => {
+  const [selectedVariantIdx, setSelectedVariantIdx] = useState(initialVariantIdx);
   const [quantity, setQuantity] = useState(1);
-  
-  // Options
-  const [temp, setTemp] = useState<'warm' | 'cold'>('cold');
-  const [gas, setGas] = useState<boolean>(true);
-  const [milk, setMilk] = useState<string>('classic');
-  const [syrup, setSyrup] = useState<string | null>(null);
-  const [honey, setHoney] = useState<boolean>(false);
-  const [filtered, setFiltered] = useState<boolean>(false);
-  const [heat, setHeat] = useState<boolean>(false);
-  const [cutlery, setCutlery] = useState<boolean>(false);
-  const [sugar, setSugar] = useState(0);
-  const [cinnamon, setCinnamon] = useState(false);
-
-  // Logic Helpers
-  const isRaf = product.id.includes('raf');
-  const isBumble = product.id.includes('bumble');
-  const isWater = product.id === 'chern_water';
-  const isPunch = product.category === 'punch';
-  const isBuckthorn = product.id === 'punch_buckthorn';
-  const isSeasonal = product.category === 'seasonal';
-  const isCoffee = product.category === 'coffee';
-  const isFood = ['sandwiches', 'hot', 'salads'].includes(product.category);
-  const canHeat = ['sandwiches', 'hot'].includes(product.category);
-
-  const showMilk = isCoffee && !isRaf && !isBumble;
-  const showSyrup = isCoffee && !isSeasonal && !isRaf && !isBumble; 
-
-  // Pricing
-  const getModifierPrice = (baseSmall: number, baseMed: number, baseLarge: number) => {
-    if (variantIdx === 0) return baseSmall;
-    if (variantIdx === 1) return baseMed;
-    return baseLarge;
-  };
-
-  const milkPrice = milk === 'classic' ? 0 : getModifierPrice(70, 80, 90);
-  const syrupPrice = syrup ? getModifierPrice(30, 40, 50) : 0;
-  
-  const oneItemPrice = product.variants[variantIdx].price + (showMilk ? milkPrice : 0) + (showSyrup ? syrupPrice : 0);
-  const finalPrice = oneItemPrice * quantity;
+  const [temp, setTemp] = useState<'hot' | 'cold'>('hot');
+  const [sugar, setSugar] = useState<number>(0);
+  const [cinnamon, setCinnamon] = useState<boolean>(false);
 
   const handleAdd = () => {
-    onAddToCart(variantIdx, quantity, {
-      temperature: isBumble ? temp : undefined,
-      gas: isWater ? gas : undefined,
-      milk: showMilk && milk !== 'classic' ? milk : undefined,
-      syrup: showSyrup && syrup ? syrup : undefined,
-      honey: isBuckthorn ? honey : undefined,
-      filtered: isPunch ? filtered : undefined,
-      heat: canHeat ? heat : undefined,
-      cutlery: isFood ? cutlery : undefined,
-      sugar: (isCoffee || product.category === 'tea') ? sugar : undefined,
-      cinnamon: (isCoffee || product.category === 'tea') ? cinnamon : undefined
-    }, finalPrice);
+    onAddToCart(selectedVariantIdx, quantity, {
+      temperature: product.isDrink ? temp : undefined,
+      sugar: product.isDrink ? sugar : undefined,
+      cinnamon: product.isDrink ? cinnamon : undefined
+    });
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[4px] transition-opacity" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
       
-      <div className="bg-white w-full max-w-lg rounded-t-[32px] relative z-10 animate-slide-up max-h-[90vh] overflow-y-auto no-scrollbar shadow-2xl pb-safe">
-        
-        {/* Grabber */}
-        <div className="sticky top-0 bg-white z-20 w-full flex justify-center pt-3 pb-4 rounded-t-[32px]">
-           <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+      <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 relative z-10 animate-slide-up pointer-events-auto max-h-[90vh] overflow-y-auto">
+        <div className="flex gap-4 mb-6">
+          <img src={product.image} alt={product.name} className="w-24 h-24 object-cover rounded-2xl shadow-md" />
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">{product.name}</h3>
+            <p className="text-coffee-500 font-bold text-lg">
+              {product.variants[selectedVariantIdx].price * quantity}₽
+            </p>
+          </div>
         </div>
 
-        <div className="px-6 pb-6">
-          {/* Header */}
-          <div className="flex gap-5 mb-8">
-            <img src={product.image} alt={product.name} className="w-32 h-32 object-cover rounded-[20px] shadow-md bg-gray-100" />
-            <div className="flex flex-col justify-center">
-              <h3 className="text-3xl font-bold text-coffee-primary leading-tight mb-2">{product.name}</h3>
-              <p className="text-3xl font-bold text-coffee-primary">{finalPrice}₽</p>
-            </div>
+        {/* Size Selection */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Объем / Размер</label>
+          <div className="flex flex-wrap gap-2">
+            {product.variants.map((v, idx) => (
+              <button
+                key={idx}
+                onClick={() => setSelectedVariantIdx(idx)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                  selectedVariantIdx === idx 
+                    ? 'bg-coffee-500 text-white shadow-md' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {v.size}
+              </button>
+            ))}
           </div>
+        </div>
 
-          {/* Size Selector (Segmented Control Style) */}
-          <div className="mb-8">
-            <label className="block text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Размер</label>
-            <div className="bg-gray-100 p-1 rounded-[14px] flex">
-              {product.variants.map((v, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setVariantIdx(idx)}
-                  className={`flex-1 py-2.5 rounded-[12px] text-[15px] font-semibold transition-all ${
-                    variantIdx === idx 
-                      ? 'bg-white text-black shadow-sm' 
-                      : 'text-gray-500'
-                  }`}
+        {/* Drink Options */}
+        {product.isDrink && (
+          <div className="space-y-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Температура</label>
+              <div className="flex bg-gray-100 p-1 rounded-xl">
+                <button 
+                  onClick={() => setTemp('hot')}
+                  className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${temp === 'hot' ? 'bg-white shadow text-coffee-500' : 'text-gray-500'}`}
                 >
-                  {v.size}
+                  Горячий
                 </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Food Options */}
-          {isFood && (
-            <div className="mb-8 space-y-4">
-               {canHeat && (
-                 <div className="flex items-center justify-between py-1">
-                    <span className="text-[17px] font-medium text-black">Подогреть</span>
-                    <input type="checkbox" className="ios-switch" checked={heat} onChange={() => setHeat(!heat)} />
-                 </div>
-               )}
-               <div className="w-full h-[1px] bg-gray-100"></div>
-               <div className="flex items-center justify-between py-1">
-                  <span className="text-[17px] font-medium text-black">Приборы</span>
-                  <input type="checkbox" className="ios-switch" checked={cutlery} onChange={() => setCutlery(!cutlery)} />
-               </div>
-            </div>
-          )}
-
-          {/* Bumble Temp */}
-          {isBumble && (
-            <div className="mb-8">
-               <label className="block text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Температура</label>
-               <div className="bg-gray-100 p-1 rounded-[14px] flex">
-                  <button onClick={() => setTemp('warm')} className={`flex-1 py-2 rounded-[12px] text-sm font-bold ${temp === 'warm' ? 'bg-white shadow text-orange-500' : 'text-gray-500'}`}>Теплый</button>
-                  <button onClick={() => setTemp('cold')} className={`flex-1 py-2 rounded-[12px] text-sm font-bold ${temp === 'cold' ? 'bg-white shadow text-blue-500' : 'text-gray-500'}`}>Холодный</button>
-               </div>
-            </div>
-          )}
-
-          {/* Milk Options */}
-          {showMilk && (
-            <div className="mb-8">
-              <label className="block text-[13px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Молоко</label>
-              <div className="flex flex-wrap gap-2">
-                {[{ id: 'classic', label: 'Обычное' }, { id: 'banana', label: 'Банан' }, { id: 'coconut', label: 'Кокос' }, { id: 'lactose_free', label: 'Безлакт' }, { id: 'almond', label: 'Миндаль' }].map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setMilk(m.id)}
-                    className={`px-4 py-2 rounded-full text-[15px] font-medium transition-all border ${
-                      milk === m.id
-                        ? 'bg-coffee-primary border-coffee-primary text-white'
-                        : 'bg-white border-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
+                <button 
+                  onClick={() => setTemp('cold')}
+                  className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${temp === 'cold' ? 'bg-white shadow text-blue-500' : 'text-gray-500'}`}
+                >
+                  Холодный
+                </button>
               </div>
             </div>
-          )}
 
-          {/* Syrups */}
-          {showSyrup && (
-            <div className="mb-8">
-               <div className="flex justify-between items-center mb-3">
-                  <label className="text-[13px] font-semibold text-gray-400 uppercase tracking-wide">Сироп</label>
-                  {syrup && <button onClick={() => setSyrup(null)} className="text-[13px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md">Сбросить</button>}
-               </div>
-               <div className="space-y-4">
-                 <div className="flex flex-wrap gap-2">
-                   {['Фисташка', 'Лесной орех', 'Кокос', 'Карамель', 'Ваниль', 'Лаванда'].map(item => (
-                     <button
-                       key={item}
-                       onClick={() => setSyrup(item === syrup ? null : item)}
-                       className={`px-4 py-2 rounded-full text-[15px] font-medium transition-all border ${
-                         syrup === item
-                           ? 'bg-coffee-accent border-coffee-accent text-coffee-primary'
-                           : 'bg-white border-gray-200 text-gray-600'
-                       }`}
-                     >
-                       {item}
-                     </button>
-                   ))}
-                 </div>
-               </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Сахар ({sugar}г)</label>
+              <input 
+                type="range" 
+                min="0" 
+                max="10" 
+                step="1" 
+                value={sugar}
+                onChange={(e) => setSugar(Number(e.target.value))}
+                className="w-full accent-coffee-500 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-400 mt-1">
+                <span>0г</span>
+                <span>5г</span>
+                <span>10г</span>
+              </div>
             </div>
-          )}
 
-          {/* Sugar & Cinnamon */}
-          {(isCoffee || product.category === 'tea') && (
-             <div className="mb-8 bg-gray-50 p-5 rounded-[20px]">
-                <div className="mb-6">
-                  <div className="flex justify-between mb-2">
-                    <span className="text-[15px] font-medium">Сахар</span>
-                    <span className="text-[15px] font-bold text-gray-500">{sugar}г</span>
-                  </div>
-                  <input 
-                    type="range" min="0" max="10" step="5" value={sugar}
-                    onChange={(e) => setSugar(Number(e.target.value))}
-                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[17px] font-medium">Корица</span>
-                  <input type="checkbox" className="ios-switch" checked={cinnamon} onChange={() => setCinnamon(!cinnamon)} />
-                </div>
-             </div>
-          )}
-
-          {/* Action Bar */}
-          <div className="flex gap-4 items-center pt-2">
-            <div className="flex items-center bg-gray-100 rounded-[16px] px-2 h-14">
-              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-12 h-full text-2xl text-gray-500 font-medium pb-1">-</button>
-              <span className="w-6 text-center font-bold text-xl">{quantity}</span>
-              <button onClick={() => setQuantity(quantity + 1)} className="w-12 h-full text-2xl text-gray-500 font-medium pb-1">+</button>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Добавить корицу?</span>
+              <button 
+                onClick={() => setCinnamon(!cinnamon)}
+                className={`w-12 h-6 rounded-full transition-colors relative ${cinnamon ? 'bg-coffee-500' : 'bg-gray-300'}`}
+              >
+                <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${cinnamon ? 'left-7' : 'left-1'}`} />
+              </button>
             </div>
-            
-            <button 
-              onClick={handleAdd}
-              className="flex-1 bg-coffee-primary text-white h-14 rounded-[16px] font-bold text-[17px] shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
-            >
-              Добавить за {finalPrice}₽
-            </button>
           </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-4 items-center">
+          <div className="flex items-center bg-gray-100 rounded-xl px-2">
+            <button 
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              className="w-10 h-10 text-xl font-bold text-gray-600 pb-1"
+            >-</button>
+            <span className="w-8 text-center font-bold">{quantity}</span>
+            <button 
+              onClick={() => setQuantity(quantity + 1)}
+              className="w-10 h-10 text-xl font-bold text-gray-600 pb-1"
+            >+</button>
+          </div>
+          
+          <button 
+            onClick={handleAdd}
+            className="flex-1 bg-coffee-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform"
+          >
+            Добавить за {product.variants[selectedVariantIdx].price * quantity}₽
+          </button>
         </div>
       </div>
     </div>
