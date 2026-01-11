@@ -73,4 +73,8 @@ export interface MenuUpdateActionPayload {
   hiddenItems: string[];
 }
 
-export type WebAppPayload = OrderActionPayload | MenuUpdateActionPayload;
+export interface RefreshMenuPayload {
+    action: 'refresh_menu';
+}
+
+export type WebAppPayload = OrderActionPayload | MenuUpdateActionPayload | RefreshMenuPayload;
