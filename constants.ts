@@ -1,12 +1,14 @@
 import { Product } from './types';
 
-// Placeholder images (Unsplash)
+// Images (Unsplash placeholders)
 const COFFEE_IMG = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=400&q=80";
 const TEA_IMG = "https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9?auto=format&fit=crop&w=400&q=80";
 const SEASONAL_IMG = "https://images.unsplash.com/photo-1612548403247-aa2873e9422d?auto=format&fit=crop&w=400&q=80";
 const PUNCH_IMG = "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=400&q=80";
 const SWEET_IMG = "https://images.unsplash.com/photo-1499195333224-3ce974eecb47?auto=format&fit=crop&w=400&q=80";
 const SODA_IMG = "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=400&q=80";
+const SALAD_IMG = "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=400&q=80";
+const SANDWICH_IMG = "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=400&q=80";
 
 export const MENU_ITEMS: Product[] = [
   // --- COFFEE ---
@@ -130,7 +132,7 @@ export const MENU_ITEMS: Product[] = [
   {
     id: 'matcha',
     name: 'Матча',
-    category: 'coffee', // Kept near coffee as requested logic or use tea
+    category: 'coffee',
     isDrink: true,
     image: TEA_IMG,
     variants: [
@@ -161,6 +163,43 @@ export const MENU_ITEMS: Product[] = [
       { size: '350мл', price: 220 },
       { size: '450мл', price: 260 },
     ],
+  },
+
+  // --- SALADS / FOOD (Added back) ---
+  {
+    id: 'caesar_chicken',
+    name: 'Цезарь с курицей',
+    category: 'salads',
+    isDrink: false,
+    image: SALAD_IMG,
+    description: 'Классический цезарь с сочной куриной грудкой',
+    variants: [{ size: 'порция', price: 350 }],
+  },
+  {
+    id: 'greek_salad',
+    name: 'Греческий салат',
+    category: 'salads',
+    isDrink: false,
+    image: SALAD_IMG,
+    description: 'Свежие овощи, фета и оливки',
+    variants: [{ size: 'порция', price: 320 }],
+  },
+  {
+    id: 'club_sandwich',
+    name: 'Клаб-сэндвич',
+    category: 'food',
+    isDrink: false,
+    image: SANDWICH_IMG,
+    description: 'С ветчиной и сыром',
+    variants: [{ size: 'шт', price: 280 }],
+  },
+  {
+    id: 'croissant_salmon',
+    name: 'Круассан с лососем',
+    category: 'food',
+    isDrink: false,
+    image: SANDWICH_IMG,
+    variants: [{ size: 'шт', price: 390 }],
   },
 
   // --- TEA ---
