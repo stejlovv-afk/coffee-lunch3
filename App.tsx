@@ -11,6 +11,20 @@ declare global {
   }
 }
 
+// Helper maps for price calc in cart
+const MILK_PRICES: Record<string, number> = {
+  none: 0, banana: 70, coconut: 70, almond: 70, oat: 70
+};
+const SYRUP_PRICES: Record<string, number> = {
+  none: 0, caramel: 40, vanilla: 40, hazelnut: 40, coconut: 40, chocolate: 40
+};
+const MILK_LABELS: Record<string, string> = {
+  banana: 'Банан молоко', coconut: 'Кокос молоко', almond: 'Миндаль молоко', oat: 'Овсяное молоко'
+};
+const SYRUP_LABELS: Record<string, string> = {
+  caramel: 'Сироп Карамель', vanilla: 'Сироп Ваниль', hazelnut: 'Сироп Орех', coconut: 'Сироп Кокос', chocolate: 'Сироп Шоколад'
+};
+
 // --- Helper Hook for Long Press ---
 function useLongPress(callback: () => void, ms = 1500) {
   const [startLongPress, setStartLongPress] = useState(false);
@@ -102,19 +116,29 @@ const App: React.FC = () => {
     return cart.reduce((total, item) => {
       const product = MENU_ITEMS.find(p => p.id === item.productId);
       if (!product) return total;
-      return total + (product.variants[item.variantIndex].price * item.quantity);
+      let price = product.variants[item.variantIndex].price;
+      
+      // Add add-ons prices
+      if (item.options.milk && MILK_PRICES[item.options.milk]) {
+         price += MILK_PRICES[item.options.milk];
+      }
+      if (item.options.syrup && SYRUP_PRICES[item.options.syrup]) {
+         price += SYRUP_PRICES[item.options.syrup];
+      }
+
+      return total + (price * item.quantity);
     }, 0);
   }, [cart]);
 
   const handleCheckout = useCallback(() => {
     if (cart.length === 0 || isSending) return;
 
-    // VALIDATION: Minimum amount for Telegram Payments (approx 70-100 RUB required)
+    // VALIDATION: Minimum amount for Telegram Payments
     if (cartTotal < 100) {
         if (window.Telegram?.WebApp?.showPopup) {
             window.Telegram.WebApp.showPopup({
                 title: 'Сумма заказа',
-                message: 'Минимальная сумма для онлайн-оплаты — 100₽. Пожалуйста, добавьте еще товары.',
+                message: 'Минимальная сумма для онлайн-оплаты — 100₽.',
                 buttons: [{type: 'ok'}]
             });
         } else {
@@ -133,14 +157,21 @@ const App: React.FC = () => {
         
         let details = variant.size;
         if (item.options.temperature) details += `, ${item.options.temperature === 'hot' ? 'Гор' : 'Хол'}`;
+        if (item.options.milk && MILK_LABELS[item.options.milk]) details += `, ${MILK_LABELS[item.options.milk]}`;
+        if (item.options.syrup && SYRUP_LABELS[item.options.syrup]) details += `, ${SYRUP_LABELS[item.options.syrup]}`;
         if (item.options.sugar !== undefined && item.options.sugar > 0) details += `, Сахар: ${item.options.sugar}г`;
         if (item.options.cinnamon) details += `, Корица`;
+
+        // Recalculate single item price for the invoice
+        let finalPrice = variant.price;
+        if (item.options.milk && MILK_PRICES[item.options.milk]) finalPrice += MILK_PRICES[item.options.milk];
+        if (item.options.syrup && SYRUP_PRICES[item.options.syrup]) finalPrice += SYRUP_PRICES[item.options.syrup];
 
         return {
           name: product.name,
           size: variant.size,
           count: item.quantity,
-          price: variant.price,
+          price: finalPrice,
           details
         };
       }),
@@ -149,19 +180,10 @@ const App: React.FC = () => {
 
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
-      
       try {
-        if (tg.HapticFeedback) {
-            tg.HapticFeedback.notificationOccurred('success');
-        }
-        
-        // Send data
+        if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         tg.sendData(JSON.stringify(payload));
-        
-        // Close manually after a short delay
-        setTimeout(() => {
-            tg.close();
-        }, 500); 
+        setTimeout(() => tg.close(), 500); 
       } catch (e) {
         setIsSending(false);
         alert("Ошибка отправки! Запустите бота заново.");
@@ -173,7 +195,7 @@ const App: React.FC = () => {
     }
   }, [cart, cartTotal, isSending]);
 
-  // Sync MainButton (optional, but good for backup)
+  // Sync MainButton
   useEffect(() => {
     if (!window.Telegram?.WebApp) return;
     const tg = window.Telegram.WebApp;
@@ -181,36 +203,22 @@ const App: React.FC = () => {
 
     if (isCartOpen && cart.length > 0) {
         mainBtn.setText(`ОПЛАТИТЬ ${cartTotal}₽`);
-        // mainBtn.show(); // We use custom button, uncomment if you want native button
         mainBtn.onClick(handleCheckout);
     } else {
         mainBtn.hide();
         mainBtn.offClick(handleCheckout);
     }
-
-    return () => {
-        mainBtn.offClick(handleCheckout);
-    };
+    return () => { mainBtn.offClick(handleCheckout); };
   }, [isCartOpen, cart.length, cartTotal, handleCheckout]);
 
-  useEffect(() => {
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-  }, [favorites]);
-
-  useEffect(() => {
-    localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems));
-  }, [hiddenItems]);
-
-  useEffect(() => {
-    localStorage.setItem('isAdmin', String(isAdmin));
-  }, [isAdmin]);
+  useEffect(() => { localStorage.setItem('favorites', JSON.stringify(favorites)); }, [favorites]);
+  useEffect(() => { localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems)); }, [hiddenItems]);
+  useEffect(() => { localStorage.setItem('isAdmin', String(isAdmin)); }, [isAdmin]);
 
   // --- Logic ---
   const toggleFavorite = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setFavorites(prev => 
-      prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
-    );
+    setFavorites(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
   };
 
   const addToCart = (productId: string, variantIdx: number, quantity: number, options: any) => {
@@ -240,28 +248,17 @@ const App: React.FC = () => {
     setCart(prev => prev.filter(i => i.uniqueId !== uniqueId));
   };
 
-  // --- Admin Save Logic ---
   const handleSaveMenuToBot = () => {
-    const payload: WebAppPayload = {
-      action: 'update_menu',
-      hiddenItems: hiddenItems
-    };
-
+    const payload: WebAppPayload = { action: 'update_menu', hiddenItems: hiddenItems };
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.sendData(JSON.stringify(payload));
       setTimeout(() => window.Telegram.WebApp.close(), 100);
-    } else {
-      console.log("Menu Update Payload:", payload);
-      alert("Меню сохранено (Тест)");
     }
   };
 
-  // --- Admin Auth ---
   const handleLongPress = useLongPress(() => {
     setShowAdminAuth(true);
-    if(window.Telegram?.WebApp?.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
-    }
+    if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
   });
 
   const verifyAdmin = () => {
@@ -275,7 +272,6 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Render ---
   const visibleItems = MENU_ITEMS.filter(item => 
     (item.category === activeCategory) && 
     (isAdmin ? true : !hiddenItems.includes(item.id))
@@ -286,6 +282,8 @@ const App: React.FC = () => {
     { id: 'tea', label: 'Чай' },
     { id: 'seasonal', label: 'Сезонное' },
     { id: 'punch', label: 'Пунши' },
+    { id: 'salads', label: 'Салаты' },
+    { id: 'food', label: 'Еда' },
     { id: 'sweets', label: 'Сладости' },
     { id: 'soda', label: 'Напитки' },
   ];
@@ -426,18 +424,25 @@ const App: React.FC = () => {
                 cart.map((item) => {
                   const product = MENU_ITEMS.find(p => p.id === item.productId);
                   if (!product) return null;
-                  const variant = product.variants[item.variantIndex];
+                  
+                  // Calculate item price with modifiers for display
+                  let itemPrice = product.variants[item.variantIndex].price;
+                  if (item.options.milk && MILK_PRICES[item.options.milk]) itemPrice += MILK_PRICES[item.options.milk];
+                  if (item.options.syrup && SYRUP_PRICES[item.options.syrup]) itemPrice += SYRUP_PRICES[item.options.syrup];
+                  
                   return (
                     <div key={item.uniqueId} className="flex gap-4 items-start bg-gray-50 p-3 rounded-2xl">
                       <img src={product.image} className="w-16 h-16 rounded-xl object-cover" />
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
                           <h4 className="font-bold text-gray-800">{product.name}</h4>
-                          <span className="font-bold text-coffee-500">{variant.price * item.quantity}₽</span>
+                          <span className="font-bold text-coffee-500">{itemPrice * item.quantity}₽</span>
                         </div>
                         <p className="text-xs text-gray-500 font-medium">
-                          {variant.size}
+                          {product.variants[item.variantIndex].size}
                           {item.options.temperature && ` • ${item.options.temperature === 'hot' ? 'Гор' : 'Хол'}`}
+                          {item.options.milk && MILK_LABELS[item.options.milk] && ` • ${MILK_LABELS[item.options.milk]}`}
+                          {item.options.syrup && SYRUP_LABELS[item.options.syrup] && ` • ${SYRUP_LABELS[item.options.syrup]}`}
                           {item.options.sugar !== undefined && item.options.sugar > 0 && ` • Сахар ${item.options.sugar}г`}
                           {item.options.cinnamon && ` • Корица`}
                         </p>
