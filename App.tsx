@@ -11,6 +11,13 @@ declare global {
   }
 }
 
+// --- Icons ---
+const ArrowPathIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+  </svg>
+);
+
 // --- Helper Hook for Long Press ---
 function useLongPress(callback: () => void, ms = 1500) {
   const [startLongPress, setStartLongPress] = useState(false);
@@ -70,8 +77,6 @@ const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const hiddenParam = params.get('hidden');
     
-    // Если параметр есть (даже пустой), используем его.
-    // Если параметра нет (старая ссылка), пробуем localStorage.
     if (hiddenParam !== null) {
       if (hiddenParam === '') {
           setHiddenItems([]); 
@@ -98,6 +103,17 @@ const App: React.FC = () => {
       }
     }
   }, []);
+
+  // --- REFRESH ACTION ---
+  const handleRefresh = () => {
+     if (window.Telegram?.WebApp) {
+        // Send a signal to bot to send a new link
+        window.Telegram.WebApp.sendData(JSON.stringify({ action: 'refresh_menu' }));
+        setTimeout(() => window.Telegram.WebApp.close(), 100);
+     } else {
+        window.location.reload();
+     }
+  };
 
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => {
@@ -264,6 +280,14 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="sticky top-0 z-20 bg-coffee-50/95 backdrop-blur-md shadow-sm px-4 py-3 flex justify-between items-center transition-colors">
         <div className="flex gap-3 items-center">
+            {/* Refresh Button - Restored */}
+            <button 
+              onClick={handleRefresh}
+              className="p-2 bg-gray-100 rounded-full text-gray-500 active:bg-gray-200 active:rotate-180 transition-all"
+              title="Обновить меню"
+            >
+              <ArrowPathIcon className="w-5 h-5" />
+            </button>
             <div>
               <h1 
                 {...handleLongPress}
