@@ -254,10 +254,19 @@ const App: React.FC = () => {
   };
 
   const handleSaveMenuToBot = () => {
+    // Set loading state to show "Broadcast in progress"
+    setIsSending(true);
+    
     const payload: WebAppPayload = { action: 'update_menu', hiddenItems: hiddenItems };
+    
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.sendData(JSON.stringify(payload));
-      setTimeout(() => window.Telegram.WebApp.close(), 100);
+      // Не закрываем сразу, чтобы бот успел получить данные (хотя sendData закрывает вебвью,
+      // но если это настроено в боте иначе, то это гарантия).
+      // Бот сам может прислать сообщение "Меню обновлено".
+    } else {
+        setIsSending(false);
+        alert("Вне Telegram рассылка не работает");
     }
   };
 
@@ -519,6 +528,7 @@ const App: React.FC = () => {
           onToggleHidden={(id) => setHiddenItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
           onSaveToBot={handleSaveMenuToBot}
           onClose={() => setShowAdminPanel(false)}
+          isLoading={isSending}
         />
       )}
 
