@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { MENU_ITEMS } from '../constants';
 import { Product } from '../types';
 import { SendIcon, SparklesIcon, PlusIcon } from './ui/Icons';
@@ -15,28 +15,10 @@ interface Message {
   suggestedProducts?: Product[];
 }
 
-// Схема ответа для JSON режима
-const responseSchema = {
-  type: Type.OBJECT,
-  properties: {
-    answerText: {
-      type: Type.STRING,
-      description: "Текст ответа баристы, дружелюбный и с эмодзи."
-    },
-    suggestedItemIds: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: "Массив ID товаров из меню, которые подходят под запрос (максимум 3)."
-    }
-  },
-  required: ["answerText", "suggestedItemIds"],
-};
-
 const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) => {
-  // Логика ключей:
-  // 1. Проверяем ключ из сборки (GitHub Secrets)
+  // 1. Ключ из переменных окружения
   const envKey = (process.env as any).API_KEY;
-  // 2. Проверяем локальный ключ (если пользователь ввел его сам)
+  // 2. Локальный ключ пользователя
   const [userKey, setUserKey] = useState(localStorage.getItem('user_gemini_key') || '');
   
   const activeKey = envKey && envKey.length > 0 ? envKey : userKey;
@@ -79,27 +61,33 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       // Инициализация клиента
       const ai = new GoogleGenAI({ apiKey: activeKey });
       
-      // Формируем контекст меню
+      // Контекст меню (упрощенный для экономии токенов)
       const menuContext = MENU_ITEMS.map(item => 
-        `ID:${item.id}|Name:${item.name}|Price:${item.variants[0].price}rub`
+        `- ${item.name} (${item.variants[0].price}р). ID: ${item.id}`
       ).join('\n');
 
       const systemInstruction = `
-        Ты — опытный бариста в кофейне "Coffee Lunch". 
-        Твоя задача — консультировать гостей и продавать им вкусные сочетания из меню.
+        Ты — бариста в кофейне "Coffee Lunch".
         
         МЕНЮ:
         ${menuContext}
         
-        ПРАВИЛА:
-        1. Отвечай кратко, тепло, используй эмодзи.
-        2. Если гость просит совет, предложи 1-2 конкретных товара из меню.
-        3. Твой ответ ВСЕГДА должен быть в формате JSON.
+        ТВОЯ ЗАДАЧА:
+        1. Отвечай клиенту кратко и дружелюбно (с эмодзи).
+        2. Если советуешь напиток/еду, ОБЯЗАТЕЛЬНО верни ответ в формате JSON.
+        3. Если просто болтаешь, верни JSON с пустым массивом suggestedItemIds.
+
+        ФОРМАТ ОТВЕТА (ТОЛЬКО JSON):
+        {
+          "answerText": "Текст твоего ответа здесь...",
+          "suggestedItemIds": ["id_товара_1", "id_товара_2"]
+        }
       `;
 
       // Запрос к модели
+      // Используем gemini-1.5-flash как самую стабильную
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash-exp', 
+        model: 'gemini-1.5-flash', 
         contents: [
             ...messages.map(m => ({ 
                 role: m.role, 
@@ -109,48 +97,59 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         ],
         config: {
             systemInstruction: systemInstruction,
-            temperature: 0.6,
-            responseMimeType: "application/json",
-            responseSchema: responseSchema,
+            temperature: 0.7,
+            // Убрали responseSchema, так как она часто вызывает 400 ошибку на бесплатных тирах
+            responseMimeType: "application/json", 
         }
       });
 
       // Обработка ответа
       let rawText = response.text || '{}';
-      rawText = rawText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      // Очистка от маркдауна, если модель решила его добавить
+      rawText = rawText.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
       
       let jsonResponse;
       try {
         jsonResponse = JSON.parse(rawText);
       } catch (e) {
-        console.error("JSON Parse Error", e);
-        jsonResponse = { answerText: "Что-то пошло не так, но я всё равно готов принять заказ!", suggestedItemIds: [] };
+        console.warn("AI ответил не JSON-ом, пробуем показать как текст:", rawText);
+        // Если парсинг не удался, просто показываем текст, если он есть
+        jsonResponse = { 
+            answerText: rawText.length > 0 ? rawText : "Извини, я задумался. Повтори, пожалуйста?", 
+            suggestedItemIds: [] 
+        };
       }
 
       const text = jsonResponse.answerText || '...';
       const itemIds = jsonResponse.suggestedItemIds || [];
 
+      // Находим товары по ID
       const suggestedProducts = MENU_ITEMS.filter(item => itemIds.includes(item.id));
 
       setMessages(prev => [...prev, { role: 'model', text, suggestedProducts }]);
 
     } catch (error: any) {
-      console.error('AI Error:', error);
-      let errorText = 'Упс, связь с космосом прервалась. Попробуй еще раз!';
+      console.error('AI Error Full:', error);
       
-      const errMsg = error.message || '';
+      let errorText = 'Упс, ошибка связи.';
+      const msg = error.message || JSON.stringify(error);
 
-      if (errMsg.includes('API Key') || error.status === 403) {
-         errorText = 'Ошибка ключа API. Проверьте настройки или введите ключ заново.';
+      // Более понятная диагностика ошибок
+      if (msg.includes('API Key') || msg.includes('403')) {
+         errorText = 'Неверный API Key. Нажмите кнопку "Закрыть", очистите кэш или перезагрузите страницу, чтобы ввести новый.';
          if (userKey) {
-            localStorage.removeItem('user_gemini_key');
-            setUserKey('');
-            errorText += ' (Локальный ключ сброшен)';
+             localStorage.removeItem('user_gemini_key');
+             setUserKey('');
+             errorText += ' (Ключ сброшен, введите заново)';
          }
-      } else if (error.status === 404 || errMsg.includes('not found')) {
-         errorText = 'Модель ИИ сейчас недоступна (404). Попробуйте позже.';
-      } else if (error.status === 503) {
-         errorText = 'Сервер перегружен. Попробуйте через минуту.';
+      } else if (msg.includes('404') || msg.includes('not found')) {
+         errorText = 'Модель ИИ не найдена (404).';
+      } else if (msg.includes('429') || msg.includes('Quota')) {
+         errorText = 'Лимит запросов исчерпан (Quota exceeded).';
+      } else if (msg.includes('fetch failed')) {
+         errorText = 'Ошибка сети (нет интернета или нужен VPN).';
+      } else {
+         errorText = `Ошибка: ${msg.slice(0, 50)}...`;
       }
 
       setMessages(prev => [...prev, { role: 'model', text: errorText }]);
@@ -195,7 +194,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">Требуется настройка</h3>
                 <p className="text-brand-muted text-sm mb-6 max-w-[250px]">
-                    Ключ API не найден в настройках сервера. Введите ваш <b>Google Gemini API Key</b> для работы чата.
+                    Ключ API не найден. Введите <b>Google Gemini API Key</b>.
                 </p>
                 <input 
                     type="password" 
