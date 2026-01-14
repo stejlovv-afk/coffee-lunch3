@@ -6,11 +6,8 @@ export default defineConfig(({ mode }) => {
   // Загружаем переменные из .env файла (если есть локально)
   const env = loadEnv(mode, process.cwd(), '');
   
-  // Получаем ключ:
-  // 1. Из process.env.API_KEY (это передает GitHub Actions через секреты)
-  // 2. Или из env.API_KEY (локальный .env)
-  // 3. Или пустая строка (чтобы сборка не упала, если ключа нет)
-  const apiKey = process.env.API_KEY || env.API_KEY || '';
+  // Получаем ключи из окружения (локально или из GitHub Actions)
+  const gigachatKey = process.env.GIGACHAT_KEY || env.GIGACHAT_KEY || '';
 
   return {
     plugins: [react()],
@@ -19,10 +16,8 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
     },
     define: {
-      // Это "запекает" значение ключа прямо в JavaScript код как строку.
-      // Важно: в клиентском коде (AIChatModal) мы обращаемся к process.env.API_KEY
-      // Vite найдет это вхождение и заменит на реальную строку ключа.
-      'process.env.API_KEY': JSON.stringify(apiKey),
+      // "Запекаем" ключи в код при сборке
+      'process.env.GIGACHAT_KEY': JSON.stringify(gigachatKey),
     }
   };
 });
