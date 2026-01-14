@@ -56,11 +56,17 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
             throw new Error("Ключ API отсутствует.");
         }
 
+        const cleanKey = keyToUse.trim();
+
         // Используем прокси, чтобы обойти CORS ограничения браузера
         const targetUrl = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
         const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
 
         console.log("Запрашиваем токен...");
+        
+        // ВАЖНО: Используем URLSearchParams для правильного кодирования тела запроса
+        const bodyParams = new URLSearchParams();
+        bodyParams.append('scope', 'GIGACHAT_API_PERS');
 
         const response = await fetch(proxyUrl, {
             method: 'POST',
@@ -68,17 +74,17 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Accept': 'application/json',
                 'RqUID': uuidv4(),
-                'Authorization': `Basic ${keyToUse}`
+                'Authorization': `Basic ${cleanKey}`
             },
-            body: 'scope=GIGACHAT_API_PERS'
+            body: bodyParams
         });
 
         if (!response.ok) {
             const err = await response.text();
             console.error("Ошибка OAuth:", response.status, err);
-            // Если 403 или 401 - скорее всего проблема с ключом
+            // Если 403 или 401 - проблема с ключом
             if (response.status === 401 || response.status === 403) {
-                 throw new Error("AUTH_ERROR");
+                 throw new Error(`AUTH_ERROR: ${response.status} - Проверьте ключ`);
             }
             throw new Error(`Ошибка сети (${response.status})`);
         }
@@ -127,13 +133,39 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
   };
 
   const handleManualKeySave = () => {
-      if (tempKeyInput.length > 20) {
-          setActiveKey(tempKeyInput);
+      let key = tempKeyInput.trim();
+      
+      // Очистка от случайной вставки "Basic "
+      if (key.startsWith('Basic ')) {
+          key = key.replace('Basic ', '').trim();
+      }
+
+      if (key.length > 20) {
+          setActiveKey(key);
           setShowKeyInput(false);
-          // Попытка сбросить состояние ошибки, если оно было
-          setMessages([{ role: 'assistant', content: 'Ключ обновлен! Попробуйте написать что-нибудь снова.' }]);
+          // Сброс сообщений об ошибке
+          setMessages(prev => {
+             // Если последнее сообщение - ошибка, удаляем его
+             if (prev.length > 0 && prev[prev.length - 1].content.includes('Ошибка')) {
+                 return prev.slice(0, -1);
+             }
+             return prev;
+          });
+          // Пробуем получить токен сразу, чтобы проверить ключ
+          setIsLoading(true);
+          getGigaToken(key)
+            .then(token => {
+                setAccessToken(token);
+                setIsLoading(false);
+                setMessages(prev => [...prev, { role: 'assistant', content: '✅ Ключ принят! Можем общаться.' }]);
+            })
+            .catch(e => {
+                setIsLoading(false);
+                setMessages(prev => [...prev, { role: 'assistant', content: `🚫 Ключ не подошел: ${e.message}` }]);
+                setShowKeyInput(true);
+            });
       } else {
-          alert("Ключ слишком короткий");
+          alert("Ключ слишком короткий. Скопируйте 'Авторизационные данные' целиком.");
       }
   };
 
@@ -154,13 +186,13 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
              currentToken = await getGigaToken(activeKey);
              setAccessToken(currentToken);
           } catch (e: any) {
-             if (e.message === "AUTH_ERROR") {
-                 setMessages(prev => [...prev, { role: 'assistant', content: "Ошибка авторизации (403). Проверьте ключ." }]);
-                 setShowKeyInput(true); // Показываем поле ввода
+             if (e.message.includes("AUTH_ERROR")) {
+                 setMessages(prev => [...prev, { role: 'assistant', content: "Ошибка авторизации (403). Ключ неверен." }]);
+                 setShowKeyInput(true);
                  setIsLoading(false);
                  return;
              }
-             throw new Error(e.message || "Не удалось подключиться к GigaChat.");
+             throw e;
           }
       }
 
@@ -220,8 +252,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       const errorText = `Ошибка: ${error.message}`;
       setMessages(prev => [...prev, { role: 'assistant', content: errorText }]);
       
-      // Если ошибка 403/401, даем возможность ввести ключ заново
-      if (error.message.includes('403') || error.message.includes('401')) {
+      if (error.message.includes('403') || error.message.includes('401') || error.message.includes('AUTH_ERROR')) {
           setShowKeyInput(true);
       }
     } finally {
@@ -257,26 +288,27 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
           <button onClick={onClose} className="text-brand-muted hover:text-white p-2 text-sm font-bold transition-colors">Закрыть</button>
         </div>
 
-        {/* Экран ввода ключа (если ошибка 403 или ключа нет) */}
+        {/* Экран ввода ключа */}
         {showKeyInput ? (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in bg-black/20">
-                <SparklesIcon className="w-10 h-10 text-brand-yellow mb-4" />
+                <SparklesIcon className="w-12 h-12 text-brand-yellow mb-4" />
                 <h3 className="text-lg font-bold text-white mb-2">Настройка доступа</h3>
                 <p className="text-brand-muted text-xs mb-4">
-                   Похоже, текущий ключ устарел или неверен. Введите "Авторизационные данные" из GigaChat Studio.
+                   Ошибка доступа. Введите <b>Авторизационные данные</b> из GigaChat Studio (строка вида <code>MDE...=</code>).
                 </p>
                 <input 
                     type="password" 
                     value={tempKeyInput}
                     onChange={(e) => setTempKeyInput(e.target.value)}
-                    placeholder="Введите ключ (MDE5...)"
+                    placeholder="Вставьте ключ..."
                     className="w-full glass-input p-3 rounded-xl text-center text-white mb-3 outline-none focus:border-green-500"
                 />
                 <button 
                     onClick={handleManualKeySave}
-                    className="w-full bg-green-500 text-black font-bold py-3 rounded-xl active:scale-95 transition-transform"
+                    disabled={isLoading}
+                    className="w-full bg-green-500 text-black font-bold py-3 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
                 >
-                    Сохранить
+                    {isLoading ? 'Проверка...' : 'Сохранить и Проверить'}
                 </button>
             </div>
         ) : (
