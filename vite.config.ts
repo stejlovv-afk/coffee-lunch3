@@ -19,7 +19,9 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
     },
     define: {
-      // Это "запекает" значение ключа прямо в JavaScript код как строку
+      // Это "запекает" значение ключа прямо в JavaScript код как строку.
+      // Важно: в клиентском коде (AIChatModal) мы обращаемся к process.env.API_KEY
+      // Vite найдет это вхождение и заменит на реальную строку ключа.
       'process.env.API_KEY': JSON.stringify(apiKey),
     }
   };
