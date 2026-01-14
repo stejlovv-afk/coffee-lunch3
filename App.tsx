@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
 import { Category, Product, CartItem, WebAppPayload, Review } from './types';
-import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon } from './components/ui/Icons';
+import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon, HomeIcon, SearchIcon, CartIcon } from './components/ui/Icons';
 import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 
@@ -16,8 +16,7 @@ const MILK_LABELS: Record<string, string> = {
   banana: 'Банановое молоко', coconut: 'Кокосовое молоко', almond: 'Миндальное молоко', 
   lactose_free: 'Безлактозное молоко'
 };
-// Helper function to get syrup label dynamically from groups would be better, 
-// but for simple mapping here:
+
 const SYRUP_LABELS: Record<string, string> = {
     pistachio: 'Фисташка', hazelnut: 'Лесной орех', coconut_syrup: 'Кокос сироп', almond_syrup: 'Миндаль сироп',
     red_orange: 'Красный апельсин', strawberry: 'Клубника', peach: 'Персик', melon: 'Дыня', plum: 'Слива',
@@ -56,7 +55,6 @@ const getDefaultTime = () => {
   return `${hours}:${minutes}`;
 };
 
-// --- Helper Pricing (Duplicates ItemModal logic roughly for cart calculation) ---
 const getAddonPrice = (type: 'milk' | 'syrup', variantSize: string) => {
   let sizeLevel = 0; 
   if (variantSize.includes('350')) sizeLevel = 1;
@@ -66,7 +64,10 @@ const getAddonPrice = (type: 'milk' | 'syrup', variantSize: string) => {
   return 0;
 };
 
+type ViewState = 'menu' | 'search' | 'favorites' | 'cart';
+
 const App: React.FC = () => {
+  const [currentView, setCurrentView] = useState<ViewState>('menu');
   const [activeCategory, setActiveCategory] = useState<Category>('coffee');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -77,6 +78,9 @@ const App: React.FC = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isSending, setIsSending] = useState(false);
   
+  // Search
+  const [searchTerm, setSearchTerm] = useState('');
+
   // Checkout State
   const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'delivery'>('pickup');
   const [pickupTime, setPickupTime] = useState(getDefaultTime());
@@ -84,8 +88,8 @@ const App: React.FC = () => {
   const [username, setUsername] = useState<string>('');
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   
+  // --- Init ---
   useEffect(() => {
     const savedFavs = localStorage.getItem('favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
@@ -107,23 +111,21 @@ const App: React.FC = () => {
       tg.ready();
       tg.expand();
       try {
-        tg.setHeaderColor('#09090b');
+        tg.setHeaderColor('#09090b'); // Matches brand-dark
         tg.setBackgroundColor('#09090b');
         tg.enableClosingConfirmation();
-        if (tg.initDataUnsafe?.user?.username) {
-            setUsername('@' + tg.initDataUnsafe.user.username);
-        } else if (tg.initDataUnsafe?.user?.first_name) {
-            setUsername(tg.initDataUnsafe.user.first_name);
+        
+        // Get user data
+        const user = tg.initDataUnsafe?.user;
+        if (user) {
+            const userStr = user.username ? `@${user.username}` : `${user.first_name}`;
+            setUsername(userStr);
         }
       } catch (e) {
         console.log('TG styling failed', e);
       }
     }
   }, []);
-
-  useEffect(() => {
-    if (isCartOpen) setPickupTime(getDefaultTime());
-  }, [isCartOpen]);
 
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => {
@@ -133,27 +135,20 @@ const App: React.FC = () => {
       const variant = product.variants[item.variantIndex];
       let price = variant.price;
       
-      if (item.options.milk && item.options.milk !== 'none') {
-         price += getAddonPrice('milk', variant.size);
-      }
-      if (item.options.syrup && item.options.syrup !== 'none') {
-         price += getAddonPrice('syrup', variant.size);
-      }
+      if (item.options.milk && item.options.milk !== 'none') price += getAddonPrice('milk', variant.size);
+      if (item.options.syrup && item.options.syrup !== 'none') price += getAddonPrice('syrup', variant.size);
 
       return total + (price * item.quantity);
     }, 0);
   }, [cart]);
 
+  // --- Checkout ---
   const handleCheckout = useCallback(() => {
     if (cart.length === 0 || isSending) return;
 
     if (cartTotal < 100) {
         if (window.Telegram?.WebApp?.showPopup) {
-            window.Telegram.WebApp.showPopup({
-                title: 'Сумма заказа',
-                message: 'Минимальная сумма — 100₽.',
-                buttons: [{type: 'ok'}]
-            });
+            window.Telegram.WebApp.showPopup({ title: 'Сумма заказа', message: 'Минимальная сумма — 100₽.', buttons: [{type: 'ok'}] });
         } else {
             alert("Минимальная сумма — 100₽");
         }
@@ -164,38 +159,32 @@ const App: React.FC = () => {
 
     const payload: WebAppPayload = {
       action: 'order',
-      items: cart.map(item => {
+      items: cart.map((item, index) => {
         const product = MENU_ITEMS.find(p => p.id === item.productId)!;
         const variant = product.variants[item.variantIndex];
         
-        // --- FORMING DETAILS STRING FOR BOT ---
         let details = variant.size;
         
-        // Drink specifics
         if (item.options.temperature) details += `, ${item.options.temperature === 'hot' ? 'Горячий' : 'Холодный'}`;
         if (item.options.milk && MILK_LABELS[item.options.milk]) details += `, ${MILK_LABELS[item.options.milk]}`;
         if (item.options.syrup && SYRUP_LABELS[item.options.syrup]) details += `, Сироп: ${SYRUP_LABELS[item.options.syrup]}`;
         if (item.options.sugar !== undefined && item.options.sugar > 0) details += `, Сахар: ${item.options.sugar}г`;
         if (item.options.cinnamon) details += `, Корица`;
-
-        // Special Items
         if (item.options.juice) details += `, Сок: ${item.options.juice === 'orange' ? 'Апельсин' : 'Вишня'}`;
         if (item.options.gas !== undefined) details += `, ${item.options.gas ? 'С газом' : 'Без газа'}`;
-        
-        // Matcha
         if (item.options.matchaColor) details += `, Цвет: ${item.options.matchaColor === 'green' ? 'Зеленая' : 'Синяя'}`;
-        
-        // Buckthorn
         if (item.options.honey) details += `, С мёдом`;
-        if (item.options.filter !== undefined) details += `, ${item.options.filter ? 'Профильтровать' : 'С ягодами (не фильтр)'}`;
-
-        // Food
+        if (item.options.filter !== undefined) details += `, ${item.options.filter ? 'Профильтровать' : 'С ягодами'}`;
         if (item.options.cutlery) details += `, С приборами`;
         if (item.options.heating && item.options.heating !== 'none') {
             details += `, Греть: ${item.options.heating === 'grill' ? 'Гриль' : 'СВЧ'}`;
         }
 
-        // Pricing recalc for Invoice
+        // HACK: Add Order Info to the first item description to ensure the admin sees it 
+        if (index === 0) {
+            details += `\n[Инфо: ${pickupTime}, ${comment || 'без коммент'}, ${username}]`;
+        }
+
         let finalPrice = variant.price;
         if (item.options.milk && item.options.milk !== 'none') finalPrice += getAddonPrice('milk', variant.size);
         if (item.options.syrup && item.options.syrup !== 'none') finalPrice += getAddonPrice('syrup', variant.size);
@@ -212,25 +201,26 @@ const App: React.FC = () => {
       deliveryMethod,
       pickupTime,
       comment,
-      username // Sending username
+      username 
     };
 
     if (window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.sendData(JSON.stringify(payload));
+      window.Telegram.WebApp.sendData(JSON.stringify(payload));
     } else {
       console.log("Order Payload:", payload);
-      alert(`[Тест] Заказ на ${payload.total}р. Юзер: ${username}`);
+      alert(`[Тест] Заказ отправлен.`);
       setIsSending(false);
     }
   }, [cart, cartTotal, isSending, deliveryMethod, pickupTime, comment, username]);
 
+  // Sync Telegram Button
   useEffect(() => {
     if (!window.Telegram?.WebApp) return;
     const tg = window.Telegram.WebApp;
     const mainBtn = tg.MainButton;
 
-    if (isCartOpen && cart.length > 0) {
+    // Show MainButton only in Cart View
+    if (currentView === 'cart' && cart.length > 0) {
         mainBtn.setText(`ОПЛАТИТЬ ${cartTotal}₽`);
         mainBtn.textColor = "#000000";
         mainBtn.color = "#FACC15"; 
@@ -241,7 +231,7 @@ const App: React.FC = () => {
         mainBtn.offClick(handleCheckout);
     }
     return () => { mainBtn.offClick(handleCheckout); };
-  }, [isCartOpen, cart.length, cartTotal, handleCheckout]);
+  }, [currentView, cart.length, cartTotal, handleCheckout]);
 
   useEffect(() => { localStorage.setItem('favorites', JSON.stringify(favorites)); }, [favorites]);
   useEffect(() => { localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems)); }, [hiddenItems]);
@@ -287,8 +277,33 @@ const App: React.FC = () => {
     } else alert('Неверный пароль');
   };
 
-  const visibleItems = MENU_ITEMS.filter(item => 
-    (item.category === activeCategory) && (isAdmin ? true : !hiddenItems.includes(item.id))
+  const renderProductGrid = (items: Product[]) => (
+    <div className="p-4 grid grid-cols-2 gap-4 pb-32">
+        {items.map(item => (
+          <div key={item.id} className={`glass-panel rounded-3xl p-3 flex flex-col justify-between relative transition-all active:scale-[0.98] ${hiddenItems.includes(item.id) ? 'opacity-50 grayscale' : ''}`}>
+            {/* Glossy Overlay */}
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none opacity-50"></div>
+            
+            <div className="relative mb-3 group z-10">
+              <img src={item.image} alt={item.name} className="w-full aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all" onClick={() => setSelectedProduct(item)} />
+              <button onClick={(e) => toggleFavorite(e, item.id)} className="absolute top-2 right-2 p-2 bg-black/40 backdrop-blur-md rounded-full text-brand-yellow transition-transform active:scale-125 hover:bg-black/60 border border-white/10">
+                <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
+              </button>
+              {hiddenItems.includes(item.id) && <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm"><EyeSlashIcon className="w-8 h-8 text-white" /></div>}
+            </div>
+            
+            <div onClick={() => setSelectedProduct(item)} className="z-10 relative">
+              <h3 className="font-bold text-white leading-tight mb-1 text-sm sm:text-base line-clamp-2 min-h-[2.5em] drop-shadow-sm">{item.name}</h3>
+              <p className="text-brand-yellow font-black text-lg drop-shadow-md">{item.variants[0].price}₽</p>
+            </div>
+            
+            <button onClick={() => setSelectedProduct(item)} className="z-10 mt-3 w-full py-3 bg-white/10 hover:bg-brand-yellow hover:text-black border border-white/10 text-white rounded-2xl flex items-center justify-center transition-all active:scale-95 group backdrop-blur-sm shadow-inner">
+              <PlusIcon className="w-6 h-6 group-active:rotate-90 transition-transform" />
+            </button>
+          </div>
+        ))}
+        {items.length === 0 && <div className="col-span-2 text-center text-brand-muted py-10">Товары не найдены</div>}
+    </div>
   );
 
   const categories: {id: Category, label: string}[] = [
@@ -303,91 +318,86 @@ const App: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen pb-24 font-sans text-brand-text bg-brand-dark selection:bg-brand-yellow selection:text-black">
+    <div className="min-h-screen font-sans text-brand-text selection:bg-brand-yellow selection:text-black">
       
-      <header className="sticky top-0 z-20 bg-brand-dark/90 backdrop-blur-md border-b border-brand-light/50 px-4 py-3 flex justify-between items-center transition-colors">
+      {/* --- HEADER --- */}
+      <header className="sticky top-0 z-20 bg-brand-dark/70 backdrop-blur-xl border-b border-white/5 px-4 py-3 flex justify-between items-center transition-colors">
         <div>
-          <h1 {...handleLongPress} className="text-2xl font-black text-brand-yellow tracking-tighter select-none cursor-pointer italic">COFFEE LUNCH</h1>
-          <p className="text-[10px] text-brand-muted font-bold tracking-widest uppercase">Best Coffee In Town</p>
+          <h1 {...handleLongPress} className="text-2xl font-black text-brand-yellow tracking-tighter select-none cursor-pointer italic drop-shadow-glow">COFFEE LUNCH</h1>
+          <p className="text-[10px] text-brand-muted font-bold tracking-widest uppercase opacity-80">Best Coffee In Town</p>
         </div>
-        <button onClick={() => {
-            const favs = MENU_ITEMS.filter(i => favorites.includes(i.id));
-            if (favs.length === 0) return alert("Избранное пусто");
-            alert("Ваши избранные товары:\n" + favs.map(i => i.name).join(', ')); 
-          }} className="p-2 bg-brand-light rounded-full text-brand-yellow hover:bg-brand-yellow hover:text-black transition-all active:scale-90">
-          <HeartIcon className="w-6 h-6" fill={favorites.length > 0} />
-        </button>
+        {username && <div className="text-xs font-bold text-brand-muted/80 bg-white/5 border border-white/10 px-3 py-1 rounded-full backdrop-blur-md">{username}</div>}
       </header>
 
-      <nav className="sticky top-[61px] z-10 bg-brand-dark/95 backdrop-blur py-3 overflow-x-auto no-scrollbar border-b border-transparent">
-        <div className="flex px-4 gap-2 min-w-max">
-          {categories.map(cat => (
-            <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeCategory === cat.id ? 'bg-brand-yellow text-black shadow-[0_0_15px_rgba(250,204,21,0.3)] scale-105' : 'bg-brand-light text-brand-muted hover:border-brand-yellow/30'}`}>
-              {cat.label}
-            </button>
-          ))}
-        </div>
-      </nav>
+      {/* --- VIEWS --- */}
+      
+      {/* VIEW: MENU */}
+      {currentView === 'menu' && (
+        <>
+            <nav className="sticky top-[61px] z-10 bg-brand-dark/80 backdrop-blur-lg py-3 overflow-x-auto no-scrollbar border-b border-transparent shadow-lg">
+                <div className="flex px-4 gap-2 min-w-max">
+                {categories.map(cat => (
+                    <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all border ${activeCategory === cat.id ? 'bg-brand-yellow text-black border-brand-yellow shadow-[0_0_15px_rgba(250,204,21,0.4)] scale-105' : 'bg-white/5 text-brand-muted border-white/5 hover:bg-white/10 hover:border-white/20'}`}>
+                    {cat.label}
+                    </button>
+                ))}
+                </div>
+            </nav>
+            {renderProductGrid(MENU_ITEMS.filter(item => (item.category === activeCategory) && (isAdmin ? true : !hiddenItems.includes(item.id))))}
+        </>
+      )}
 
-      <main className="p-4 grid grid-cols-2 gap-4">
-        {visibleItems.map(item => (
-          <div key={item.id} className={`bg-brand-card border border-brand-light/50 rounded-3xl p-3 shadow-lg flex flex-col justify-between relative transition-transform ${hiddenItems.includes(item.id) ? 'opacity-50 grayscale' : ''}`}>
-            <div className="relative mb-3 group">
-              <img src={item.image} alt={item.name} className="w-full aspect-square object-cover rounded-2xl brightness-90 group-hover:brightness-110 transition-all" onClick={() => setSelectedProduct(item)} />
-              <button onClick={(e) => toggleFavorite(e, item.id)} className="absolute top-2 right-2 p-2 bg-black/40 backdrop-blur rounded-full text-brand-yellow transition-transform active:scale-125 hover:bg-black/60">
-                <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
-              </button>
-              {hiddenItems.includes(item.id) && <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm"><EyeSlashIcon className="w-8 h-8 text-white" /></div>}
+      {/* VIEW: SEARCH */}
+      {currentView === 'search' && (
+        <div className="p-4">
+             <div className="relative mb-6">
+                <SearchIcon className="absolute left-4 top-3.5 w-5 h-5 text-brand-muted" />
+                <input 
+                    type="text" 
+                    placeholder="Поиск по меню..." 
+                    autoFocus
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full glass-input rounded-2xl py-3 pl-12 pr-4 text-white placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all shadow-lg"
+                />
             </div>
-            <div onClick={() => setSelectedProduct(item)}>
-              <h3 className="font-bold text-white leading-tight mb-1 text-sm sm:text-base line-clamp-2 min-h-[2.5em]">{item.name}</h3>
-              <p className="text-brand-yellow font-extrabold text-lg">{item.variants[0].price}₽</p>
-            </div>
-            <button onClick={() => setSelectedProduct(item)} className="mt-3 w-full py-3 bg-brand-light hover:bg-brand-yellow hover:text-black text-white rounded-2xl flex items-center justify-center transition-all active:scale-95 group">
-              <PlusIcon className="w-6 h-6 group-active:rotate-90 transition-transform" />
-            </button>
-          </div>
-        ))}
-      </main>
-
-      {cart.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 z-40 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none pb-8">
-          <button onClick={() => setIsCartOpen(true)} className="w-full pointer-events-auto bg-brand-yellow/90 backdrop-blur-md text-black rounded-3xl p-4 shadow-[0_0_20px_rgba(250,204,21,0.4)] flex items-center justify-between active:scale-[0.98] transition-all animate-slide-up border border-yellow-200/20">
-            <div className="flex items-center gap-3">
-              <div className="bg-black/20 px-3 py-1 rounded-full font-black">{cart.reduce((a, b) => a + b.quantity, 0)}</div>
-              <span className="font-bold text-lg uppercase tracking-wider">Корзина</span>
-            </div>
-            <span className="font-black text-xl tracking-wide">{cartTotal}₽</span>
-          </button>
+            {renderProductGrid(MENU_ITEMS.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()) && (isAdmin ? true : !hiddenItems.includes(item.id))))}
         </div>
       )}
 
-      {selectedProduct && <ItemModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)} />}
+      {/* VIEW: FAVORITES */}
+      {currentView === 'favorites' && (
+        <div className="pt-4">
+            <h2 className="px-4 text-xl font-bold text-white mb-4 drop-shadow-md">Избранное</h2>
+            {renderProductGrid(MENU_ITEMS.filter(item => favorites.includes(item.id)))}
+        </div>
+      )}
 
-      {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)} />
-          <div className="bg-brand-dark w-full max-w-md h-[95vh] rounded-t-3xl sm:rounded-3xl p-6 relative z-10 flex flex-col animate-slide-up border-t border-brand-light shadow-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-black text-white uppercase italic">Ваш заказ</h2>
-              <button onClick={() => setIsCartOpen(false)} className="text-brand-muted hover:text-white font-bold p-2 transition-colors">Закрыть</button>
+      {/* VIEW: CART */}
+      {currentView === 'cart' && (
+        <div className="p-4 pb-32 animate-fade-in">
+            <h2 className="text-2xl font-black text-white uppercase italic mb-6 drop-shadow-md">Корзина</h2>
+            
+            {/* Delivery Switcher */}
+            <div className="glass-panel p-1.5 rounded-2xl flex mb-6">
+                 <button onClick={() => setDeliveryMethod('pickup')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${deliveryMethod === 'pickup' ? 'bg-brand-yellow text-black shadow-lg' : 'text-brand-muted hover:text-white'}`}>Самовывоз</button>
+                 <button onClick={() => alert("Доставка появится позже!")} className="flex-1 py-3 rounded-xl font-bold text-sm text-brand-muted/50 cursor-not-allowed flex flex-col items-center justify-center leading-none"><span>Доставка</span><span className="text-[9px] mt-0.5 opacity-60">скоро</span></button>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 pb-4 no-scrollbar">
-              <div className="bg-brand-light p-1 rounded-xl flex mb-4">
-                 <button onClick={() => setDeliveryMethod('pickup')} className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${deliveryMethod === 'pickup' ? 'bg-brand-yellow text-black shadow' : 'text-brand-muted hover:text-white'}`}>Самовывоз</button>
-                 <button onClick={() => alert("Доставка появится позже!")} className="flex-1 py-3 rounded-lg font-bold text-sm text-brand-muted/50 cursor-not-allowed flex flex-col items-center justify-center leading-none"><span>Доставка</span><span className="text-[9px] mt-0.5 opacity-60">скоро</span></button>
-              </div>
-              <div className="space-y-3 mb-4">
-                <div>
-                   <label className="flex items-center gap-2 text-sm font-medium text-brand-muted mb-2"><ClockIcon className="w-4 h-4" />Время готовности</label>
-                   <input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full bg-brand-card border border-brand-light text-white p-3 rounded-xl outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow transition-all [color-scheme:dark]" />
+
+            {/* Inputs */}
+            <div className="space-y-4 mb-6">
+                <div className="glass-panel p-4 rounded-2xl">
+                   <label className="flex items-center gap-2 text-sm font-bold text-brand-muted mb-2"><ClockIcon className="w-4 h-4" />Время готовности</label>
+                   <input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all [color-scheme:dark]" />
                 </div>
-                <div>
-                   <label className="flex items-center gap-2 text-sm font-medium text-brand-muted mb-2"><ChatIcon className="w-4 h-4" />Комментарий</label>
-                   <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Погорячее, поменьше льда..." rows={2} className="w-full bg-brand-card border border-brand-light text-white p-3 rounded-xl outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow transition-all resize-none placeholder:text-brand-muted/50" />
+                <div className="glass-panel p-4 rounded-2xl">
+                   <label className="flex items-center gap-2 text-sm font-bold text-brand-muted mb-2"><ChatIcon className="w-4 h-4" />Комментарий</label>
+                   <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Погорячее, поменьше льда..." rows={2} className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all resize-none placeholder:text-brand-muted/50" />
                 </div>
-              </div>
-              <div className="space-y-3">
+            </div>
+
+            {/* Items */}
+            <div className="space-y-3">
               {cart.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-40 text-brand-muted opacity-50"><div className="text-4xl mb-2">🛒</div><p>Корзина пуста</p></div>
               ) : (
@@ -400,19 +410,19 @@ const App: React.FC = () => {
                   if (item.options.syrup && item.options.syrup !== 'none') itemPrice += getAddonPrice('syrup', variant.size);
                   
                   return (
-                    <div key={item.uniqueId} className="flex gap-4 items-start bg-brand-light/30 border border-brand-light p-3 rounded-2xl">
-                      <img src={product.image} className="w-16 h-16 rounded-xl object-cover" />
+                    <div key={item.uniqueId} className="flex gap-4 items-start glass-panel p-3 rounded-2xl">
+                      <img src={product.image} className="w-16 h-16 rounded-xl object-cover shadow-md" />
                       <div className="flex-1">
-                        <div className="flex justify-between items-start"><h4 className="font-bold text-white text-sm">{product.name}</h4><span className="font-bold text-brand-yellow">{itemPrice * item.quantity}₽</span></div>
+                        <div className="flex justify-between items-start"><h4 className="font-bold text-white text-sm drop-shadow-sm">{product.name}</h4><span className="font-bold text-brand-yellow drop-shadow-sm">{itemPrice * item.quantity}₽</span></div>
                         <p className="text-[10px] text-brand-muted font-medium mt-1 leading-tight">
                           {variant.size}
-                          {/* Display limited options here to save space, full details go to bot */}
+                          {item.options.temperature && ` • ${item.options.temperature === 'hot' ? 'Горячий' : 'Холодный'}`}
                           {item.options.milk && MILK_LABELS[item.options.milk] ? ` • ${MILK_LABELS[item.options.milk]}` : ''}
                           {item.options.syrup && SYRUP_LABELS[item.options.syrup] ? ` • ${SYRUP_LABELS[item.options.syrup]}` : ''}
                           {item.options.juice ? ` • Сок ${item.options.juice}` : ''}
                         </p>
                         <div className="flex justify-between items-center mt-3">
-                           <div className="flex items-center gap-3 bg-brand-dark px-2 py-1 rounded-lg border border-brand-light"><span className="font-bold text-xs text-white">x{item.quantity}</span></div>
+                           <div className="flex items-center gap-3 bg-black/40 px-2 py-1 rounded-lg border border-white/5"><span className="font-bold text-xs text-white">x{item.quantity}</span></div>
                            <button onClick={() => removeFromCart(item.uniqueId)} className="text-red-400 p-2 hover:bg-red-900/20 rounded-lg transition-colors"><TrashIcon className="w-4 h-4" /></button>
                         </div>
                       </div>
@@ -420,18 +430,45 @@ const App: React.FC = () => {
                   );
                 })
               )}
-              </div>
             </div>
-            <div className="pt-4 bg-brand-dark safe-area-bottom border-t border-brand-light">
-              <button onClick={handleCheckout} disabled={isSending} className={`w-full text-black py-4 rounded-2xl font-bold text-lg shadow-[0_0_20px_rgba(250,204,21,0.2)] transition-all mb-2 flex items-center justify-center gap-2 ${isSending ? 'bg-brand-yellow/50 cursor-not-allowed' : 'bg-brand-yellow active:scale-95 hover:bg-yellow-300'}`}>
-                {isSending ? <><span className="animate-spin h-5 w-5 border-2 border-black border-t-transparent rounded-full"/>Отправка...</> : `Оплатить ${cartTotal}₽`}
-              </button>
-            </div>
-          </div>
+
+            {/* Custom Pay Button (Visible if not in TG) */}
+            {!window.Telegram?.WebApp && (
+                 <div className="pt-8 pb-4">
+                    <button onClick={handleCheckout} disabled={isSending} className={`w-full text-black py-4 rounded-2xl font-bold text-lg shadow-[0_0_20px_rgba(250,204,21,0.2)] transition-all mb-2 flex items-center justify-center gap-2 ${isSending ? 'bg-brand-yellow/50 cursor-not-allowed' : 'bg-brand-yellow active:scale-95 hover:bg-yellow-300'}`}>
+                        {isSending ? 'Отправка...' : `Оплатить ${cartTotal}₽`}
+                    </button>
+                 </div>
+            )}
         </div>
       )}
 
-      {showAdminAuth && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur"><div className="bg-brand-card p-6 rounded-3xl w-80 shadow-2xl animate-slide-up border border-brand-light"><h3 className="text-xl font-bold mb-4 text-center text-white">Вход для админа</h3><input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Пароль" className="w-full p-3 bg-brand-dark border border-brand-light text-white rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-brand-yellow" /><div className="flex gap-2"><button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button><button onClick={verifyAdmin} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Войти</button></div></div></div>}
+      {/* --- BOTTOM NAVIGATION --- */}
+      <div className="fixed bottom-0 left-0 right-0 glass-modal safe-area-bottom px-6 py-3 flex justify-between items-center z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-white/10">
+         <button onClick={() => setCurrentView('menu')} className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'menu' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}>
+            <HomeIcon className="w-6 h-6" fill={currentView === 'menu'} />
+            <span className="text-[10px] font-bold">Меню</span>
+         </button>
+         <button onClick={() => setCurrentView('search')} className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'search' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}>
+            <SearchIcon className="w-6 h-6" />
+            <span className="text-[10px] font-bold">Поиск</span>
+         </button>
+         <button onClick={() => setCurrentView('favorites')} className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'favorites' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}>
+            <HeartIcon className="w-6 h-6" fill={currentView === 'favorites'} />
+            <span className="text-[10px] font-bold">Избр.</span>
+         </button>
+         <button onClick={() => setCurrentView('cart')} className={`flex flex-col items-center gap-1 relative transition-all active:scale-90 ${currentView === 'cart' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}>
+            <div className="relative">
+                <CartIcon className="w-6 h-6" fill={currentView === 'cart'} />
+                {cart.length > 0 && <span className="absolute -top-1 -right-2 bg-brand-yellow text-black text-[10px] font-black px-1.5 rounded-full min-w-[16px] flex items-center justify-center shadow-sm">{cart.reduce((a,b)=>a+b.quantity,0)}</span>}
+            </div>
+            <span className="text-[10px] font-bold">Корзина</span>
+         </button>
+      </div>
+
+      {selectedProduct && <ItemModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)} />}
+      
+      {showAdminAuth && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl"><div className="glass-panel p-6 rounded-3xl w-80 shadow-2xl animate-slide-up"><h3 className="text-xl font-bold mb-4 text-center text-white">Вход для админа</h3><input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Пароль" className="w-full p-3 glass-input text-white rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-brand-yellow/50" /><div className="flex gap-2"><button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button><button onClick={verifyAdmin} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Войти</button></div></div></div>}
       {showAdminPanel && <AdminPanel hiddenItems={hiddenItems} onToggleHidden={(id) => setHiddenItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} onSaveToBot={handleSaveMenuToBot} onClose={() => setShowAdminPanel(false)} isLoading={isSending} />}
     </div>
   );
