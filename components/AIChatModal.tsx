@@ -83,9 +83,10 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         }
       `;
 
-      // Используем gemini-2.0-flash-exp как наиболее продвинутую flash модель
+      // Используем gemini-1.5-flash — самую стабильную и экономичную модель
+      // У неё гораздо выше лимиты (Quota), чем у 2.0-flash-exp
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash-exp', 
+        model: 'gemini-1.5-flash', 
         contents: [
             ...messages.map(m => ({ 
                 role: m.role, 
@@ -96,8 +97,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         config: {
             systemInstruction: systemInstruction,
             temperature: 0.7,
-            // Не указываем responseMimeType: "application/json", чтобы избежать ошибок на некоторых ключах.
-            // Полагаемся на промпт.
+            // Не указываем responseMimeType для максимальной совместимости
         }
       });
 
@@ -140,9 +140,9 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
              errorText += ' (Ключ сброшен, введите заново)';
          }
       } else if (msg.includes('404') || msg.includes('not found')) {
-         errorText = 'Модель ИИ не найдена (404). Возможно, ваш ключ не поддерживает gemini-2.0-flash-exp или регион ограничен.';
-      } else if (msg.includes('429') || msg.includes('Quota')) {
-         errorText = 'Лимит запросов исчерпан (Quota exceeded).';
+         errorText = 'Модель ИИ не найдена (404).';
+      } else if (msg.includes('429') || msg.includes('Quota') || msg.includes('exhausted')) {
+         errorText = 'Лимит бесплатных запросов исчерпан. Попробуйте через минуту или используйте другой API ключ.';
       } else if (msg.includes('fetch failed')) {
          errorText = 'Ошибка сети (нет интернета или нужен VPN).';
       } else {
