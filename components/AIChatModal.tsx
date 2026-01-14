@@ -95,8 +95,19 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         }
       });
 
-      // Парсим JSON ответ
-      const jsonResponse = JSON.parse(response.text || '{}');
+      // Надежный парсинг JSON
+      let rawText = response.text || '{}';
+      // Удаляем возможные markdown обертки ```json ... ```
+      rawText = rawText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      
+      let jsonResponse;
+      try {
+        jsonResponse = JSON.parse(rawText);
+      } catch (e) {
+        console.error("JSON Parse Error", e);
+        jsonResponse = { answerText: rawText, suggestedItemIds: [] };
+      }
+
       const text = jsonResponse.answerText || 'Что-то я задумался... Повторите?';
       const itemIds = jsonResponse.suggestedItemIds || [];
 
@@ -115,8 +126,6 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
   const handleProductClick = (product: Product) => {
     onSelectProduct(product);
-    // Опционально: можно закрывать чат при выборе, но лучше оставить открытым
-    // onClose(); 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
