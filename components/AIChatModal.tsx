@@ -4,6 +4,15 @@ import { MENU_ITEMS } from '../constants';
 import { Product } from '../types';
 import { SendIcon, SparklesIcon, PlusIcon } from './ui/Icons';
 
+// Хаки для TypeScript, чтобы он не ругался на process.env.API_KEY
+// Vite подменит это значение во время сборки.
+declare const process: {
+  env: {
+    API_KEY: string;
+    [key: string]: string | undefined;
+  }
+};
+
 interface AIChatModalProps {
   onClose: () => void;
   onSelectProduct: (product: Product) => void;
@@ -56,8 +65,8 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       // Используем process.env.API_KEY, который подставляется через vite.config.ts
       const apiKey = process.env.API_KEY || '';
       
-      if (!apiKey) {
-        throw new Error("API Key is missing");
+      if (!apiKey || apiKey.includes('AIza') === false) {
+        console.error("Invalid API Key found:", apiKey);
       }
 
       const ai = new GoogleGenAI({ apiKey });
@@ -78,7 +87,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       `;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash', // Используем стабильную версию
+        model: 'gemini-2.0-flash', 
         contents: [
             ...messages.map(m => ({ 
                 role: m.role, 
@@ -95,7 +104,6 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       });
 
       let rawText = response.text || '{}';
-      // Очистка от markdown блоков, если они есть
       rawText = rawText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
       
       let jsonResponse;
@@ -103,7 +111,6 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         jsonResponse = JSON.parse(rawText);
       } catch (e) {
         console.error("JSON Parse Error", e);
-        // Fallback если пришел не JSON
         jsonResponse = { answerText: rawText, suggestedItemIds: [] };
       }
 
