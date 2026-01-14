@@ -59,14 +59,14 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-auto transition-opacity" onClick={onClose} />
       
-      <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 relative z-10 animate-slide-up pointer-events-auto max-h-[90vh] overflow-y-auto">
+      <div className="bg-brand-card w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 relative z-10 animate-slide-up pointer-events-auto max-h-[90vh] overflow-y-auto border-t sm:border border-brand-light">
         <div className="flex gap-4 mb-6">
-          <img src={product.image} alt={product.name} className="w-24 h-24 object-cover rounded-2xl shadow-md" />
+          <img src={product.image} alt={product.name} className="w-24 h-24 object-cover rounded-2xl shadow-lg" />
           <div>
-            <h3 className="text-xl font-bold text-gray-900">{product.name}</h3>
-            <p className="text-coffee-500 font-bold text-lg">
+            <h3 className="text-xl font-bold text-white">{product.name}</h3>
+            <p className="text-brand-yellow font-bold text-lg">
               {totalPrice}₽
             </p>
           </div>
@@ -74,16 +74,16 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
         {/* Size Selection */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Объем / Размер</label>
+          <label className="block text-sm font-medium text-brand-muted mb-3">Объем / Размер</label>
           <div className="flex flex-wrap gap-2">
             {product.variants.map((v, idx) => (
               <button
                 key={idx}
                 onClick={() => setSelectedVariantIdx(idx)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
                   selectedVariantIdx === idx 
-                    ? 'bg-coffee-500 text-white shadow-md' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-brand-yellow text-black shadow-[0_0_10px_rgba(250,204,21,0.4)]' 
+                    : 'bg-brand-light text-brand-muted hover:bg-zinc-700'
                 }`}
               >
                 {v.size}
@@ -96,17 +96,17 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
         {product.isDrink && (
           <div className="space-y-4 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Температура</label>
-              <div className="flex bg-gray-100 p-1 rounded-xl">
+              <label className="block text-sm font-medium text-brand-muted mb-2">Температура</label>
+              <div className="flex bg-brand-light p-1 rounded-xl">
                 <button 
                   onClick={() => setTemp('hot')}
-                  className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${temp === 'hot' ? 'bg-white shadow text-coffee-500' : 'text-gray-500'}`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${temp === 'hot' ? 'bg-brand-card shadow text-brand-yellow' : 'text-brand-muted'}`}
                 >
                   Горячий
                 </button>
                 <button 
                   onClick={() => setTemp('cold')}
-                  className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${temp === 'cold' ? 'bg-white shadow text-blue-500' : 'text-gray-500'}`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${temp === 'cold' ? 'bg-brand-card shadow text-blue-400' : 'text-brand-muted'}`}
                 >
                   Холодный
                 </button>
@@ -115,38 +115,44 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
             {/* Milk Selection */}
             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">Молоко</label>
-               <select 
-                 value={selectedMilk}
-                 onChange={(e) => setSelectedMilk(e.target.value)}
-                 className="w-full bg-gray-100 p-3 rounded-xl outline-none focus:ring-2 ring-coffee-500"
-               >
-                 {MILK_OPTIONS.map(m => (
-                   <option key={m.id} value={m.id}>
-                     {m.label} {m.price > 0 ? `(+${m.price}₽)` : ''}
-                   </option>
-                 ))}
-               </select>
+               <label className="block text-sm font-medium text-brand-muted mb-2">Молоко</label>
+               <div className="relative">
+                 <select 
+                   value={selectedMilk}
+                   onChange={(e) => setSelectedMilk(e.target.value)}
+                   className="w-full bg-brand-light text-white p-3 rounded-xl outline-none focus:ring-2 ring-brand-yellow appearance-none"
+                 >
+                   {MILK_OPTIONS.map(m => (
+                     <option key={m.id} value={m.id}>
+                       {m.label} {m.price > 0 ? `(+${m.price}₽)` : ''}
+                     </option>
+                   ))}
+                 </select>
+                 <div className="absolute right-3 top-3.5 pointer-events-none text-brand-muted">▼</div>
+               </div>
             </div>
 
             {/* Syrup Selection */}
             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">Сироп</label>
-               <select 
-                 value={selectedSyrup}
-                 onChange={(e) => setSelectedSyrup(e.target.value)}
-                 className="w-full bg-gray-100 p-3 rounded-xl outline-none focus:ring-2 ring-coffee-500"
-               >
-                 {SYRUP_OPTIONS.map(s => (
-                   <option key={s.id} value={s.id}>
-                     {s.label} {s.price > 0 ? `(+${s.price}₽)` : ''}
-                   </option>
-                 ))}
-               </select>
+               <label className="block text-sm font-medium text-brand-muted mb-2">Сироп</label>
+               <div className="relative">
+                 <select 
+                   value={selectedSyrup}
+                   onChange={(e) => setSelectedSyrup(e.target.value)}
+                   className="w-full bg-brand-light text-white p-3 rounded-xl outline-none focus:ring-2 ring-brand-yellow appearance-none"
+                 >
+                   {SYRUP_OPTIONS.map(s => (
+                     <option key={s.id} value={s.id}>
+                       {s.label} {s.price > 0 ? `(+${s.price}₽)` : ''}
+                     </option>
+                   ))}
+                 </select>
+                 <div className="absolute right-3 top-3.5 pointer-events-none text-brand-muted">▼</div>
+               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Сахар ({sugar}г)</label>
+              <label className="block text-sm font-medium text-brand-muted mb-2">Сахар ({sugar}г)</label>
               <input 
                 type="range" 
                 min="0" 
@@ -154,22 +160,22 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
                 step="1" 
                 value={sugar}
                 onChange={(e) => setSugar(Number(e.target.value))}
-                className="w-full accent-coffee-500 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                className="w-full accent-brand-yellow h-2 bg-brand-light rounded-lg appearance-none cursor-pointer"
               />
-              <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <div className="flex justify-between text-xs text-brand-muted mt-2">
                 <span>0г</span>
                 <span>5г</span>
                 <span>10г</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">Добавить корицу?</span>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm font-medium text-brand-muted">Добавить корицу?</span>
               <button 
                 onClick={() => setCinnamon(!cinnamon)}
-                className={`w-12 h-6 rounded-full transition-colors relative ${cinnamon ? 'bg-coffee-500' : 'bg-gray-300'}`}
+                className={`w-12 h-6 rounded-full transition-colors relative ${cinnamon ? 'bg-brand-yellow' : 'bg-brand-light'}`}
               >
-                <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${cinnamon ? 'left-7' : 'left-1'}`} />
+                <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${cinnamon ? 'left-7' : 'left-1'}`} />
               </button>
             </div>
           </div>
@@ -177,21 +183,21 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
         {/* Actions */}
         <div className="flex gap-4 items-center">
-          <div className="flex items-center bg-gray-100 rounded-xl px-2">
+          <div className="flex items-center bg-brand-light rounded-xl px-2 border border-transparent hover:border-brand-yellow/30 transition-colors">
             <button 
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-10 h-10 text-xl font-bold text-gray-600 pb-1"
+              className="w-10 h-10 text-xl font-bold text-white pb-1"
             >-</button>
-            <span className="w-8 text-center font-bold">{quantity}</span>
+            <span className="w-8 text-center font-bold text-white">{quantity}</span>
             <button 
               onClick={() => setQuantity(quantity + 1)}
-              className="w-10 h-10 text-xl font-bold text-gray-600 pb-1"
+              className="w-10 h-10 text-xl font-bold text-white pb-1"
             >+</button>
           </div>
           
           <button 
             onClick={handleAdd}
-            className="flex-1 bg-coffee-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform"
+            className="flex-1 bg-brand-yellow text-black py-4 rounded-2xl font-bold text-lg shadow-[0_0_15px_rgba(250,204,21,0.3)] active:scale-95 transition-transform"
           >
             Добавить за {totalPrice}₽
           </button>
