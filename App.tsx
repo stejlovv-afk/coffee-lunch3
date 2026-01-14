@@ -483,7 +483,7 @@ const App: React.FC = () => {
 
       {selectedProduct && <ItemModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)} />}
       
-      {showAIChat && <AIChatModal onClose={() => setShowAIChat(false)} />}
+      {showAIChat && <AIChatModal onClose={() => setShowAIChat(false)} onSelectProduct={(product) => setSelectedProduct(product)} />}
       
       {showAdminAuth && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl"><div className="glass-panel p-6 rounded-3xl w-80 shadow-2xl animate-slide-up"><h3 className="text-xl font-bold mb-4 text-center text-white">Вход для админа</h3><input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Пароль" className="w-full p-3 glass-input text-white rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-brand-yellow/50" /><div className="flex gap-2"><button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button><button onClick={verifyAdmin} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Войти</button></div></div></div>}
       {showAdminPanel && <AdminPanel hiddenItems={hiddenItems} onToggleHidden={(id) => setHiddenItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} onSaveToBot={handleSaveMenuToBot} onClose={() => setShowAdminPanel(false)} isLoading={isSending} />}
