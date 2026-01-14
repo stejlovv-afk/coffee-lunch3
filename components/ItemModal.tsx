@@ -65,7 +65,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const [quantity, setQuantity] = useState(1);
   
   // Options State
-  const [temp, setTemp] = useState<'hot' | 'cold'>('hot');
+  const [temp, setTemp] = useState<'hot' | 'cold'>('cold'); // Default cold for sodas
   const [sugar, setSugar] = useState<number>(0);
   const [cinnamon, setCinnamon] = useState<boolean>(false);
   const [selectedMilk, setSelectedMilk] = useState<string>('none');
@@ -108,14 +108,8 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
                       !product.id.includes('bumble') && // Бамбл на соке
                       !product.id.includes('chern_');   // Вода/Лимонад
 
-  // Hide Temp logic: Only needed for Soda (implicitly cold) but user said "remove for coffee/tea"
-  // Actually usually soda is just cold. User said: "remove temp for all EXCEPT soda, juice etc".
-  // Meaning Coffee/Tea don't have selection (Standard is Hot, or defined by name 'Ice Latte').
-  const canHaveTemp = ['soda'].includes(product.category) && !product.id.includes('chern_'); 
-  // Уточнение: черноголовка бутылочная не требует выбора температуры. 
-  // Авторский лимонад - можно спросить, но обычно холодный. 
-  // Оставим выбор температуры только там, где это реально неочевидно, или уберем совсем, как просил юзер для кофе/чая.
-  // Юзер: "убери выбор температуры у всех напитков кроме категории газировок".
+  // Logic for temperature: SODA category can have Warm/Cold.
+  const canHaveTemp = product.category === 'soda' && !product.id.includes('chern_');
 
   const handleAdd = () => {
     onAddToCart(selectedVariantIdx, quantity, {
@@ -138,16 +132,16 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-auto transition-opacity" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md pointer-events-auto transition-opacity" onClick={onClose} />
       
-      <div className="bg-brand-card w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 relative z-10 animate-slide-up pointer-events-auto max-h-[90vh] overflow-y-auto border-t sm:border border-brand-light no-scrollbar">
+      <div className="glass-modal w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 relative z-10 animate-slide-up pointer-events-auto max-h-[90vh] overflow-y-auto no-scrollbar shadow-2xl">
         
         {/* Header */}
         <div className="flex gap-4 mb-6">
-          <img src={product.image} alt={product.name} className="w-24 h-24 object-cover rounded-2xl shadow-lg" />
+          <img src={product.image} alt={product.name} className="w-24 h-24 object-cover rounded-2xl shadow-lg border border-white/10" />
           <div className="flex flex-col justify-center">
-            <h3 className="text-xl font-bold text-white leading-tight mb-1">{product.name}</h3>
-            <p className="text-brand-yellow font-black text-2xl">
+            <h3 className="text-xl font-bold text-white leading-tight mb-1 drop-shadow-md">{product.name}</h3>
+            <p className="text-brand-yellow font-black text-2xl drop-shadow-sm">
               {totalPrice}₽
             </p>
           </div>
@@ -163,8 +157,8 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
                 onClick={() => setSelectedVariantIdx(idx)}
                 className={`px-4 py-3 rounded-xl text-sm font-bold transition-all border ${
                   selectedVariantIdx === idx 
-                    ? 'bg-brand-yellow text-black border-brand-yellow shadow-[0_0_10px_rgba(250,204,21,0.3)]' 
-                    : 'bg-brand-light text-brand-muted border-transparent hover:border-brand-yellow/30'
+                    ? 'bg-brand-yellow text-black border-brand-yellow shadow-[0_0_15px_rgba(250,204,21,0.4)]' 
+                    : 'bg-white/5 text-brand-muted border-white/5 hover:bg-white/10 hover:border-white/20'
                 }`}
               >
                 {v.size}
@@ -179,9 +173,9 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
         {product.id.includes('bumble') && (
           <div className="mb-6">
              <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Сок (Бесплатно)</label>
-             <div className="flex bg-brand-light p-1 rounded-xl">
-                <button onClick={() => setBumbleJuice('orange')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${bumbleJuice === 'orange' ? 'bg-brand-card text-brand-yellow shadow' : 'text-brand-muted'}`}>Апельсиновый</button>
-                <button onClick={() => setBumbleJuice('cherry')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${bumbleJuice === 'cherry' ? 'bg-brand-card text-red-400 shadow' : 'text-brand-muted'}`}>Вишневый</button>
+             <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+                <button onClick={() => setBumbleJuice('orange')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${bumbleJuice === 'orange' ? 'bg-white/10 text-brand-yellow shadow-sm border border-white/10' : 'text-brand-muted'}`}>Апельсиновый</button>
+                <button onClick={() => setBumbleJuice('cherry')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${bumbleJuice === 'cherry' ? 'bg-white/10 text-red-400 shadow-sm border border-white/10' : 'text-brand-muted'}`}>Вишневый</button>
              </div>
           </div>
         )}
@@ -190,9 +184,9 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
         {product.id === 'chern_water' && (
           <div className="mb-6">
              <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Газация</label>
-             <div className="flex bg-brand-light p-1 rounded-xl">
-                <button onClick={() => setWaterGas(false)} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${!waterGas ? 'bg-brand-card text-white shadow' : 'text-brand-muted'}`}>Не газированная</button>
-                <button onClick={() => setWaterGas(true)} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${waterGas ? 'bg-brand-card text-blue-400 shadow' : 'text-brand-muted'}`}>С газом</button>
+             <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+                <button onClick={() => setWaterGas(false)} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${!waterGas ? 'bg-white/10 text-white shadow-sm border border-white/10' : 'text-brand-muted'}`}>Не газированная</button>
+                <button onClick={() => setWaterGas(true)} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${waterGas ? 'bg-white/10 text-blue-400 shadow-sm border border-white/10' : 'text-brand-muted'}`}>С газом</button>
              </div>
           </div>
         )}
@@ -202,17 +196,17 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
           <div className="mb-6 relative">
              <div className="flex items-center gap-2 mb-2">
                 <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider">Цвет матчи</label>
-                <button onClick={() => setShowMatchaTooltip(!showMatchaTooltip)} className="w-5 h-5 rounded-full bg-brand-light text-brand-muted flex items-center justify-center text-xs font-bold border border-brand-muted/30">?</button>
+                <button onClick={() => setShowMatchaTooltip(!showMatchaTooltip)} className="w-5 h-5 rounded-full bg-white/10 text-brand-muted flex items-center justify-center text-xs font-bold border border-white/10">?</button>
              </div>
              {showMatchaTooltip && (
-               <div className="absolute top-0 left-28 z-20 bg-brand-light text-white text-xs p-3 rounded-xl shadow-xl border border-brand-muted w-48">
+               <div className="absolute top-0 left-28 z-20 glass-panel text-white text-xs p-3 rounded-xl shadow-xl w-48">
                  <p className="mb-1"><span className="text-green-400 font-bold">Зеленая:</span> Японский чай.</p>
                  <p><span className="text-blue-400 font-bold">Синяя:</span> Из тайской орхидеи.</p>
                </div>
              )}
-             <div className="flex bg-brand-light p-1 rounded-xl">
-                <button onClick={() => setMatchaColor('green')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${matchaColor === 'green' ? 'bg-green-900/50 text-green-400 shadow border border-green-500/30' : 'text-brand-muted'}`}>Зеленая</button>
-                <button onClick={() => setMatchaColor('blue')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${matchaColor === 'blue' ? 'bg-blue-900/50 text-blue-400 shadow border border-blue-500/30' : 'text-brand-muted'}`}>Синяя</button>
+             <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+                <button onClick={() => setMatchaColor('green')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${matchaColor === 'green' ? 'bg-green-900/40 text-green-400 shadow-sm border border-green-500/20' : 'text-brand-muted'}`}>Зеленая</button>
+                <button onClick={() => setMatchaColor('blue')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${matchaColor === 'blue' ? 'bg-blue-900/40 text-blue-400 shadow-sm border border-blue-500/20' : 'text-brand-muted'}`}>Синяя</button>
              </div>
           </div>
         )}
@@ -221,25 +215,25 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
         {product.id === 'punch_buckthorn' && (
           <div className="mb-6 space-y-3">
              {/* Honey */}
-             <div className="flex items-center justify-between bg-brand-light p-3 rounded-xl">
+             <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
                <span className="text-sm font-bold text-white">Добавить мёд?</span>
-               <div onClick={() => setBuckthornHoney(!buckthornHoney)} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${buckthornHoney ? 'bg-brand-yellow' : 'bg-gray-600'}`}>
-                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${buckthornHoney ? 'left-7' : 'left-1'}`} />
+               <div onClick={() => setBuckthornHoney(!buckthornHoney)} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors border border-white/10 ${buckthornHoney ? 'bg-brand-yellow/80' : 'bg-black/40'}`}>
+                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${buckthornHoney ? 'left-7' : 'left-1'}`} />
                </div>
              </div>
              {/* Filter */}
-             <div className="flex items-center justify-between bg-brand-light p-3 rounded-xl relative">
+             <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl relative border border-white/5">
                <div className="flex items-center gap-2">
                  <span className="text-sm font-bold text-white">Профильтровать?</span>
-                 <button onClick={() => setShowFilterTooltip(!showFilterTooltip)} className="w-5 h-5 rounded-full bg-gray-600 text-white flex items-center justify-center text-xs font-bold">?</button>
+                 <button onClick={() => setShowFilterTooltip(!showFilterTooltip)} className="w-5 h-5 rounded-full bg-white/10 text-white flex items-center justify-center text-xs font-bold border border-white/10">?</button>
                </div>
                {showFilterTooltip && (
-                 <div className="absolute top-10 left-0 z-20 bg-brand-dark text-brand-muted text-xs p-3 rounded-xl shadow-xl border border-brand-light w-64">
+                 <div className="absolute top-10 left-0 z-20 glass-panel text-brand-muted text-xs p-3 rounded-xl shadow-xl w-64">
                    Если не профильтровать, могут попадаться косточки, но будут ягоды.
                  </div>
                )}
-               <div onClick={() => setBuckthornFilter(!buckthornFilter)} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${buckthornFilter ? 'bg-brand-yellow' : 'bg-gray-600'}`}>
-                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${buckthornFilter ? 'left-7' : 'left-1'}`} />
+               <div onClick={() => setBuckthornFilter(!buckthornFilter)} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors border border-white/10 ${buckthornFilter ? 'bg-brand-yellow/80' : 'bg-black/40'}`}>
+                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${buckthornFilter ? 'left-7' : 'left-1'}`} />
                </div>
              </div>
           </div>
@@ -247,10 +241,10 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
         {/* 5. Food / Salads Cutlery */}
         {(product.category === 'food' || product.category === 'salads') && (
-           <div className="mb-6 flex items-center justify-between bg-brand-light p-3 rounded-xl">
+           <div className="mb-6 flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
              <span className="text-sm font-bold text-white">Нужны приборы?</span>
-             <div onClick={() => setCutlery(!cutlery)} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors ${cutlery ? 'bg-brand-yellow' : 'bg-gray-600'}`}>
-               <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${cutlery ? 'left-7' : 'left-1'}`} />
+             <div onClick={() => setCutlery(!cutlery)} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors border border-white/10 ${cutlery ? 'bg-brand-yellow/80' : 'bg-black/40'}`}>
+               <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${cutlery ? 'left-7' : 'left-1'}`} />
              </div>
            </div>
         )}
@@ -259,10 +253,10 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
         {product.category === 'food' && (
           <div className="mb-6">
             <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Подогреть?</label>
-             <div className="flex bg-brand-light p-1 rounded-xl">
-                <button onClick={() => setHeating('none')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${heating === 'none' ? 'bg-brand-card text-white shadow' : 'text-brand-muted'}`}>Холодным</button>
-                <button onClick={() => setHeating('microwave')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${heating === 'microwave' ? 'bg-brand-card text-brand-yellow shadow' : 'text-brand-muted'}`}>СВЧ</button>
-                <button onClick={() => setHeating('grill')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${heating === 'grill' ? 'bg-brand-card text-orange-400 shadow' : 'text-brand-muted'}`}>Гриль</button>
+             <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+                <button onClick={() => setHeating('none')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${heating === 'none' ? 'bg-white/10 text-white shadow-sm border border-white/10' : 'text-brand-muted'}`}>Холодным</button>
+                <button onClick={() => setHeating('microwave')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${heating === 'microwave' ? 'bg-white/10 text-brand-yellow shadow-sm border border-white/10' : 'text-brand-muted'}`}>СВЧ</button>
+                <button onClick={() => setHeating('grill')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${heating === 'grill' ? 'bg-white/10 text-orange-400 shadow-sm border border-white/10' : 'text-brand-muted'}`}>Гриль</button>
              </div>
           </div>
         )}
@@ -272,13 +266,13 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
         {product.isDrink && !product.id.includes('chern_') && (
           <div className="space-y-6 mb-6">
             
-            {/* Temp (Only if allowed) */}
+            {/* Temp (For Soda/Juices or if manually enabled) */}
             {canHaveTemp && (
               <div>
                 <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Температура</label>
-                <div className="flex bg-brand-light p-1 rounded-xl">
-                  <button onClick={() => setTemp('hot')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'hot' ? 'bg-brand-card shadow text-brand-yellow' : 'text-brand-muted'}`}>Горячий</button>
-                  <button onClick={() => setTemp('cold')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'cold' ? 'bg-brand-card shadow text-blue-400' : 'text-brand-muted'}`}>Холодный</button>
+                <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+                  <button onClick={() => setTemp('cold')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'cold' ? 'bg-white/10 shadow-sm border border-white/10 text-blue-400' : 'text-brand-muted'}`}>Холодный</button>
+                  <button onClick={() => setTemp('hot')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'hot' ? 'bg-white/10 shadow-sm border border-white/10 text-brand-yellow' : 'text-brand-muted'}`}>Теплый</button>
                 </div>
               </div>
             )}
@@ -293,10 +287,10 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
                  <select 
                    value={selectedMilk}
                    onChange={(e) => setSelectedMilk(e.target.value)}
-                   className="w-full bg-brand-light text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-brand-yellow appearance-none font-medium"
+                   className="w-full glass-input text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-brand-yellow/50 appearance-none font-medium"
                  >
                    {MILK_OPTIONS.map(m => (
-                     <option key={m.id} value={m.id}>
+                     <option key={m.id} value={m.id} className="bg-brand-card">
                        {m.label} {m.basePrice > 0 ? `(от +${m.basePrice}₽)` : ''}
                      </option>
                    ))}
@@ -313,13 +307,13 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
                <select 
                  value={selectedSyrup}
                  onChange={(e) => setSelectedSyrup(e.target.value)}
-                 className="w-full bg-brand-light text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-brand-yellow appearance-none font-medium"
+                 className="w-full glass-input text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-brand-yellow/50 appearance-none font-medium"
                >
-                 <option value="none">Нет</option>
+                 <option value="none" className="bg-brand-card">Нет</option>
                  {Object.entries(SYRUP_GROUPS).map(([group, options]) => (
-                   <optgroup key={group} label={group} className="bg-brand-light text-brand-text">
+                   <optgroup key={group} label={group} className="bg-brand-card text-brand-text">
                      {options.map(s => (
-                       <option key={s.id} value={s.id}>{s.label}</option>
+                       <option key={s.id} value={s.id} className="bg-brand-card">{s.label}</option>
                      ))}
                    </optgroup>
                  ))}
@@ -336,7 +330,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
                 step="1" 
                 value={sugar}
                 onChange={(e) => setSugar(Number(e.target.value))}
-                className="w-full accent-brand-yellow h-2 bg-brand-light rounded-lg appearance-none cursor-pointer"
+                className="w-full accent-brand-yellow h-2 bg-black/30 rounded-lg appearance-none cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-brand-muted mt-2 font-mono">
                 <span>0г</span>
@@ -346,13 +340,13 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
             </div>
 
             {/* Cinnamon */}
-            <div className="flex items-center justify-between py-2 border-t border-brand-light/20 mt-4">
+            <div className="flex items-center justify-between py-2 border-t border-white/5 mt-4">
               <span className="text-sm font-bold text-white">Добавить корицу?</span>
               <button 
                 onClick={() => setCinnamon(!cinnamon)}
-                className={`w-12 h-6 rounded-full transition-colors relative ${cinnamon ? 'bg-brand-yellow' : 'bg-brand-light'}`}
+                className={`w-12 h-6 rounded-full transition-colors relative border border-white/10 ${cinnamon ? 'bg-brand-yellow/80' : 'bg-black/40'}`}
               >
-                <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${cinnamon ? 'left-7' : 'left-1'}`} />
+                <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${cinnamon ? 'left-7' : 'left-1'}`} />
               </button>
             </div>
           </div>
@@ -360,7 +354,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
         {/* Footer Actions */}
         <div className="flex gap-3 items-center pt-2">
-          <div className="flex items-center bg-brand-light rounded-xl px-2 h-14 border border-brand-light hover:border-brand-yellow/30 transition-colors">
+          <div className="flex items-center bg-white/5 rounded-2xl px-2 h-14 border border-white/10 hover:border-brand-yellow/30 transition-colors">
             <button 
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
               className="w-10 h-full text-2xl font-bold text-white flex items-center justify-center active:text-brand-yellow"
@@ -374,7 +368,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
           
           <button 
             onClick={handleAdd}
-            className="flex-1 bg-brand-yellow text-black h-14 rounded-2xl font-black text-lg shadow-[0_0_20px_rgba(250,204,21,0.2)] active:scale-95 transition-transform uppercase tracking-wide"
+            className="flex-1 bg-brand-yellow text-black h-14 rounded-2xl font-black text-lg shadow-[0_0_20px_rgba(250,204,21,0.4)] active:scale-95 transition-transform uppercase tracking-wide"
           >
             Добавить {totalPrice}₽
           </button>
