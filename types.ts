@@ -51,6 +51,10 @@ export interface OrderActionPayload {
     details: string;
   }[];
   total: number;
+  // Новые поля
+  deliveryMethod: 'pickup' | 'delivery';
+  pickupTime: string;
+  comment: string;
 }
 
 // Data sent to Bot to update Menu
