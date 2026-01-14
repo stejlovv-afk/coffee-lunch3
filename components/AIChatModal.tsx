@@ -61,14 +61,13 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       // Инициализация клиента
       const ai = new GoogleGenAI({ apiKey: activeKey });
       
-      // Контекст меню (упрощенный для экономии токенов)
+      // Контекст меню
       const menuContext = MENU_ITEMS.map(item => 
         `- ${item.name} (${item.variants[0].price}р). ID: ${item.id}`
       ).join('\n');
 
       const systemInstruction = `
         Ты — бариста в кофейне "Coffee Lunch".
-        
         МЕНЮ:
         ${menuContext}
         
@@ -77,17 +76,16 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         2. Если советуешь напиток/еду, ОБЯЗАТЕЛЬНО верни ответ в формате JSON.
         3. Если просто болтаешь, верни JSON с пустым массивом suggestedItemIds.
 
-        ФОРМАТ ОТВЕТА (ТОЛЬКО JSON):
+        ФОРМАТ ОТВЕТА (ТОЛЬКО ЧИСТЫЙ JSON, БЕЗ MARKDOWN):
         {
           "answerText": "Текст твоего ответа здесь...",
           "suggestedItemIds": ["id_товара_1", "id_товара_2"]
         }
       `;
 
-      // Запрос к модели
-      // Используем gemini-1.5-flash как самую стабильную
+      // Используем gemini-2.0-flash-exp как наиболее продвинутую flash модель
       const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash', 
+        model: 'gemini-2.0-flash-exp', 
         contents: [
             ...messages.map(m => ({ 
                 role: m.role, 
@@ -98,14 +96,14 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         config: {
             systemInstruction: systemInstruction,
             temperature: 0.7,
-            // Убрали responseSchema, так как она часто вызывает 400 ошибку на бесплатных тирах
-            responseMimeType: "application/json", 
+            // Не указываем responseMimeType: "application/json", чтобы избежать ошибок на некоторых ключах.
+            // Полагаемся на промпт.
         }
       });
 
       // Обработка ответа
       let rawText = response.text || '{}';
-      // Очистка от маркдауна, если модель решила его добавить
+      // Очистка от маркдауна (частая проблема, когда модель оборачивает JSON в ```json ... ```)
       rawText = rawText.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
       
       let jsonResponse;
@@ -113,7 +111,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         jsonResponse = JSON.parse(rawText);
       } catch (e) {
         console.warn("AI ответил не JSON-ом, пробуем показать как текст:", rawText);
-        // Если парсинг не удался, просто показываем текст, если он есть
+        // Если парсинг не удался, просто показываем текст
         jsonResponse = { 
             answerText: rawText.length > 0 ? rawText : "Извини, я задумался. Повтори, пожалуйста?", 
             suggestedItemIds: [] 
@@ -134,7 +132,6 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       let errorText = 'Упс, ошибка связи.';
       const msg = error.message || JSON.stringify(error);
 
-      // Более понятная диагностика ошибок
       if (msg.includes('API Key') || msg.includes('403')) {
          errorText = 'Неверный API Key. Нажмите кнопку "Закрыть", очистите кэш или перезагрузите страницу, чтобы ввести новый.';
          if (userKey) {
@@ -143,13 +140,13 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
              errorText += ' (Ключ сброшен, введите заново)';
          }
       } else if (msg.includes('404') || msg.includes('not found')) {
-         errorText = 'Модель ИИ не найдена (404).';
+         errorText = 'Модель ИИ не найдена (404). Возможно, ваш ключ не поддерживает gemini-2.0-flash-exp или регион ограничен.';
       } else if (msg.includes('429') || msg.includes('Quota')) {
          errorText = 'Лимит запросов исчерпан (Quota exceeded).';
       } else if (msg.includes('fetch failed')) {
          errorText = 'Ошибка сети (нет интернета или нужен VPN).';
       } else {
-         errorText = `Ошибка: ${msg.slice(0, 50)}...`;
+         errorText = `Ошибка: ${msg.slice(0, 100)}`;
       }
 
       setMessages(prev => [...prev, { role: 'model', text: errorText }]);
