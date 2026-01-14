@@ -19,8 +19,8 @@ export interface CartItemOption {
   temperature?: 'hot' | 'cold';
   sugar?: number;
   cinnamon?: boolean;
-  milk?: string;  // Added
-  syrup?: string; // Added
+  milk?: string;
+  syrup?: string;
 }
 
 export interface CartItem {
