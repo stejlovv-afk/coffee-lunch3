@@ -101,8 +101,9 @@ const App: React.FC = () => {
       tg.ready();
       tg.expand();
       try {
-        tg.setHeaderColor('#fdf8f6');
-        tg.setBackgroundColor('#fdf8f6');
+        // Set Header to Dark Color matches body
+        tg.setHeaderColor('#09090b');
+        tg.setBackgroundColor('#09090b');
         tg.enableClosingConfirmation();
         if (!tg.isExpanded) tg.expand();
       } catch (e) {
@@ -183,6 +184,7 @@ const App: React.FC = () => {
       try {
         if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         tg.sendData(JSON.stringify(payload));
+        // We close the app shortly after sending data
         setTimeout(() => tg.close(), 500); 
       } catch (e) {
         setIsSending(false);
@@ -203,9 +205,12 @@ const App: React.FC = () => {
 
     if (isCartOpen && cart.length > 0) {
         mainBtn.setText(`ОПЛАТИТЬ ${cartTotal}₽`);
+        mainBtn.textColor = "#000000";
+        mainBtn.color = "#FACC15"; // Yellow-400
+        mainBtn.isVisible = true;
         mainBtn.onClick(handleCheckout);
     } else {
-        mainBtn.hide();
+        mainBtn.isVisible = false;
         mainBtn.offClick(handleCheckout);
     }
     return () => { mainBtn.offClick(handleCheckout); };
@@ -289,19 +294,19 @@ const App: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen pb-24 font-sans text-gray-800">
+    <div className="min-h-screen pb-24 font-sans text-brand-text bg-brand-dark selection:bg-brand-yellow selection:text-black">
       
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-coffee-50/95 backdrop-blur-md shadow-sm px-4 py-3 flex justify-between items-center transition-colors">
+      <header className="sticky top-0 z-20 bg-brand-dark/90 backdrop-blur-md border-b border-brand-light/50 px-4 py-3 flex justify-between items-center transition-colors">
         <div>
           <h1 
             {...handleLongPress}
-            className="text-2xl font-black text-coffee-800 tracking-tight select-none cursor-pointer active:scale-95 transition-transform user-select-none"
+            className="text-2xl font-black text-brand-yellow tracking-tighter select-none cursor-pointer active:scale-95 transition-transform user-select-none italic"
             style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
           >
             COFFEE LUNCH
           </h1>
-          <p className="text-xs text-coffee-500 font-bold">Лучший кофе в городе</p>
+          <p className="text-[10px] text-brand-muted font-bold tracking-widest uppercase">Best Coffee In Town</p>
         </div>
         <button 
           onClick={() => {
@@ -309,23 +314,23 @@ const App: React.FC = () => {
             if (favs.length === 0) return alert("Избранное пусто");
             alert("Ваши избранные товары:\n" + favs.map(i => i.name).join(', ')); 
           }}
-          className="p-2 bg-coffee-100/50 rounded-full text-coffee-500 transition-transform active:scale-90"
+          className="p-2 bg-brand-light rounded-full text-brand-yellow hover:bg-brand-yellow hover:text-black transition-all active:scale-90"
         >
           <HeartIcon className="w-6 h-6" fill={favorites.length > 0} />
         </button>
       </header>
 
       {/* Category Nav */}
-      <nav className="sticky top-[60px] z-10 bg-coffee-50/95 backdrop-blur shadow-sm py-2 overflow-x-auto no-scrollbar">
-        <div className="flex px-4 gap-3 min-w-max">
+      <nav className="sticky top-[61px] z-10 bg-brand-dark/95 backdrop-blur py-3 overflow-x-auto no-scrollbar border-b border-transparent">
+        <div className="flex px-4 gap-2 min-w-max">
           {categories.map(cat => (
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
-              className={`px-5 py-2 rounded-2xl text-sm font-bold transition-all ${
+              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
                 activeCategory === cat.id 
-                  ? 'bg-coffee-500 text-white shadow-lg scale-105' 
-                  : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'
+                  ? 'bg-brand-yellow text-black shadow-[0_0_15px_rgba(250,204,21,0.3)] scale-105' 
+                  : 'bg-brand-light text-brand-muted border border-transparent hover:border-brand-yellow/30'
               }`}
             >
               {cat.label}
@@ -339,42 +344,42 @@ const App: React.FC = () => {
         {visibleItems.map(item => (
           <div 
             key={item.id} 
-            className={`bg-white rounded-3xl p-3 shadow-sm flex flex-col justify-between relative transition-transform ${
+            className={`bg-brand-card border border-brand-light/50 rounded-3xl p-3 shadow-lg flex flex-col justify-between relative transition-transform ${
               hiddenItems.includes(item.id) ? 'opacity-50 grayscale' : ''
             }`}
           >
-            <div className="relative mb-2">
+            <div className="relative mb-3 group">
               <img 
                 src={item.image} 
                 alt={item.name} 
-                className="w-full aspect-square object-cover rounded-2xl"
+                className="w-full aspect-square object-cover rounded-2xl brightness-90 group-hover:brightness-110 transition-all"
                 onClick={() => setSelectedProduct(item)} 
               />
               <button 
                 onClick={(e) => toggleFavorite(e, item.id)}
-                className="absolute top-2 right-2 p-1.5 bg-white/60 backdrop-blur rounded-full text-red-500 transition-transform active:scale-125"
+                className="absolute top-2 right-2 p-2 bg-black/40 backdrop-blur rounded-full text-brand-yellow transition-transform active:scale-125 hover:bg-black/60"
               >
                 <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
               </button>
               {hiddenItems.includes(item.id) && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-2xl">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm">
                   <EyeSlashIcon className="w-8 h-8 text-white" />
                 </div>
               )}
             </div>
             
-            <div>
-              <h3 className="font-bold text-gray-900 leading-tight mb-1 text-sm sm:text-base">{item.name}</h3>
-              <p className="text-coffee-500 font-extrabold text-lg">
+            <div onClick={() => setSelectedProduct(item)}>
+              <h3 className="font-bold text-white leading-tight mb-1 text-sm sm:text-base line-clamp-2 min-h-[2.5em]">{item.name}</h3>
+              <p className="text-brand-yellow font-extrabold text-lg">
                 {item.variants[0].price}₽
               </p>
             </div>
 
             <button 
               onClick={() => setSelectedProduct(item)}
-              className="mt-3 w-full py-3 bg-gray-100 hover:bg-coffee-100 text-coffee-800 rounded-2xl flex items-center justify-center transition-all active:scale-95 active:bg-coffee-200 group"
+              className="mt-3 w-full py-3 bg-brand-light hover:bg-brand-yellow hover:text-black text-white rounded-2xl flex items-center justify-center transition-all active:scale-95 group"
             >
-              <PlusIcon className="w-6 h-6 group-active:animate-bounce-short" />
+              <PlusIcon className="w-6 h-6 group-active:rotate-90 transition-transform" />
             </button>
           </div>
         ))}
@@ -382,16 +387,16 @@ const App: React.FC = () => {
 
       {/* Glass Cart Bar (Bottom) */}
       {cart.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 z-40 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none">
+        <div className="fixed bottom-0 left-0 right-0 p-4 z-40 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none pb-8">
           <button 
             onClick={() => setIsCartOpen(true)}
-            className="w-full pointer-events-auto bg-coffee-500/90 backdrop-blur-md border border-white/20 text-white rounded-3xl p-4 shadow-xl flex items-center justify-between active:scale-[0.98] transition-all animate-slide-up"
+            className="w-full pointer-events-auto bg-brand-yellow/90 backdrop-blur-md text-black rounded-3xl p-4 shadow-[0_0_20px_rgba(250,204,21,0.4)] flex items-center justify-between active:scale-[0.98] transition-all animate-slide-up border border-yellow-200/20"
           >
             <div className="flex items-center gap-3">
-              <div className="bg-white/20 px-3 py-1 rounded-full font-bold">
+              <div className="bg-black/20 px-3 py-1 rounded-full font-black">
                 {cart.reduce((a, b) => a + b.quantity, 0)}
               </div>
-              <span className="font-bold text-lg">Корзина</span>
+              <span className="font-bold text-lg uppercase tracking-wider">Корзина</span>
             </div>
             <span className="font-black text-xl tracking-wide">{cartTotal}₽</span>
           </button>
@@ -410,16 +415,19 @@ const App: React.FC = () => {
       {/* Cart Sheet */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setIsCartOpen(false)} />
-          <div className="bg-white w-full max-w-md h-[85vh] rounded-t-3xl sm:rounded-3xl p-6 relative z-10 flex flex-col animate-slide-up">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)} />
+          <div className="bg-brand-dark w-full max-w-md h-[85vh] rounded-t-3xl sm:rounded-3xl p-6 relative z-10 flex flex-col animate-slide-up border-t border-brand-light shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-black text-gray-900">Ваш заказ</h2>
-              <button onClick={() => setIsCartOpen(false)} className="text-gray-500 font-bold p-2">Закрыть</button>
+              <h2 className="text-2xl font-black text-white uppercase italic">Ваш заказ</h2>
+              <button onClick={() => setIsCartOpen(false)} className="text-brand-muted hover:text-white font-bold p-2 transition-colors">Закрыть</button>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-4 pr-2 pb-4">
               {cart.length === 0 ? (
-                <div className="text-center text-gray-400 mt-10">Корзина пуста</div>
+                <div className="flex flex-col items-center justify-center h-64 text-brand-muted opacity-50">
+                  <div className="text-6xl mb-4">🛒</div>
+                  <p>Корзина пуста</p>
+                </div>
               ) : (
                 cart.map((item) => {
                   const product = MENU_ITEMS.find(p => p.id === item.productId);
@@ -431,14 +439,14 @@ const App: React.FC = () => {
                   if (item.options.syrup && SYRUP_PRICES[item.options.syrup]) itemPrice += SYRUP_PRICES[item.options.syrup];
                   
                   return (
-                    <div key={item.uniqueId} className="flex gap-4 items-start bg-gray-50 p-3 rounded-2xl">
+                    <div key={item.uniqueId} className="flex gap-4 items-start bg-brand-light/30 border border-brand-light p-3 rounded-2xl">
                       <img src={product.image} className="w-16 h-16 rounded-xl object-cover" />
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
-                          <h4 className="font-bold text-gray-800">{product.name}</h4>
-                          <span className="font-bold text-coffee-500">{itemPrice * item.quantity}₽</span>
+                          <h4 className="font-bold text-white text-sm">{product.name}</h4>
+                          <span className="font-bold text-brand-yellow">{itemPrice * item.quantity}₽</span>
                         </div>
-                        <p className="text-xs text-gray-500 font-medium">
+                        <p className="text-[10px] text-brand-muted font-medium mt-1 leading-tight">
                           {product.variants[item.variantIndex].size}
                           {item.options.temperature && ` • ${item.options.temperature === 'hot' ? 'Гор' : 'Хол'}`}
                           {item.options.milk && MILK_LABELS[item.options.milk] && ` • ${MILK_LABELS[item.options.milk]}`}
@@ -446,12 +454,12 @@ const App: React.FC = () => {
                           {item.options.sugar !== undefined && item.options.sugar > 0 && ` • Сахар ${item.options.sugar}г`}
                           {item.options.cinnamon && ` • Корица`}
                         </p>
-                        <div className="flex justify-between items-center mt-2">
-                           <div className="flex items-center gap-3 bg-white px-2 rounded-lg shadow-sm border border-gray-100">
-                              <span className="font-bold text-sm text-gray-600">x{item.quantity}</span>
+                        <div className="flex justify-between items-center mt-3">
+                           <div className="flex items-center gap-3 bg-brand-dark px-2 py-1 rounded-lg border border-brand-light">
+                              <span className="font-bold text-xs text-white">x{item.quantity}</span>
                            </div>
-                           <button onClick={() => removeFromCart(item.uniqueId)} className="text-red-400 p-1">
-                             <TrashIcon className="w-5 h-5" />
+                           <button onClick={() => removeFromCart(item.uniqueId)} className="text-red-400 p-2 hover:bg-red-900/20 rounded-lg transition-colors">
+                             <TrashIcon className="w-4 h-4" />
                            </button>
                         </div>
                       </div>
@@ -461,18 +469,18 @@ const App: React.FC = () => {
               )}
             </div>
 
-            {/* Custom Brown Button (Always Visible) */}
-            <div className="pt-2 bg-white safe-area-bottom">
+            {/* Checkout Button */}
+            <div className="pt-4 bg-brand-dark safe-area-bottom border-t border-brand-light">
               <button 
                 onClick={handleCheckout}
                 disabled={isSending}
-                className={`w-full text-white py-4 rounded-2xl font-bold text-lg shadow-lg transition-all mb-2 flex items-center justify-center gap-2 ${
-                  isSending ? 'bg-coffee-500/80' : 'bg-coffee-500 active:scale-95'
+                className={`w-full text-black py-4 rounded-2xl font-bold text-lg shadow-[0_0_20px_rgba(250,204,21,0.2)] transition-all mb-2 flex items-center justify-center gap-2 ${
+                  isSending ? 'bg-brand-yellow/50 cursor-not-allowed' : 'bg-brand-yellow active:scale-95 hover:bg-yellow-300'
                 }`}
               >
                 {isSending ? (
                    <>
-                     <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"/>
+                     <span className="animate-spin h-5 w-5 border-2 border-black border-t-transparent rounded-full"/>
                      Отправка...
                    </>
                 ) : (
@@ -486,19 +494,19 @@ const App: React.FC = () => {
 
       {/* Admin Auth Modal */}
       {showAdminAuth && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur">
-          <div className="bg-white p-6 rounded-3xl w-80 shadow-2xl animate-slide-up">
-            <h3 className="text-xl font-bold mb-4 text-center">Вход для админа</h3>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur">
+          <div className="bg-brand-card p-6 rounded-3xl w-80 shadow-2xl animate-slide-up border border-brand-light">
+            <h3 className="text-xl font-bold mb-4 text-center text-white">Вход для админа</h3>
             <input 
               type="password" 
               value={adminPassword}
               onChange={(e) => setAdminPassword(e.target.value)}
               placeholder="Пароль"
-              className="w-full p-3 bg-gray-100 rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-coffee-500"
+              className="w-full p-3 bg-brand-dark border border-brand-light text-white rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-brand-yellow"
             />
             <div className="flex gap-2">
-              <button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-gray-500 font-bold">Отмена</button>
-              <button onClick={verifyAdmin} className="flex-1 py-3 bg-coffee-500 text-white rounded-xl font-bold">Войти</button>
+              <button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button>
+              <button onClick={verifyAdmin} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Войти</button>
             </div>
           </div>
         </div>
