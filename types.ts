@@ -21,6 +21,14 @@ export interface CartItemOption {
   cinnamon?: boolean;
   milk?: string;
   syrup?: string;
+  // Новые опции
+  juice?: 'orange' | 'cherry';         // Для Бамбл
+  gas?: boolean;                       // Для воды (true = с газом)
+  honey?: boolean;                     // Для облепихи
+  filter?: boolean;                    // Для облепихи (профильтровать)
+  cutlery?: boolean;                   // Приборы
+  heating?: 'grill' | 'microwave' | 'none'; // Подогрев
+  matchaColor?: 'green' | 'blue';      // Цвет матчи
 }
 
 export interface CartItem {
@@ -51,10 +59,10 @@ export interface OrderActionPayload {
     details: string;
   }[];
   total: number;
-  // Новые поля
   deliveryMethod: 'pickup' | 'delivery';
   pickupTime: string;
   comment: string;
+  username?: string; // Добавляем юзернейм
 }
 
 // Data sent to Bot to update Menu
