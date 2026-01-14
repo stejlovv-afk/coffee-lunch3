@@ -9,12 +9,12 @@ interface AIChatModalProps {
 }
 
 interface Message {
-  role: 'user' | 'assistant'; // GigaChat использует 'assistant' вместо 'model'
+  role: 'user' | 'assistant';
   content: string;
   suggestedProducts?: Product[];
 }
 
-// Простой генератор UUID для RqUID запросов GigaChat
+// Простой генератор UUID для RqUID
 function uuidv4() {
   return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
     (+c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> (+c / 4)).toString(16)
@@ -22,11 +22,11 @@ function uuidv4() {
 }
 
 const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) => {
-  // 1. Ключ Авторизации GigaChat (Base64)
-  const envKey = (process.env as any).GIGACHAT_KEY || (process.env as any).API_KEY; // Поддержка старого названия для удобства
-  // 2. Локальный ключ пользователя
+  // 1. Ключ GigaChat
+  const envKey = (process.env as any).GIGACHAT_KEY || (process.env as any).API_KEY;
+  // 2. Локальный ключ
   const [userKey, setUserKey] = useState(localStorage.getItem('user_gigachat_key') || '');
-  // 3. Токен доступа (живет 30 минут)
+  // 3. Токен доступа
   const [accessToken, setAccessToken] = useState<string | null>(null);
   
   const activeKey = envKey && envKey.length > 0 ? envKey : userKey;
@@ -53,14 +53,16 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
     }
   };
 
-  // --- GIGACHAT API LOGIC ---
+  // --- GIGACHAT API VIA PROXY ---
+  // Используем corsproxy.io для обхода блокировок браузера
 
-  // 1. Получение токена
   const getGigaToken = async (authKey: string) => {
-    // ВНИМАНИЕ: Запросы с фронтенда могут блокироваться CORS политикой Sberbank.
-    // Если это происходит, нужно использовать прокси.
     try {
-        const response = await fetch('https://ngw.devices.sberbank.ru:9443/api/v2/oauth', {
+        // Проксируем запрос к OAuth
+        const targetUrl = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+
+        const response = await fetch(proxyUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -73,7 +75,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
         if (!response.ok) {
             const err = await response.text();
-            throw new Error(`Ошибка авторизации (${response.status}): ${err}`);
+            throw new Error(`Auth Error (${response.status}): ${err}`);
         }
 
         const data = await response.json();
@@ -84,20 +86,23 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
     }
   };
 
-  // 2. Отправка сообщения
   const sendGigaMessage = async (token: string, history: Message[], userText: string, systemPrompt: string) => {
     const payload = {
-        model: "GigaChat", // или GigaChat:latest
+        model: "GigaChat", 
         messages: [
             { role: "system", content: systemPrompt },
             ...history.map(m => ({ role: m.role, content: m.content })),
             { role: "user", content: userText }
         ],
         temperature: 0.7,
-        max_tokens: 1024
+        max_tokens: 800 
     };
 
-    const response = await fetch('https://gigachat.devices.sberbank.ru/api/v1/chat/completions', {
+    // Проксируем запрос к API чата
+    const targetUrl = 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions';
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+
+    const response = await fetch(proxyUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -108,12 +113,9 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
     });
 
     if (!response.ok) {
-        // Проверяем, не протух ли токен (401)
-        if (response.status === 401) {
-             throw new Error("TOKEN_EXPIRED");
-        }
+        if (response.status === 401) throw new Error("TOKEN_EXPIRED");
         const err = await response.text();
-        throw new Error(`Ошибка генерации (${response.status}): ${err}`);
+        throw new Error(`Chat Error (${response.status}): ${err}`);
     }
 
     return await response.json();
@@ -124,58 +126,46 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
     if (!inputValue.trim() || isLoading) return;
 
     const userMsg = inputValue.trim();
-    const newMessages = [...messages, { role: 'user', content: userMsg } as Message];
-    setMessages(newMessages);
+    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setInputValue('');
     setIsLoading(true);
 
     try {
       if (!activeKey) throw new Error("Нет ключа GigaChat.");
 
-      // Логика получения/обновления токена
       let currentToken = accessToken;
+      
+      // Если токена нет, получаем его
       if (!currentToken) {
           try {
              currentToken = await getGigaToken(activeKey);
              setAccessToken(currentToken);
           } catch (e: any) {
-             // Если ошибка сети (CORS), выводим понятное сообщение
-             if (e.message.includes("Failed to fetch")) {
-                 throw new Error("Браузер заблокировал запрос к Сберу (CORS). Это ограничение Telegram WebApp. Попробуйте отключить защиту CORS или использовать сервер-посредник.");
-             }
-             throw e;
+             throw new Error(`Ошибка подключения к Сберу: ${e.message}. Проверьте ключ.`);
           }
       }
 
-      // Контекст меню
       const menuContext = MENU_ITEMS.map(item => 
         `- ${item.name} (${item.variants[0].price}р). ID: ${item.id}`
       ).join('\n');
 
       const systemInstruction = `
-        Ты — бариста в кофейне "Coffee Lunch".
-        МЕНЮ:
+        Ты — бариста в "Coffee Lunch". Меню:
         ${menuContext}
         
-        ТВОЯ ЗАДАЧА:
-        1. Отвечай кратко, дружелюбно, используй эмодзи.
-        2. Если советуешь товар из меню, верни JSON в конце ответа (без форматирования Markdown).
-        
-        ФОРМАТ ОТВЕТА (JSON):
-        {"text": "Текст ответа...", "ids": ["id1", "id2"]}
-        
-        Если JSON не нужен, просто пиши текст, а в конце добавь пустой JSON: {"text": "...", "ids": []}
-        Отвечай строго валидным JSON объектом, где поле "text" это твой ответ пользователю.
+        Задача:
+        1. Отвечай кратко и весело (с эмодзи).
+        2. Если советуешь что-то, верни JSON в конце: {"text": "ответ...", "ids": ["id1"]}
+        Если просто болтаешь: {"text": "ответ...", "ids": []}
+        Отвечай ТОЛЬКО валидным JSON.
       `;
 
-      // Попытка отправить сообщение
       let responseData;
       try {
           responseData = await sendGigaMessage(currentToken!, messages, userMsg, systemInstruction);
       } catch (e: any) {
           if (e.message === "TOKEN_EXPIRED") {
-              // Пробуем обновить токен один раз
-              console.log("Токен протух, обновляем...");
+              // Обновляем токен и пробуем снова
               const newToken = await getGigaToken(activeKey);
               setAccessToken(newToken);
               responseData = await sendGigaMessage(newToken, messages, userMsg, systemInstruction);
@@ -185,30 +175,24 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       }
 
       const rawContent = responseData.choices[0].message.content;
-      console.log("GigaChat Raw:", rawContent);
-
-      // Парсинг JSON ответа от GigaChat
+      
+      // Парсинг ответа
       let finalText = rawContent;
       let suggestedProducts: Product[] = [];
 
       try {
-          // GigaChat иногда добавляет текст до или после JSON, или оборачивает в ```json
-          // Попытаемся найти JSON объект в строке
+          // Ищем JSON в ответе (иногда модель пишет текст вокруг JSON)
           const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
-              const jsonStr = jsonMatch[0];
-              const parsed = JSON.parse(jsonStr);
+              const parsed = JSON.parse(jsonMatch[0]);
               if (parsed.text) finalText = parsed.text;
               if (parsed.ids && Array.isArray(parsed.ids)) {
                   suggestedProducts = MENU_ITEMS.filter(item => parsed.ids.includes(item.id));
               }
           }
       } catch (e) {
-          console.warn("Ошибка парсинга JSON от GigaChat, выводим как есть.");
+          console.warn("Не удалось распарсить JSON от GigaChat, показываем сырой ответ.");
       }
-      
-      // Удаляем сам JSON из текста, если он там остался в явном виде и мы его распарсили
-      // (Упрощенно: если распарсили успешно, finalText уже чистый, если нет - выводим всё)
 
       setMessages(prev => [...prev, { role: 'assistant', content: finalText, suggestedProducts }]);
 
@@ -216,8 +200,8 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       console.error('GigaChat Error:', error);
       let errorText = `Ошибка: ${error.message}`;
       
-      if (error.message.includes('401') || error.message.includes('auth')) {
-          errorText = "Ошибка авторизации GigaChat. Проверьте ключ (должен быть Base64).";
+      if (error.message.includes('401') || error.message.includes('Auth')) {
+          errorText = "Неверный ключ GigaChat. Нажмите 'Закрыть', чтобы ввести новый.";
           localStorage.removeItem('user_gigachat_key');
           setUserKey('');
           setAccessToken(null);
@@ -258,14 +242,13 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         </div>
 
         {!hasKey ? (
-            // --- NO KEY STATE (Input Form) ---
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
                 <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4 border border-white/10">
                     <SparklesIcon className="w-8 h-8 text-green-500" />
                 </div>
                 <h3 className="text-xl font-bold text-white mb-2">Настройка GigaChat</h3>
                 <p className="text-brand-muted text-sm mb-6 max-w-[280px]">
-                    Введите <b>Authorization Key</b> из консоли GigaChat API (строка Base64).
+                    Введите <b>Authorization Key</b> (Base64) из консоли разработчика Сбер.
                 </p>
                 <input 
                     type="password" 
@@ -280,12 +263,8 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
                 >
                     Сохранить и начать
                 </button>
-                <a href="https://developers.sber.ru/portal/products/gigachat-api" target="_blank" rel="noreferrer" className="mt-4 text-xs text-brand-muted underline opacity-50 hover:opacity-100">
-                    Получить ключ (Sber Developers)
-                </a>
             </div>
         ) : (
-            // --- CHAT STATE ---
             <>
                 <div className="flex-1 overflow-y-auto p-4 space-y-5 no-scrollbar">
                 {messages.map((msg, idx) => (
@@ -293,8 +272,6 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
                     <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-green-500 text-black font-medium rounded-tr-none shadow-green-500/10' : 'glass-panel text-white rounded-tl-none border border-white/10'}`}>
                         {msg.content}
                     </div>
-                    
-                    {/* Suggestions */}
                     {msg.role === 'assistant' && msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
                         <div className="mt-2 flex flex-col gap-2 w-full max-w-[85%] animate-fade-in">
                         <span className="text-[10px] text-brand-muted font-bold uppercase ml-1">Рекомендую:</span>
@@ -305,7 +282,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
                                 <h4 className="text-sm font-bold text-white truncate group-hover:text-green-500 transition-colors">{product.name}</h4>
                                 <p className="text-xs text-brand-muted">{product.variants[0].price}₽</p>
                             </div>
-                            <div className="w-8 h-8 rounded-full bg-green-500 text-black flex items-center justify-center shadow-lg transform group-hover:rotate-90 transition-transform"><PlusIcon className="w-5 h-5" /></div>
+                            <div className="w-8 h-8 rounded-full bg-green-500 text-black flex items-center justify-center shadow-lg"><PlusIcon className="w-5 h-5" /></div>
                             </div>
                         ))}
                         </div>
@@ -316,7 +293,6 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
                 <div ref={messagesEndRef} />
                 </div>
 
-                {/* Input Area */}
                 <div className="p-3 border-t border-white/10 bg-black/60 backdrop-blur-xl">
                 <div className="relative flex items-center">
                     <input 
