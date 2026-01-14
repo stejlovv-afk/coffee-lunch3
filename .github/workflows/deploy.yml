@@ -29,8 +29,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Важно: передаем секрет из GitHub в переменную окружения сборщика
-          API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Передаем секрет GIGACHAT_KEY из настроек репозитория
+          GIGACHAT_KEY: ${{ secrets.GIGACHAT_KEY }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
