@@ -11,14 +11,13 @@
         theme: {
           extend: {
             colors: {
-              // Custom Brand Palette: Black & Yellow
               brand: {
-                yellow: '#FACC15', // Main accent (Yellow-400)
-                dark: '#09090b',   // Main background (Zinc-950)
-                card: '#18181b',   // Card background (Zinc-900)
-                light: '#27272a',  // Lighter elements (Zinc-800)
-                text: '#FAFAFA',   // Main text
-                muted: '#A1A1AA',  // Muted text
+                yellow: '#FACC15',
+                dark: '#09090b',
+                card: '#18181b',
+                light: '#27272a',
+                text: '#FAFAFA',
+                muted: '#A1A1AA',
               }
             },
             animation: {
@@ -58,22 +57,16 @@
         color: #FAFAFA;
         overflow-x: hidden;
       }
-      /* Hide scrollbar for Chrome, Safari and Opera */
       .no-scrollbar::-webkit-scrollbar {
         display: none;
       }
-      /* Hide scrollbar for IE, Edge and Firefox */
       .no-scrollbar {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
-      
-      /* Safe area spacing for iPhones */
       .safe-area-bottom {
         padding-bottom: env(safe-area-inset-bottom, 20px);
       }
-
-      /* Liquid Glass Utilities */
       .glass-panel {
         background: rgba(255, 255, 255, 0.03);
         backdrop-filter: blur(16px);
@@ -81,14 +74,12 @@
         border: 1px solid rgba(255, 255, 255, 0.08);
         box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
       }
-      
       .glass-modal {
         background: rgba(20, 20, 23, 0.75);
         backdrop-filter: blur(24px);
         -webkit-backdrop-filter: blur(24px);
         border-top: 1px solid rgba(255, 255, 255, 0.15);
       }
-
       .glass-input {
         background: rgba(0, 0, 0, 0.3);
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -109,11 +100,10 @@
 </script>
 </head>
   <body>
-    <!-- Background Blobs for Glass Effect Depth -->
-    <div class="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
-      <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-brand-yellow/10 rounded-full mix-blend-screen filter blur-[100px] opacity-30 animate-blob"></div>
-      <div class="absolute top-[20%] right-[-10%] w-96 h-96 bg-purple-500/10 rounded-full mix-blend-screen filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
-      <div class="absolute bottom-[-20%] left-[20%] w-96 h-96 bg-brand-yellow/5 rounded-full mix-blend-screen filter blur-[100px] opacity-30 animate-blob animation-delay-4000"></div>
+    <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-brand-yellow/10 rounded-full mix-blend-screen filter blur-[100px] opacity-30 animate-blob"></div>
+      <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-purple-500/10 rounded-full mix-blend-screen filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
+      <div className="absolute bottom-[-20%] left-[20%] w-96 h-96 bg-brand-yellow/5 rounded-full mix-blend-screen filter blur-[100px] opacity-30 animate-blob animation-delay-4000"></div>
     </div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
