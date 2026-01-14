@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
 import { Category, Product, CartItem, WebAppPayload, Review } from './types';
-import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon } from './components/ui/Icons';
+import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon } from './components/ui/Icons';
 import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 
@@ -48,6 +48,15 @@ function useLongPress(callback: () => void, ms = 1500) {
   };
 }
 
+// --- Helper to get default time (now + 15 mins) ---
+const getDefaultTime = () => {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + 15);
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
 // --- Main Component ---
 const App: React.FC = () => {
   // --- State ---
@@ -61,6 +70,11 @@ const App: React.FC = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isSending, setIsSending] = useState(false);
   
+  // Checkout State
+  const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'delivery'>('pickup');
+  const [pickupTime, setPickupTime] = useState(getDefaultTime());
+  const [comment, setComment] = useState('');
+
   // Modals
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -112,6 +126,13 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Update time when cart opens
+  useEffect(() => {
+    if (isCartOpen) {
+      setPickupTime(getDefaultTime());
+    }
+  }, [isCartOpen]);
+
   // --- Checkout Logic ---
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => {
@@ -157,7 +178,7 @@ const App: React.FC = () => {
         const variant = product.variants[item.variantIndex];
         
         let details = variant.size;
-        if (item.options.temperature) details += `, ${item.options.temperature === 'hot' ? 'Гор' : 'Хол'}`;
+        if (item.options.temperature) details += `, ${item.options.temperature === 'hot' ? 'Горячий' : 'Холодный'}`;
         if (item.options.milk && MILK_LABELS[item.options.milk]) details += `, ${MILK_LABELS[item.options.milk]}`;
         if (item.options.syrup && SYRUP_LABELS[item.options.syrup]) details += `, ${SYRUP_LABELS[item.options.syrup]}`;
         if (item.options.sugar !== undefined && item.options.sugar > 0) details += `, Сахар: ${item.options.sugar}г`;
@@ -176,7 +197,10 @@ const App: React.FC = () => {
           details
         };
       }),
-      total: cartTotal
+      total: cartTotal,
+      deliveryMethod,
+      pickupTime,
+      comment
     };
 
     if (window.Telegram?.WebApp) {
@@ -195,7 +219,7 @@ const App: React.FC = () => {
       alert(`[Тест браузера] Заказ на ${payload.total}р сформирован.`);
       setIsSending(false);
     }
-  }, [cart, cartTotal, isSending]);
+  }, [cart, cartTotal, isSending, deliveryMethod, pickupTime, comment]);
 
   // Sync MainButton
   useEffect(() => {
@@ -261,9 +285,6 @@ const App: React.FC = () => {
     
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.sendData(JSON.stringify(payload));
-      // Не закрываем сразу, чтобы бот успел получить данные (хотя sendData закрывает вебвью,
-      // но если это настроено в боте иначе, то это гарантия).
-      // Бот сам может прислать сообщение "Меню обновлено".
     } else {
         setIsSending(false);
         alert("Вне Telegram рассылка не работает");
@@ -425,16 +446,70 @@ const App: React.FC = () => {
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)} />
-          <div className="bg-brand-dark w-full max-w-md h-[85vh] rounded-t-3xl sm:rounded-3xl p-6 relative z-10 flex flex-col animate-slide-up border-t border-brand-light shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
+          <div className="bg-brand-dark w-full max-w-md h-[95vh] rounded-t-3xl sm:rounded-3xl p-6 relative z-10 flex flex-col animate-slide-up border-t border-brand-light shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-black text-white uppercase italic">Ваш заказ</h2>
               <button onClick={() => setIsCartOpen(false)} className="text-brand-muted hover:text-white font-bold p-2 transition-colors">Закрыть</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 pb-4">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 pb-4 no-scrollbar">
+              
+              {/* --- Order Type Switcher --- */}
+              <div className="bg-brand-light p-1 rounded-xl flex mb-4">
+                 <button 
+                   onClick={() => setDeliveryMethod('pickup')}
+                   className={`flex-1 py-3 rounded-lg font-bold text-sm transition-all ${
+                     deliveryMethod === 'pickup' 
+                       ? 'bg-brand-yellow text-black shadow' 
+                       : 'text-brand-muted hover:text-white'
+                   }`}
+                 >
+                   Самовывоз
+                 </button>
+                 <button 
+                   onClick={() => alert("Доставка появится позже!")}
+                   className="flex-1 py-3 rounded-lg font-bold text-sm text-brand-muted/50 cursor-not-allowed flex flex-col items-center justify-center leading-none"
+                 >
+                   <span>Доставка</span>
+                   <span className="text-[9px] mt-0.5 opacity-60">скоро</span>
+                 </button>
+              </div>
+
+              {/* --- Pickup Details --- */}
+              <div className="space-y-3 mb-4">
+                <div>
+                   <label className="flex items-center gap-2 text-sm font-medium text-brand-muted mb-2">
+                     <ClockIcon className="w-4 h-4" />
+                     Время готовности
+                   </label>
+                   <input 
+                     type="time"
+                     value={pickupTime}
+                     onChange={(e) => setPickupTime(e.target.value)}
+                     className="w-full bg-brand-card border border-brand-light text-white p-3 rounded-xl outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow transition-all [color-scheme:dark]"
+                   />
+                </div>
+
+                <div>
+                   <label className="flex items-center gap-2 text-sm font-medium text-brand-muted mb-2">
+                     <ChatIcon className="w-4 h-4" />
+                     Комментарий бариста
+                   </label>
+                   <textarea 
+                     value={comment}
+                     onChange={(e) => setComment(e.target.value)}
+                     placeholder="Погорячее, поменьше льда..."
+                     rows={2}
+                     className="w-full bg-brand-card border border-brand-light text-white p-3 rounded-xl outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow transition-all resize-none placeholder:text-brand-muted/50"
+                   />
+                </div>
+              </div>
+
+              {/* --- Cart Items --- */}
+              <div className="space-y-3">
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 text-brand-muted opacity-50">
-                  <div className="text-6xl mb-4">🛒</div>
+                <div className="flex flex-col items-center justify-center h-40 text-brand-muted opacity-50">
+                  <div className="text-4xl mb-2">🛒</div>
                   <p>Корзина пуста</p>
                 </div>
               ) : (
@@ -476,6 +551,7 @@ const App: React.FC = () => {
                   );
                 })
               )}
+              </div>
             </div>
 
             {/* Checkout Button */}
