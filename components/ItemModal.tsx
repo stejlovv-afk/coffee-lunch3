@@ -25,7 +25,7 @@ const SYRUP_GROUPS = {
     { id: 'almond_syrup', label: 'Миндаль' },
   ],
   'Ягодные/Фруктовые': [
-    { id: 'red_orange', label: 'Красный апельсин' },
+    { id: 'red_orange', label: 'Кр. апельсин' },
     { id: 'strawberry', label: 'Клубника' },
     { id: 'peach', label: 'Персик' },
     { id: 'melon', label: 'Дыня' },
@@ -36,12 +36,12 @@ const SYRUP_GROUPS = {
   ],
   'Десертные/Другие': [
     { id: 'lavender', label: 'Лаванда' },
-    { id: 'gingerbread', label: 'Имбирный пряник' },
+    { id: 'gingerbread', label: 'Пряник' },
     { id: 'lemongrass', label: 'Лемонграсс' },
     { id: 'popcorn', label: 'Попкорн' },
     { id: 'mint', label: 'Мята' },
     { id: 'bubblegum', label: 'Баблгам' },
-    { id: 'salted_caramel', label: 'Соленая карамель' },
+    { id: 'salted_caramel', label: 'Сол. карамель' },
   ]
 };
 
@@ -101,10 +101,11 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
   const totalPrice = (basePrice + milkPrice + syrupPrice) * quantity;
 
-  // Hide Milk logic: Espresso, Americano, Punch
+  // Hide Milk logic: Espresso, Americano, Punch, TEA
   const canHaveMilk = product.isDrink && 
                       !['espresso', 'americano'].includes(product.id) && 
                       product.category !== 'punch' &&
+                      product.category !== 'tea' && // Убрали молоко из чая
                       !product.id.includes('bumble') && // Бамбл на соке
                       !product.id.includes('chern_');   // Вода/Лимонад
 
@@ -129,6 +130,10 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
     });
     onClose();
   };
+
+  // Helper to calculate price for display on buttons
+  const displayMilkPrice = getAddonPrice('milk', currentVariant.size);
+  const displaySyrupPrice = getAddonPrice('syrup', currentVariant.size);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
@@ -277,47 +282,67 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
               </div>
             )}
 
-            {/* Milk Selection */}
+            {/* Milk Selection (Visible Buttons instead of Select) */}
             {canHaveMilk && (
-              <div>
-                 <div className="flex justify-between mb-2">
+              <div className="mb-6">
+                 <div className="flex justify-between mb-3">
                    <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider">Молоко</label>
                    {selectedMilk !== 'none' && <span className="text-xs font-bold text-brand-yellow">+{milkPrice}₽</span>}
                  </div>
-                 <select 
-                   value={selectedMilk}
-                   onChange={(e) => setSelectedMilk(e.target.value)}
-                   className="w-full glass-input text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-brand-yellow/50 appearance-none font-medium"
-                 >
-                   {MILK_OPTIONS.map(m => (
-                     <option key={m.id} value={m.id} className="bg-brand-card">
-                       {m.label} {m.basePrice > 0 ? `(от +${m.basePrice}₽)` : ''}
-                     </option>
-                   ))}
-                 </select>
+                 <div className="flex flex-wrap gap-2">
+                    {MILK_OPTIONS.map(m => (
+                       <button
+                         key={m.id}
+                         onClick={() => setSelectedMilk(m.id)}
+                         className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                            selectedMilk === m.id 
+                            ? 'bg-brand-yellow text-black border-brand-yellow shadow-sm' 
+                            : 'bg-white/5 text-brand-muted border-white/5 hover:bg-white/10'
+                         }`}
+                       >
+                         {m.label} {m.basePrice > 0 ? ` (+${displayMilkPrice}₽)` : ''}
+                       </button>
+                    ))}
+                 </div>
               </div>
             )}
 
-            {/* Syrup Selection (Grouped) */}
+            {/* Syrup Selection (Visible Chips instead of Select) */}
             <div>
-               <div className="flex justify-between mb-2">
+               <div className="flex justify-between mb-3">
                  <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider">Сироп</label>
                  {selectedSyrup !== 'none' && <span className="text-xs font-bold text-brand-yellow">+{syrupPrice}₽</span>}
                </div>
-               <select 
-                 value={selectedSyrup}
-                 onChange={(e) => setSelectedSyrup(e.target.value)}
-                 className="w-full glass-input text-white p-3 rounded-xl outline-none focus:ring-1 focus:ring-brand-yellow/50 appearance-none font-medium"
-               >
-                 <option value="none" className="bg-brand-card">Нет</option>
-                 {Object.entries(SYRUP_GROUPS).map(([group, options]) => (
-                   <optgroup key={group} label={group} className="bg-brand-card text-brand-text">
-                     {options.map(s => (
-                       <option key={s.id} value={s.id} className="bg-brand-card">{s.label}</option>
-                     ))}
-                   </optgroup>
-                 ))}
-               </select>
+               
+               <div className="space-y-4">
+                  {Object.entries(SYRUP_GROUPS).map(([group, options]) => (
+                    <div key={group}>
+                       <h4 className="text-[10px] text-brand-muted/70 font-bold uppercase mb-2 ml-1">{group}</h4>
+                       <div className="flex flex-wrap gap-2">
+                          {options.map(s => (
+                             <button
+                               key={s.id}
+                               onClick={() => setSelectedSyrup(selectedSyrup === s.id ? 'none' : s.id)}
+                               className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                                  selectedSyrup === s.id 
+                                  ? 'bg-brand-yellow text-black border-brand-yellow shadow-sm' 
+                                  : 'bg-white/5 text-brand-muted border-white/5 hover:bg-white/10'
+                               }`}
+                             >
+                               {s.label}
+                             </button>
+                          ))}
+                       </div>
+                    </div>
+                  ))}
+               </div>
+               {selectedSyrup !== 'none' && (
+                  <div className="mt-3">
+                     <button onClick={() => setSelectedSyrup('none')} className="text-xs text-red-400 font-bold border-b border-red-400/30 pb-0.5">
+                        Убрать сироп
+                     </button>
+                  </div>
+               )}
             </div>
 
             {/* Sugar Slider */}
