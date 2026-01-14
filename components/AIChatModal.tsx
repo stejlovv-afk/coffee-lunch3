@@ -14,8 +14,8 @@ interface Message {
   suggestedProducts?: Product[];
 }
 
-// ВАШ КЛЮЧ GIGACHAT (Авторизационные данные)
-const GIGACHAT_KEY = 'MDE5YmJlYzUtMDJhYi03NmQ5LTgzYzQtMjA0YWE4OGY5ODZhOjUxOTYwNGFiLTI3MTctNDRiOS1iY2FjLWJkODhlMTcxZmIzYg==';
+// Получаем ключ из переменных окружения (вставлен при сборке)
+const GIGACHAT_KEY = process.env.GIGACHAT_KEY || '';
 
 // Простой генератор UUID для RqUID
 function uuidv4() {
@@ -43,6 +43,10 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
   const getGigaToken = async () => {
     try {
+        if (!GIGACHAT_KEY) {
+            throw new Error("Ключ API не найден. Проверьте настройки GitHub Secrets.");
+        }
+
         // Используем прокси, чтобы обойти CORS ограничения браузера
         const targetUrl = 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
         const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
@@ -124,7 +128,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
              currentToken = await getGigaToken();
              setAccessToken(currentToken);
           } catch (e: any) {
-             throw new Error("Не удалось подключиться к GigaChat.");
+             throw new Error(e.message || "Не удалось подключиться к GigaChat.");
           }
       }
 
