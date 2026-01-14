@@ -4,15 +4,6 @@ import { MENU_ITEMS } from '../constants';
 import { Product } from '../types';
 import { SendIcon, SparklesIcon, PlusIcon } from './ui/Icons';
 
-// Хаки для TypeScript, чтобы он не ругался на process.env.API_KEY
-// Vite подменит это значение во время сборки.
-declare const process: {
-  env: {
-    API_KEY: string;
-    [key: string]: string | undefined;
-  }
-};
-
 interface AIChatModalProps {
   onClose: () => void;
   onSelectProduct: (product: Product) => void;
@@ -24,7 +15,7 @@ interface Message {
   suggestedProducts?: Product[];
 }
 
-// Схема ответа для Gemini
+// Схема ответа для JSON режима
 const responseSchema = {
   type: Type.OBJECT,
   properties: {
@@ -35,7 +26,7 @@ const responseSchema = {
     suggestedItemIds: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "Массив ID товаров из меню, которые наиболее подходят под запрос клиента (максимум 3)."
+      description: "Массив ID товаров из меню, которые подходят под запрос (максимум 3)."
     }
   },
   required: ["answerText", "suggestedItemIds"],
@@ -62,32 +53,38 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
     setIsLoading(true);
 
     try {
-      // Используем process.env.API_KEY, который подставляется через vite.config.ts
-      const apiKey = process.env.API_KEY || '';
+      // 1. Получаем ключ. Используем "as any", чтобы TypeScript не ругался на отсутствие API_KEY в типах Node
+      // Vite заменит process.env.API_KEY на строку во время сборки.
+      const apiKey = (process.env as any).API_KEY;
       
-      if (!apiKey || apiKey.includes('AIza') === false) {
-        console.error("Invalid API Key found:", apiKey);
+      if (!apiKey || apiKey.trim() === '') {
+        throw new Error("API Key is missing. Check GitHub Secrets configuration.");
       }
 
+      // 2. Инициализация клиента
       const ai = new GoogleGenAI({ apiKey });
       
+      // 3. Формируем контекст меню
       const menuContext = MENU_ITEMS.map(item => 
-        `ID: "${item.id}", Name: "${item.name}", Cat: ${item.category}, Price: ${item.variants[0].price}rub`
+        `ID:${item.id}|Name:${item.name}|Price:${item.variants[0].price}rub`
       ).join('\n');
 
       const systemInstruction = `
         Ты — опытный бариста в кофейне "Coffee Lunch". 
-        Твоя задача — консультировать гостей и продавать им вкусные сочетания.
-        МЕНЮ (Только эти товары существуют):
+        Твоя задача — консультировать гостей и продавать им вкусные сочетания из меню.
+        
+        МЕНЮ:
         ${menuContext}
+        
         ПРАВИЛА:
         1. Отвечай кратко, тепло, используй эмодзи.
-        2. Если гость просит совет, предложи 1-2 товара из меню.
-        3. Ответ должен быть строго в формате JSON.
+        2. Если гость просит совет, предложи 1-2 конкретных товара из меню.
+        3. Твой ответ ВСЕГДА должен быть в формате JSON.
       `;
 
+      // 4. Запрос к модели
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash', 
+        model: 'gemini-3-flash-preview', 
         contents: [
             ...messages.map(m => ({ 
                 role: m.role, 
@@ -97,12 +94,13 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         ],
         config: {
             systemInstruction: systemInstruction,
-            temperature: 0.5,
+            temperature: 0.6,
             responseMimeType: "application/json",
             responseSchema: responseSchema,
         }
       });
 
+      // 5. Обработка ответа
       let rawText = response.text || '{}';
       rawText = rawText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
       
@@ -111,19 +109,25 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         jsonResponse = JSON.parse(rawText);
       } catch (e) {
         console.error("JSON Parse Error", e);
-        jsonResponse = { answerText: rawText, suggestedItemIds: [] };
+        jsonResponse = { answerText: "Что-то пошло не так, но я всё равно готов принять заказ!", suggestedItemIds: [] };
       }
 
-      const text = jsonResponse.answerText || 'Что-то я задумался...';
+      const text = jsonResponse.answerText || '...';
       const itemIds = jsonResponse.suggestedItemIds || [];
 
       const suggestedProducts = MENU_ITEMS.filter(item => itemIds.includes(item.id));
 
       setMessages(prev => [...prev, { role: 'model', text, suggestedProducts }]);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI Error:', error);
-      setMessages(prev => [...prev, { role: 'model', text: 'Ошибка связи с ИИ. Проверьте ключ API.' }]);
+      let errorText = 'Упс, связь с космосом прервалась. Попробуй еще раз!';
+      
+      if (error.message && error.message.includes('API Key is missing')) {
+         errorText = 'Ошибка настройки: Не найден API ключ (GEMINI_API_KEY).';
+      }
+
+      setMessages(prev => [...prev, { role: 'model', text: errorText }]);
     } finally {
       setIsLoading(false);
     }
@@ -143,6 +147,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       
       <div className="glass-modal w-full max-w-md h-[85vh] rounded-3xl relative z-10 animate-slide-up pointer-events-auto shadow-2xl flex flex-col overflow-hidden border border-white/10 bg-[#09090b]">
         
+        {/* Header */}
         <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5 backdrop-blur-md">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-brand-yellow flex items-center justify-center text-black shadow-[0_0_10px_rgba(250,204,21,0.5)]">
@@ -156,12 +161,15 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
           <button onClick={onClose} className="text-brand-muted hover:text-white p-2 text-sm font-bold transition-colors">Закрыть</button>
         </div>
 
+        {/* Chat Area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-5 no-scrollbar">
           {messages.map((msg, idx) => (
             <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
               <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-brand-yellow text-black font-medium rounded-tr-none shadow-yellow-500/10' : 'glass-panel text-white rounded-tl-none border border-white/10'}`}>
                 {msg.text}
               </div>
+              
+              {/* Suggestions */}
               {msg.role === 'model' && msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
                 <div className="mt-2 flex flex-col gap-2 w-full max-w-[85%] animate-fade-in">
                   <span className="text-[10px] text-brand-muted font-bold uppercase ml-1">Рекомендую:</span>
@@ -183,9 +191,17 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Input Area */}
         <div className="p-3 border-t border-white/10 bg-black/60 backdrop-blur-xl">
           <div className="relative flex items-center">
-            <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={handleKeyDown} placeholder="Посоветуй кофе..." className="w-full glass-input text-white pl-4 pr-12 py-3.5 rounded-2xl outline-none focus:border-brand-yellow/50 transition-all placeholder:text-white/30" />
+            <input 
+                type="text" 
+                value={inputValue} 
+                onChange={(e) => setInputValue(e.target.value)} 
+                onKeyDown={handleKeyDown} 
+                placeholder="Посоветуй кофе..." 
+                className="w-full glass-input text-white pl-4 pr-12 py-3.5 rounded-2xl outline-none focus:border-brand-yellow/50 transition-all placeholder:text-white/30" 
+            />
             <button onClick={handleSend} disabled={isLoading || !inputValue.trim()} className="absolute right-2 p-2 bg-brand-yellow text-black rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100 shadow-lg"><SendIcon className="w-5 h-5" /></button>
           </div>
         </div>
