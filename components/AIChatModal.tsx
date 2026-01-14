@@ -53,12 +53,12 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
     setIsLoading(true);
 
     try {
-      // 1. Получаем ключ. Используем "as any", чтобы TypeScript не ругался на отсутствие API_KEY в типах Node
-      // Vite заменит process.env.API_KEY на строку во время сборки.
+      // 1. Получаем ключ безопасным способом для TypeScript
+      // Во время сборки Vite заменит "process.env.API_KEY" на реальную строку ключа
       const apiKey = (process.env as any).API_KEY;
       
       if (!apiKey || apiKey.trim() === '') {
-        throw new Error("API Key is missing. Check GitHub Secrets configuration.");
+        throw new Error("API Key is missing.");
       }
 
       // 2. Инициализация клиента
@@ -84,7 +84,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
       // 4. Запрос к модели
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview', 
+        model: 'gemini-2.0-flash', 
         contents: [
             ...messages.map(m => ({ 
                 role: m.role, 
@@ -124,7 +124,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       let errorText = 'Упс, связь с космосом прервалась. Попробуй еще раз!';
       
       if (error.message && error.message.includes('API Key is missing')) {
-         errorText = 'Ошибка настройки: Не найден API ключ (GEMINI_API_KEY).';
+         errorText = 'Ошибка: Ключ API не найден. Проверьте настройки GitHub Secrets.';
       }
 
       setMessages(prev => [...prev, { role: 'model', text: errorText }]);
