@@ -28,6 +28,9 @@ jobs:
         run: npm install
       - name: Build
         run: npm run build
+        env:
+          # Важно: передаем секрет из GitHub в переменную окружения сборщика
+          API_KEY: ${{ secrets.GEMINI_API_KEY }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
