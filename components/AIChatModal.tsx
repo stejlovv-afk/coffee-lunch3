@@ -93,7 +93,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-1.5-flash',
         contents: contents,
         config: {
             systemInstruction: getSystemPrompt(),
@@ -128,17 +128,21 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
     } catch (e: any) {
       console.error("Gemini AI Error:", e);
+      
       let errorMsg = "Что-то пошло не так. Попробуйте еще раз.";
       
-      // Обработка ошибок, типичных для блокировок
-      if (e.message && (e.message.includes('403') || e.message.includes('400') || e.message.includes('Location'))) {
-          errorMsg = "Не могу связаться с сервером AI 😔. Если вы в РФ, попробуйте включить VPN.";
-      }
-      if (e.message && e.message.includes('fetch failed')) {
-          errorMsg = "Ошибка сети. Проверьте интернет или включите VPN.";
-      }
-      if (e.message && e.message.includes('404')) {
-          errorMsg = "Модель AI временно недоступна (404). Попробуйте позже.";
+      if (e.message) {
+          if (e.message.includes('403') || e.message.includes('400') || e.message.includes('Location')) {
+              errorMsg = "Не могу связаться с сервером AI (403/Location). Если вы в РФ, нужен VPN.";
+          } else if (e.message.includes('fetch failed')) {
+              errorMsg = "Ошибка сети (Fetch Failed). Проверьте интернет или VPN.";
+          } else if (e.message.includes('404')) {
+              errorMsg = "Модель AI недоступна (404).";
+          } else if (e.message.includes('500') || e.message.includes('503')) {
+              errorMsg = "Сервер AI перегружен (5xx). Попробуйте позже.";
+          } else {
+             errorMsg = `Ошибка AI: ${e.message.slice(0, 50)}...`;
+          }
       }
 
       return { text: errorMsg, ids: [] };
@@ -189,7 +193,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       const result = await callGemini(userText, messages);
       await typeMessage(result.text, result.ids);
     } catch (e) {
-      await typeMessage("Связь прервалась. Попробуйте снова.", []);
+      await typeMessage("Критическая ошибка приложения.", []);
     } finally {
       setIsLoading(false);
     }
