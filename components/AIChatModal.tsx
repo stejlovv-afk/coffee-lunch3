@@ -112,7 +112,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
     const tryGenerate = async (modelName: string) => {
         try {
-            console.log(`Trying model: ${modelName} via ${gatewayUrl || 'Direct'}`);
+            // console.log(`Attempting model: ${modelName}`);
             const response = await ai.models.generateContent({
                 model: modelName,
                 contents: contents,
@@ -126,26 +126,35 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
     try {
       let response;
-      try {
-          // Пробуем 1.5 Flash (самая стабильная и стандартная версия)
-          response = await tryGenerate('gemini-1.5-flash');
-      } catch (e: any) {
-          console.warn("Primary model failed:", e);
-          const isRateLimit = e.message && (e.message.includes('429') || e.message.includes('quota'));
-          
-          if (!isRateLimit) {
-             console.log("Trying fallback model: gemini-2.0-flash-exp");
-             response = await tryGenerate('gemini-2.0-flash-exp');
-          } else {
-             throw e;
-          }
+      let lastError;
+
+      // Список моделей для перебора в случае ошибок (429/503)
+      // 1.5 Flash - Стандартная
+      // 2.0 Flash Exp - Экспериментальная (часто имеет отдельные лимиты)
+      // 1.5 Flash 8b - Облегченная (быстрая)
+      const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash-8b'];
+
+      for (const model of modelsToTry) {
+        try {
+            response = await tryGenerate(model);
+            if (response && response.text) {
+                // console.log(`Success with ${model}`);
+                break;
+            }
+        } catch (e: any) {
+            console.warn(`Model ${model} failed:`, e.message || e);
+            lastError = e;
+            // Если ошибка не связана с лимитами/сетью (например, безопасность), нет смысла пробовать другие
+            if (e.message && e.message.includes('safety')) break; 
+        }
       }
 
-      const responseText = response?.text;
-      if (!responseText) throw new Error("Empty response from Gemini");
+      if (!response || !response.text) {
+          throw lastError || new Error("All models failed");
+      }
 
       // Попытка распарсить JSON
-      let cleanText = responseText.trim();
+      let cleanText = response.text.trim();
       if (cleanText.startsWith('```json')) {
           cleanText = cleanText.replace(/^```json/, '').replace(/```$/, '');
       } else if (cleanText.startsWith('```')) {
@@ -172,15 +181,13 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       const errStr = e.message || JSON.stringify(e);
       
       if (errStr.includes('429') || errStr.includes('quota') || errStr.includes('exceeded')) {
-          errorMsg = "⏳ Ой, я перегрелся! Слишком много запросов. Подождите минутку. 💛";
+          errorMsg = "⏳ Ой, все линии заняты! Мой API ключ перегрелся. Попробуйте через минуту или обратитесь к администратору для замены ключа. 💛";
       } else if (errStr.includes('403') || errStr.includes('400') || errStr.includes('Location')) {
-          errorMsg = "Проблема доступа (403). Проверьте API ключ и VPN.";
+          errorMsg = "Проблема доступа (403). Проверьте API ключ и прокси.";
       } else if (errStr.includes('fetch failed')) {
-          errorMsg = "Ошибка сети. Проверьте адрес прокси в vite.config.ts";
+          errorMsg = "Ошибка сети. Проверьте подключение к интернету или VPN.";
       } else if (errStr.includes('Unexpected token') || errStr.includes('<!DOCTYPE html>')) {
-          errorMsg = "Ошибка настройки прокси (Worker вернул HTML). Проверьте код в Cloudflare.";
-      } else if (errStr.includes('404')) {
-          errorMsg = "Модель AI недоступна (404). Проверьте имя модели в коде.";
+          errorMsg = "Ошибка прокси (Worker). Проверьте настройки Cloudflare.";
       } else {
          errorMsg = `Ошибка AI: ${errStr.slice(0, 50)}...`;
       }
