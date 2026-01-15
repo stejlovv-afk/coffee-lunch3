@@ -72,7 +72,9 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         };
     }
 
+    // Настраиваем клиент.
     const clientOptions: any = { apiKey: apiKey };
+    
     if (gatewayUrl && gatewayUrl.startsWith('http')) {
         clientOptions.baseUrl = gatewayUrl;
     }
@@ -108,9 +110,9 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         }
     };
 
-    // Функция для попытки запроса
     const tryGenerate = async (modelName: string) => {
         try {
+            console.log(`Trying model: ${modelName} via ${gatewayUrl || 'Direct'}`);
             const response = await ai.models.generateContent({
                 model: modelName,
                 contents: contents,
@@ -123,26 +125,40 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
     };
 
     try {
-      // Попытка 1: Используем gemini-1.5-flash-latest (обычно самые большие лимиты)
       let response;
       try {
-          response = await tryGenerate('gemini-1.5-flash-latest');
+          // Пробуем 1.5 Flash (самая стабильная и стандартная версия)
+          response = await tryGenerate('gemini-1.5-flash');
       } catch (e: any) {
-          // Если ошибка, пробуем gemini-2.0-flash-exp как запасной вариант (если это не 429)
+          console.warn("Primary model failed:", e);
           const isRateLimit = e.message && (e.message.includes('429') || e.message.includes('quota'));
           
           if (!isRateLimit) {
-             console.warn("Primary model failed, trying fallback...", e.message);
+             console.log("Trying fallback model: gemini-2.0-flash-exp");
              response = await tryGenerate('gemini-2.0-flash-exp');
           } else {
-             throw e; // Прокидываем 429 дальше, нет смысла менять модель на том же ключе
+             throw e;
           }
       }
 
       const responseText = response?.text;
       if (!responseText) throw new Error("Empty response from Gemini");
 
-      const parsed = JSON.parse(responseText);
+      // Попытка распарсить JSON
+      let cleanText = responseText.trim();
+      if (cleanText.startsWith('```json')) {
+          cleanText = cleanText.replace(/^```json/, '').replace(/```$/, '');
+      } else if (cleanText.startsWith('```')) {
+           cleanText = cleanText.replace(/^```/, '').replace(/```$/, '');
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(cleanText);
+      } catch (jsonError) {
+        console.warn("Failed to parse JSON directly:", cleanText);
+        return { text: cleanText, ids: [] };
+      }
       
       return {
           text: parsed.text,
@@ -150,21 +166,21 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       };
 
     } catch (e: any) {
-      console.error("Gemini AI Error:", e);
+      console.error("Gemini AI Final Error:", e);
       
       let errorMsg = "Что-то пошло не так. Попробуйте еще раз.";
       const errStr = e.message || JSON.stringify(e);
       
       if (errStr.includes('429') || errStr.includes('quota') || errStr.includes('exceeded')) {
-          errorMsg = "⏳ Ой, я перегрелся! Слишком много запросов. Подождите минутку и спросите снова. 💛";
+          errorMsg = "⏳ Ой, я перегрелся! Слишком много запросов. Подождите минутку. 💛";
       } else if (errStr.includes('403') || errStr.includes('400') || errStr.includes('Location')) {
-          errorMsg = "Не могу связаться с сервером AI (403/Location). Если вы в РФ, нужен VPN.";
+          errorMsg = "Проблема доступа (403). Проверьте API ключ и VPN.";
       } else if (errStr.includes('fetch failed')) {
-          errorMsg = "Ошибка сети (Fetch Failed). Проверьте интернет или VPN.";
+          errorMsg = "Ошибка сети. Проверьте адрес прокси в vite.config.ts";
+      } else if (errStr.includes('Unexpected token') || errStr.includes('<!DOCTYPE html>')) {
+          errorMsg = "Ошибка настройки прокси (Worker вернул HTML). Проверьте код в Cloudflare.";
       } else if (errStr.includes('404')) {
-          errorMsg = "Модель AI временно недоступна (404).";
-      } else if (errStr.includes('500') || errStr.includes('503')) {
-          errorMsg = "Сервер AI перегружен (5xx). Попробуйте позже.";
+          errorMsg = "Модель AI недоступна (404). Проверьте имя модели в коде.";
       } else {
          errorMsg = `Ошибка AI: ${errStr.slice(0, 50)}...`;
       }
@@ -229,13 +245,10 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-md pointer-events-auto transition-opacity" onClick={onClose} />
       
-      {/* Modal Window */}
       <div className="glass-modal w-full max-w-md h-[85vh] rounded-3xl relative z-10 animate-slide-up pointer-events-auto shadow-[0_0_50px_rgba(250,204,21,0.1)] flex flex-col overflow-hidden bg-[#09090b] border border-white/10">
         
-        {/* Header */}
         <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-yellow to-yellow-600 text-black flex items-center justify-center shadow-lg shadow-yellow-500/20">
@@ -254,12 +267,10 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
           </button>
         </div>
 
-        {/* Chat Area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar">
           {messages.map((msg, idx) => (
             <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-fade-in`}>
               
-              {/* Message Bubble */}
               <div 
                 className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm backdrop-blur-sm transition-all ${
                   msg.role === 'user' 
@@ -270,7 +281,6 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
                 {msg.content}
               </div>
 
-              {/* Product Suggestions */}
               {msg.role === 'assistant' && msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
                 <div className="mt-3 flex flex-col gap-2 w-full max-w-[90%] animate-slide-up">
                   {msg.suggestedProducts.map(product => (
@@ -294,7 +304,6 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
             </div>
           ))}
           
-          {/* Loading Indicator */}
           {isLoading && (
             <div className="flex justify-start animate-fade-in">
               <div className="bg-white/5 px-4 py-3 rounded-2xl rounded-tl-sm flex gap-1.5 items-center border border-white/5">
@@ -307,7 +316,6 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick Actions */}
         {!isLoading && !isTyping && (
           <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar mask-gradient">
             {QUICK_ACTIONS.map((action, i) => (
@@ -322,7 +330,6 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
           </div>
         )}
 
-        {/* Input Area */}
         <div className="p-4 border-t border-white/10 bg-black/60 backdrop-blur-xl">
           <div className="relative flex items-center group">
             <input 
