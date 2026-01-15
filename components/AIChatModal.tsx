@@ -93,7 +93,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-preview',
+        model: 'gemini-2.0-flash',
         contents: contents,
         config: {
             systemInstruction: getSystemPrompt(),
@@ -136,6 +136,9 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       }
       if (e.message && e.message.includes('fetch failed')) {
           errorMsg = "Ошибка сети. Проверьте интернет или включите VPN.";
+      }
+      if (e.message && e.message.includes('404')) {
+          errorMsg = "Модель AI временно недоступна (404). Попробуйте позже.";
       }
 
       return { text: errorMsg, ids: [] };
