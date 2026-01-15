@@ -123,17 +123,19 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
     };
 
     try {
-      // Попытка 1: Используем gemini-2.0-flash-exp (самая новая и быстрая)
+      // Попытка 1: Используем gemini-1.5-flash-latest (обычно самые большие лимиты)
       let response;
       try {
-          response = await tryGenerate('gemini-2.0-flash-exp');
+          response = await tryGenerate('gemini-1.5-flash-latest');
       } catch (e: any) {
-          // Если 404, пробуем запасную модель
-          if (e.message && e.message.includes('404')) {
-              console.warn("Gemini 2.0 not found, trying fallback...");
-              response = await tryGenerate('gemini-1.5-flash-latest');
+          // Если ошибка, пробуем gemini-2.0-flash-exp как запасной вариант (если это не 429)
+          const isRateLimit = e.message && (e.message.includes('429') || e.message.includes('quota'));
+          
+          if (!isRateLimit) {
+             console.warn("Primary model failed, trying fallback...", e.message);
+             response = await tryGenerate('gemini-2.0-flash-exp');
           } else {
-              throw e;
+             throw e; // Прокидываем 429 дальше, нет смысла менять модель на том же ключе
           }
       }
 
@@ -151,19 +153,20 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       console.error("Gemini AI Error:", e);
       
       let errorMsg = "Что-то пошло не так. Попробуйте еще раз.";
+      const errStr = e.message || JSON.stringify(e);
       
-      if (e.message) {
-          if (e.message.includes('403') || e.message.includes('400') || e.message.includes('Location')) {
-              errorMsg = "Не могу связаться с сервером AI (403/Location). Если вы в РФ, нужен VPN.";
-          } else if (e.message.includes('fetch failed')) {
-              errorMsg = "Ошибка сети (Fetch Failed). Проверьте интернет или VPN.";
-          } else if (e.message.includes('404')) {
-              errorMsg = "Модель AI недоступна (404). Попробуйте позже.";
-          } else if (e.message.includes('500') || e.message.includes('503')) {
-              errorMsg = "Сервер AI перегружен (5xx). Попробуйте позже.";
-          } else {
-             errorMsg = `Ошибка AI: ${e.message.slice(0, 50)}...`;
-          }
+      if (errStr.includes('429') || errStr.includes('quota') || errStr.includes('exceeded')) {
+          errorMsg = "⏳ Ой, я перегрелся! Слишком много запросов. Подождите минутку и спросите снова. 💛";
+      } else if (errStr.includes('403') || errStr.includes('400') || errStr.includes('Location')) {
+          errorMsg = "Не могу связаться с сервером AI (403/Location). Если вы в РФ, нужен VPN.";
+      } else if (errStr.includes('fetch failed')) {
+          errorMsg = "Ошибка сети (Fetch Failed). Проверьте интернет или VPN.";
+      } else if (errStr.includes('404')) {
+          errorMsg = "Модель AI временно недоступна (404).";
+      } else if (errStr.includes('500') || errStr.includes('503')) {
+          errorMsg = "Сервер AI перегружен (5xx). Попробуйте позже.";
+      } else {
+         errorMsg = `Ошибка AI: ${errStr.slice(0, 50)}...`;
       }
 
       return { text: errorMsg, ids: [] };
