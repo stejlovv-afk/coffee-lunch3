@@ -61,8 +61,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
   const callGemini = async (userMessage: string, history: Message[]) => {
     const apiKey = process.env.GEMINI_API_KEY;
-    // Используем прокси, если он задан в конфиге, иначе стандартный Google URL
-    // @ts-ignore - process.env.GEMINI_GATEWAY_URL инжектится Vite'ом
+    // @ts-ignore
     const gatewayUrl = process.env.GEMINI_GATEWAY_URL;
 
     if (!apiKey) {
@@ -73,8 +72,6 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         };
     }
 
-    // Настройка клиента. Если есть gatewayUrl, используем его как baseUrl.
-    // Это позволяет обойти блокировку по IP, направив запрос через Cloudflare Worker.
     const clientOptions: any = { apiKey: apiKey };
     if (gatewayUrl && gatewayUrl.startsWith('http')) {
         clientOptions.baseUrl = gatewayUrl;
@@ -91,32 +88,56 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
     contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
-        contents: contents,
-        config: {
-            systemInstruction: getSystemPrompt(),
-            responseMimeType: 'application/json',
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    text: { 
-                        type: Type.STRING, 
-                        description: "Ответ бариста пользователю." 
-                    },
-                    ids: { 
-                        type: Type.ARRAY, 
-                        items: { type: Type.STRING },
-                        description: "Список ID рекомендованных товаров."
-                    }
+    const config = {
+        systemInstruction: getSystemPrompt(),
+        responseMimeType: 'application/json',
+        responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+                text: { 
+                    type: Type.STRING, 
+                    description: "Ответ бариста пользователю." 
                 },
-                required: ["text", "ids"]
-            }
-        },
-      });
+                ids: { 
+                    type: Type.ARRAY, 
+                    items: { type: Type.STRING },
+                    description: "Список ID рекомендованных товаров."
+                }
+            },
+            required: ["text", "ids"]
+        }
+    };
 
-      const responseText = response.text;
+    // Функция для попытки запроса
+    const tryGenerate = async (modelName: string) => {
+        try {
+            const response = await ai.models.generateContent({
+                model: modelName,
+                contents: contents,
+                config: config,
+            });
+            return response;
+        } catch (e) {
+            throw e;
+        }
+    };
+
+    try {
+      // Попытка 1: Используем gemini-2.0-flash-exp (самая новая и быстрая)
+      let response;
+      try {
+          response = await tryGenerate('gemini-2.0-flash-exp');
+      } catch (e: any) {
+          // Если 404, пробуем запасную модель
+          if (e.message && e.message.includes('404')) {
+              console.warn("Gemini 2.0 not found, trying fallback...");
+              response = await tryGenerate('gemini-1.5-flash-latest');
+          } else {
+              throw e;
+          }
+      }
+
+      const responseText = response?.text;
       if (!responseText) throw new Error("Empty response from Gemini");
 
       const parsed = JSON.parse(responseText);
@@ -137,7 +158,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
           } else if (e.message.includes('fetch failed')) {
               errorMsg = "Ошибка сети (Fetch Failed). Проверьте интернет или VPN.";
           } else if (e.message.includes('404')) {
-              errorMsg = "Модель AI недоступна (404).";
+              errorMsg = "Модель AI недоступна (404). Попробуйте позже.";
           } else if (e.message.includes('500') || e.message.includes('503')) {
               errorMsg = "Сервер AI перегружен (5xx). Попробуйте позже.";
           } else {
