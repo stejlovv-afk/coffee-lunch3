@@ -28,10 +28,6 @@ jobs:
         run: npm install
       - name: Build
         run: npm run build
-        env:
-          # Передаем секреты из настроек репозитория в сборку Vite
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_GATEWAY_URL: ${{ secrets.GEMINI_GATEWAY_URL }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
