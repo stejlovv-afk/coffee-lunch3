@@ -5,15 +5,14 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   
-  // ВСТАВЬТЕ СЮДА ВАШ API КЛЮЧ GEMINI
+  // ВСТАВЬТЕ СЮДА ВАШ НОВЫЙ API КЛЮЧ GEMINI, ЕСЛИ СТАРЫЙ "ПЕРЕГРЕЛСЯ" (429 ERROR)
+  // Получить ключ: https://aistudio.google.com/app/apikey
   const geminiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || 'AIzaSyCL2OSF22FWV-tj2e2LtbsPSMet3bfNgCQ';
   
   // ВСТАВЬТЕ СЮДА ССЫЛКУ НА ВАШ CLOUDFLARE WORKER
-  // Пример: 'https://misty-field-1234.ваше_имя.workers.dev'
-  // Оставьте пустым (''), если используете VPN и прямой доступ
   let geminiGateway = process.env.GEMINI_GATEWAY_URL || env.GEMINI_GATEWAY_URL || 'https://gemenicofe.stejlovv.workers.dev';
 
-  // Убираем слеш в конце, если он есть, чтобы не ломать путь
+  // Убираем слеш в конце, если он есть
   if (geminiGateway.endsWith('/')) {
     geminiGateway = geminiGateway.slice(0, -1);
   }
