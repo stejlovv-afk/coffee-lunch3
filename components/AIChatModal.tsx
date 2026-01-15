@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { GoogleGenAI, Type } from "@google/genai";
 import { MENU_ITEMS } from '../constants';
 import { Product } from '../types';
 import { SendIcon, SparklesIcon, PlusIcon } from './ui/Icons';
@@ -24,7 +25,7 @@ const QUICK_ACTIONS = [
 
 const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Привет! 👋 Я ваш AI-бариста. Я знаю всё меню наизусть. Напишите, чего хочется (например "кофе с халвой" или "что-то сытное"), и я моментально это найду!' }
+    { role: 'assistant', content: 'Привет! 👋 Я ваш AI-бариста. Я знаю всё меню наизусть. Напишите, чего хочется, и я помогу выбрать! 💛' }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -51,93 +52,93 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 [${menuMap}]
 
 ПРАВИЛА:
-1. Твои ответы должны быть живыми, с эмодзи.
-2. Если пользователь просит что-то, чего нет (например, "суши"), вежливо откажи и предложи альтернативу из меню (например, сэндвич).
-3. Если пользователь просит "не Х" (например, "не бамбл"), НИКОГДА не предлагай Х.
-4. Понимай контекст: "с халвой" -> Латте Халва; "поесть" -> Салаты или Сэндвичи.
-
-ФОРМАТ ОТВЕТА (СТРОГО JSON):
-Ты должен отвечать ВСЕГДА только валидным JSON объектом без markdown разметки.
-{
-  "text": "Текст твоего ответа клиенту...",
-  "ids": ["id_товара_1", "id_товара_2"]
-}
-Если товаров для рекомендации нет, массив "ids" должен быть пустым.
+1. Твои ответы должны быть краткими, живыми, с эмодзи.
+2. Предлагай ТОЛЬКО то, что есть в меню.
+3. Если товара нет, предложи похожий.
+4. В ответе всегда возвращай JSON.
     `.trim();
   };
 
   const callGemini = async (userMessage: string, history: Message[]) => {
-    const messagesPayload = [
-        { role: 'system', content: getSystemPrompt() },
-        ...history.slice(-6).map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'assistant',
-            content: msg.content
-        })),
-        { role: 'user', content: userMessage }
-    ];
+    const apiKey = process.env.GEMINI_API_KEY;
+    // Используем прокси, если он задан в конфиге, иначе стандартный Google URL
+    // @ts-ignore - process.env.GEMINI_GATEWAY_URL инжектится Vite'ом
+    const gatewayUrl = process.env.GEMINI_GATEWAY_URL;
 
-    // Используем POST запрос к pollinations.ai для поддержки длинных промптов
-    const url = 'https://text.pollinations.ai/';
+    if (!apiKey) {
+        console.error("API Key not found");
+        return {
+            text: "Ошибка конфигурации: API Key не найден.",
+            ids: []
+        };
+    }
+
+    // Настройка клиента. Если есть gatewayUrl, используем его как baseUrl.
+    // Это позволяет обойти блокировку по IP, направив запрос через Cloudflare Worker.
+    const clientOptions: any = { apiKey: apiKey };
+    if (gatewayUrl && gatewayUrl.startsWith('http')) {
+        clientOptions.baseUrl = gatewayUrl;
+    }
+
+    const ai = new GoogleGenAI(clientOptions);
+
+    const contents = history
+        .filter(msg => msg.content.trim() !== '')
+        .map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.content }]
+        }));
+
+    contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(new Error("Timeout")), 45000); // 45 сек таймаут
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-preview',
+        contents: contents,
+        config: {
+            systemInstruction: getSystemPrompt(),
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    text: { 
+                        type: Type.STRING, 
+                        description: "Ответ бариста пользователю." 
+                    },
+                    ids: { 
+                        type: Type.ARRAY, 
+                        items: { type: Type.STRING },
+                        description: "Список ID рекомендованных товаров."
+                    }
+                },
+                required: ["text", "ids"]
+            }
         },
-        body: JSON.stringify({
-            messages: messagesPayload,
-            model: 'openai', // Используем стандартную модель для стабильности POST запросов
-            temperature: 0.7
-        }),
-        signal: controller.signal 
       });
-      
-      clearTimeout(timeoutId);
 
-      if (!response.ok) {
-          const errorText = await response.text();
-          console.error("AI API Error:", response.status, errorText);
-          throw new Error(`Network error: ${response.status}`);
-      }
-      
-      let rawText = await response.text();
-      
-      // Очистка от возможных markdown-тегов (```json ... ```)
-      rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+      const responseText = response.text;
+      if (!responseText) throw new Error("Empty response from Gemini");
 
-      // Парсинг JSON
-      try {
-        const parsed = JSON.parse(rawText);
-        return {
-            text: parsed.text || "Простите, я немного запутался. Повторите?",
-            ids: Array.isArray(parsed.ids) ? parsed.ids : []
-        };
-      } catch (e) {
-        // Если AI вернул не JSON, пробуем использовать текст как ответ
-        console.warn("AI returned non-JSON:", rawText);
-        return {
-            text: rawText || "Что-то пошло не так с ответом AI.",
-            ids: []
-        };
-      }
+      const parsed = JSON.parse(responseText);
+      
+      return {
+          text: parsed.text,
+          ids: parsed.ids || []
+      };
 
     } catch (e: any) {
-      console.error("AI Error:", e);
-      // Обработка таймаута или аборта запроса
-      if (e.name === 'AbortError' || (e.message && (e.message.includes('aborted') || e.message.includes('Timeout')))) {
-          return {
-            text: "Сервер долго думает 🐢. Похоже, там очередь. Спросите еще раз!",
-            ids: []
-          };
+      console.error("Gemini AI Error:", e);
+      let errorMsg = "Что-то пошло не так. Попробуйте еще раз.";
+      
+      // Обработка ошибок, типичных для блокировок
+      if (e.message && (e.message.includes('403') || e.message.includes('400') || e.message.includes('Location'))) {
+          errorMsg = "Не могу связаться с сервером AI 😔. Если вы в РФ, попробуйте включить VPN.";
       }
-      return {
-        text: "Связь с космосом прервалась 🛸. Попробуйте еще раз!",
-        ids: []
-      };
+      if (e.message && e.message.includes('fetch failed')) {
+          errorMsg = "Ошибка сети. Проверьте интернет или включите VPN.";
+      }
+
+      return { text: errorMsg, ids: [] };
     }
   };
 
@@ -146,12 +147,10 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
   const typeMessage = async (fullText: string, productIds: string[]) => {
     setIsTyping(true);
     let currentText = '';
-    // Скорость печати
-    const speed = 15; 
+    const speed = 10; 
 
     setMessages(prev => [...prev, { role: 'assistant', content: '', suggestedProducts: [] }]);
     
-    // Эффект печатания
     for (let i = 0; i < fullText.length; i++) {
       currentText += fullText[i];
       setMessages(prev => {
@@ -161,11 +160,9 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         }
         return prev;
       });
-      // Пропускаем задержку на пробелах для динамики
       if (fullText[i] !== ' ') await new Promise(r => setTimeout(r, speed));
     }
 
-    // Показываем товары только когда текст допечатался
     if (productIds.length > 0) {
         const products = MENU_ITEMS.filter(i => productIds.includes(i.id));
         setMessages(prev => {
@@ -189,7 +186,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
       const result = await callGemini(userText, messages);
       await typeMessage(result.text, result.ids);
     } catch (e) {
-      await typeMessage("Что-то пошло не так. Попробуйте еще раз!", []);
+      await typeMessage("Связь прервалась. Попробуйте снова.", []);
     } finally {
       setIsLoading(false);
     }
@@ -210,14 +207,14 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
         {/* Header */}
         <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-yellow to-yellow-600 text-black flex items-center justify-center shadow-lg shadow-yellow-500/20">
               <SparklesIcon className="w-6 h-6 animate-pulse" />
             </div>
             <div>
-              <h3 className="font-bold text-white text-base">AI Assistant</h3>
+              <h3 className="font-bold text-white text-base">Gemini Barista</h3>
               <p className="text-[10px] text-brand-muted font-medium flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block shadow-[0_0_5px_rgba(96,165,250,0.8)]"></span>
-                Neural Network
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block shadow-[0_0_5px_rgba(74,222,128,0.8)]"></span>
+                Google AI Powered
               </p>
             </div>
           </div>
@@ -270,8 +267,8 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
           {isLoading && (
             <div className="flex justify-start animate-fade-in">
               <div className="bg-white/5 px-4 py-3 rounded-2xl rounded-tl-sm flex gap-1.5 items-center border border-white/5">
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-[bounce_1s_infinite_0ms]"></div>
-                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-[bounce_1s_infinite_200ms]"></div>
+                <div className="w-1.5 h-1.5 bg-brand-yellow rounded-full animate-[bounce_1s_infinite_0ms]"></div>
+                <div className="w-1.5 h-1.5 bg-white rounded-full animate-[bounce_1s_infinite_200ms]"></div>
                 <div className="w-1.5 h-1.5 bg-brand-yellow rounded-full animate-[bounce_1s_infinite_400ms]"></div>
               </div>
             </div>
@@ -279,7 +276,7 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick Actions (Chips) */}
+        {/* Quick Actions */}
         {!isLoading && !isTyping && (
           <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar mask-gradient">
             {QUICK_ACTIONS.map((action, i) => (
