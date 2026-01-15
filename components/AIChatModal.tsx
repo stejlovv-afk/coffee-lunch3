@@ -14,231 +14,127 @@ interface Message {
   suggestedProducts?: Product[];
 }
 
-type AIProvider = 'demo' | 'pollinations' | 'deepseek' | 'gigachat';
-
-// --- CONFIG ---
-const ENV_KEY_GIGA = process.env.GIGACHAT_KEY || '';
-const ENV_KEY_DEEP = process.env.DEEPSEEK_KEY || '';
-
-// --- UUID for GigaChat ---
-function uuidv4() {
-  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
-    (+c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> (+c / 4)).toString(16)
-  );
-}
-
 const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) => {
-  // State
-  const [provider, setProvider] = useState<AIProvider>('demo');
-  const [apiKey, setApiKey] = useState('');
-  const [showSettings, setShowSettings] = useState(false);
-
   // Chat State
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Привет! Я ваш ИИ-бариста. Что хотите заказать? ☕️' }
+    { role: 'assistant', content: 'Привет! Я ваш AI-бариста. Я знаю всё о нашем кофе и десертах. Что бы вы хотели попробовать? ☕️' }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // GigaChat Token Cache
-  const [gigaToken, setGigaToken] = useState<string | null>(null);
-
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // --- API PROVIDERS ---
-
-  // 1. SMART DEMO MODE (Local Search Logic)
-  const callDemoAPI = async (text: string) => {
-    await new Promise(r => setTimeout(r, 600)); // Fake realistic delay
+  // --- 1. LOCAL LOGIC (Мгновенная и надежная - запасной вариант) ---
+  const callLocalLogic = (text: string) => {
     const lower = text.toLowerCase();
-    
-    let responseText = "Извините, я не совсем понял. Попробуйте спросить про кофе, чай или десерты!";
     let foundIds: string[] = [];
+    let responseText = "";
 
-    // 1. Поиск по точному совпадению в названии или категории
+    // Поиск товаров
     const matchedItems = MENU_ITEMS.filter(item => {
-        const nameMatch = item.name.toLowerCase().includes(lower);
-        const catMatch = translateCategory(item.category).toLowerCase().includes(lower);
-        const descMatch = item.description?.toLowerCase().includes(lower);
-        
-        // Особые кейсы
-        if (lower.includes('поесть') && (item.category === 'food' || item.category === 'salads')) return true;
-        if (lower.includes('пить') && item.isDrink) return true;
-        if (lower.includes('слад') && item.category === 'sweets') return true;
-        
-        return nameMatch || catMatch || descMatch;
+      const matchName = item.name.toLowerCase().includes(lower);
+      const matchCat = translateCategory(item.category).includes(lower);
+      // Синонимы
+      if (lower.includes('поесть') && (item.category === 'food' || item.category === 'salads')) return true;
+      if (lower.includes('пить') && item.isDrink) return true;
+      if (lower.includes('слад') && item.category === 'sweets') return true;
+      if (lower.includes('бодр') && item.id.includes('espresso')) return true;
+      return matchName || matchCat;
     });
 
     if (matchedItems.length > 0) {
-        // Берем топ-3
-        const top3 = matchedItems.slice(0, 3);
-        foundIds = top3.map(i => i.id);
-        const names = top3.map(i => i.name).join(', ');
-        
-        const phrases = [
-            `Как насчет: ${names}? Выглядит аппетитно! 😋`,
-            `Я нашел кое-что вкусное для вас: ${names}.`,
-            `Отличный выбор! Могу предложить: ${names}.`,
-            `Вот что у нас есть по вашему запросу: ${names}.`
-        ];
-        responseText = phrases[Math.floor(Math.random() * phrases.length)];
+      const topItems = matchedItems.slice(0, 3);
+      foundIds = topItems.map(i => i.id);
+      const names = topItems.map(i => i.name).join(', ');
+      
+      const phrases = [
+        `Как насчет этого? ${names} — отличный выбор!`,
+        `Нашел для вас кое-что вкусное: ${names}.`,
+        `Рекомендую попробовать: ${names}.`,
+      ];
+      responseText = phrases[Math.floor(Math.random() * phrases.length)];
     } else {
-        // Если ничего не найдено, проверяем общие фразы
-        if (lower.includes('привет') || lower.includes('здравствуй')) {
-            responseText = "Привет-привет! 👋 Готов принять заказ. Что будете?";
-        } else if (lower.includes('спасибо')) {
-            responseText = "Всегда пожалуйста! Обращайтесь 💛";
-        } else if (lower.includes('пока')) {
-            responseText = "До встречи! Заходите еще ☕️";
-        }
+      if (lower.includes('привет')) responseText = "Привет! Готов принять заказ.";
+      else if (lower.includes('как дела')) responseText = "Я всего лишь код, но настроение — кофейное! ☕️";
+      else if (lower.includes('спасибо')) responseText = "Рад стараться! 💛";
+      else responseText = "У нас очень вкусное меню, но я не совсем понял запрос. Попробуйте спросить про 'кофе' или 'десерты'!";
     }
 
     return { text: responseText, ids: foundIds };
   };
 
   const translateCategory = (cat: string) => {
-      const map: Record<string, string> = {
-          coffee: 'кофе', tea: 'чай', seasonal: 'сезонное', punch: 'пунш',
-          sweets: 'сладости десерт', soda: 'напитки вода лимонад', salads: 'салаты', food: 'еда перекус'
-      };
-      return map[cat] || '';
+    const map: Record<string, string> = {
+      coffee: 'кофе латте капучино', tea: 'чай', seasonal: 'сезонное', punch: 'пунш',
+      sweets: 'сладости десерт шоколад', soda: 'напитки вода лимонад', salads: 'салаты обед', food: 'еда перекус сэндвич'
+    };
+    return map[cat] || '';
   };
 
-  // 2. POLLINATIONS AI (Free, No Key)
-  const callPollinationsAPI = async (text: string, history: Message[]) => {
-    // Формируем контекст меню компактно
-    const menuContext = MENU_ITEMS.map(i => `${i.name} (ID:${i.id}, ${i.variants[0].price}р)`).join('; ');
+  // --- 2. ONLINE AI (Qwen 2.5 - Smartest Free Model for RU) ---
+  const callSmartAI = async (text: string, history: Message[]) => {
+    // 1. Формируем компактный контекст меню
+    const menuContext = MENU_ITEMS.map(i => 
+      `${i.name} (${i.variants[0].price}р, ID:${i.id})`
+    ).join('; ');
     
-    const systemPrompt = `Ты бариста в кофейне Coffee Lunch.
-Твоя цель: продавать товары из меню и вежливо общаться.
-Меню: [ ${menuContext} ].
-Правила:
-1. Отвечай кратко, дружелюбно и весело (до 2 предложений).
-2. Если ты рекомендуешь конкретный товар из меню, ты ОБЯЗАН в конце ответа добавить JSON строку: {"ids": ["id_товара"]}.
-Пример: "Попробуйте наш Капучино, он отличный! {"ids": ["cappuccino"]}"
-3. Не выдумывай товары, которых нет в меню.
-4. Если клиент просто здоровается, просто поздоровайся и предложи меню.`;
+    // 2. Системный промпт (Личность + Инструкции)
+    const systemPrompt = `Ты профессиональный бариста в кофейне "Coffee Lunch". 
+Твоя задача: вежливо общаться и продавать позиции из меню.
+Меню: [${menuContext}].
 
-    // Берем последние 4 сообщения для контекста, чтобы не перегружать URL
-    const recentHistory = history.slice(-4).map(m => `${m.role === 'user' ? 'Клиент' : 'Бариста'}: ${m.content}`).join('\n');
-    const fullPrompt = `${systemPrompt}\n\nДиалог:\n${recentHistory}\nКлиент: ${text}\nБариста:`;
+ПРАВИЛА:
+1. Отвечай на русском языке, живо и эмоционально (используй эмодзи).
+2. Если пользователь просит посоветовать — предложи 1-2 конкретных товара из меню, опиши, почему они вкусные.
+3. ВАЖНО: Если ты упоминаешь конкретные товары, в конце ответа добавь технический блок: ||ID:${JSON.stringify(["id_товара"])}||
+   Пример: "Возьмите Латте, он очень нежный! ☕️ ||ID:["latte"]||"
+4. Не предлагай товары, которых нет в меню.
+5. Будь краток (не более 3-4 предложений).`;
 
-    // Pollinations работает через GET запрос, кодируем промпт
-    const url = `https://text.pollinations.ai/${encodeURIComponent(fullPrompt)}`;
+    // 3. Собираем историю (последние 6 сообщений для контекста)
+    const dialogHistory = history.slice(-6).map(m => 
+      `${m.role === 'user' ? 'Клиент' : 'Бариста'}: ${m.content.replace(/\|\|ID:.*?\|\|/g, '')}`
+    ).join('\n');
 
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Pollinations API Error: ${response.status}`);
-    
-    const textData = await response.text();
-    return parseAIResponse(textData);
-  };
+    const fullPrompt = `${systemPrompt}\n\nДиалог:\n${dialogHistory}\nКлиент: ${text}\nБариста:`;
 
-  // 3. DEEPSEEK API (Key Required)
-  const callDeepSeekAPI = async (text: string, history: Message[], key: string) => {
-    const menuContext = MENU_ITEMS.map(i => `${i.name} (${i.variants[0].price}р) ID:${i.id}`).join(', ');
-    
-    const response = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`
-      },
-      body: JSON.stringify({
-        model: "deepseek-chat",
-        messages: [
-          { 
-            role: "system", 
-            content: `Ты бариста. Меню: ${menuContext}. Отвечай кратко. Если советуешь товар, в конце добавь JSON: {"ids": ["id_товара"]}.` 
-          },
-          ...history.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content })),
-          { role: "user", content: text }
-        ],
-        stream: false
-      })
-    });
+    // 4. Запрос к Pollinations (Proxy) с моделью Qwen
+    // Qwen - это китайская модель, она не блокирует РФ и очень умная.
+    const url = `https://text.pollinations.ai/${encodeURIComponent(fullPrompt)}?model=qwen&seed=${Math.floor(Math.random() * 10000)}`;
 
-    if (!response.ok) {
-        if (response.status === 402) {
-            throw new Error("Нет средств (402). Переключитесь на Free AI (Pollinations).");
-        }
-        throw new Error(`DeepSeek Error: ${response.status}`);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 сек таймаут
+
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) throw new Error('API Error');
+      const textData = await response.text();
+      
+      return parseAIResponse(textData);
+    } catch (e) {
+      console.warn("AI failed, switching to local:", e);
+      return null; 
     }
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-    return parseAIResponse(content);
   };
 
-  // 4. GIGACHAT API (Via Proxy)
-  const getGigaToken = async (key: string) => {
-    // Try standard auth flow
-    const proxyUrl = 'https://thingproxy.freeboard.io/fetch/https://ngw.devices.sberbank.ru:9443/api/v2/oauth';
-    const body = new URLSearchParams();
-    body.append('scope', 'GIGACHAT_API_PERS');
-
-    const res = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json',
-            'RqUID': uuidv4(),
-            'Authorization': `Basic ${key}`
-        },
-        body: body
-    });
-    
-    if (!res.ok) throw new Error(`Auth Error ${res.status}`);
-    const data = await res.json();
-    return data.access_token;
-  };
-
-  const callGigaChatAPI = async (text: string, history: Message[], key: string) => {
-    let token = gigaToken;
-    if (!token) {
-        token = await getGigaToken(key);
-        setGigaToken(token);
-    }
-
-    const menuContext = MENU_ITEMS.map(i => `${i.name} (${i.variants[0].price}р) ID:${i.id}`).join(', ');
-    const proxyUrl = 'https://thingproxy.freeboard.io/fetch/https://gigachat.devices.sberbank.ru/api/v1/chat/completions';
-
-    const res = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-            model: "GigaChat",
-            messages: [
-                { role: "system", content: `Ты бариста. Меню: ${menuContext}. Если советуешь, в конце JSON: {"ids": ["id"]}.` },
-                ...history.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content })),
-                { role: "user", content: text }
-            ]
-        })
-    });
-
-    if (res.status === 401) {
-        setGigaToken(null); // Clear token
-        throw new Error("Token expired, retry");
-    }
-    
-    if (!res.ok) throw new Error(`Giga Error ${res.status}`);
-    const data = await res.json();
-    return parseAIResponse(data.choices[0].message.content);
-  };
-
-  // Helper: Parse JSON from AI text
+  // Парсинг ответа
   const parseAIResponse = (raw: string) => {
     let text = raw;
     let ids: string[] = [];
-    try {
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const json = JSON.parse(jsonMatch[0]);
-        if (json.ids) ids = json.ids;
-        text = raw.replace(jsonMatch[0], '').trim(); // Remove JSON from text
-      }
-    } catch (e) {}
+    
+    // Ищем наш специальный тег ||ID:["..."]||
+    const match = raw.match(/\|\|ID:(.*?)\|\|/);
+    if (match) {
+      try {
+        ids = JSON.parse(match[1]);
+        text = raw.replace(match[0], '').trim();
+      } catch (e) {}
+    }
     return { text, ids };
   };
 
@@ -253,27 +149,21 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
     setIsLoading(true);
 
     try {
-      let result;
-      if (provider === 'demo') {
-          result = await callDemoAPI(userText);
-      } else if (provider === 'pollinations') {
-          result = await callPollinationsAPI(userText, messages);
-      } else if (provider === 'deepseek') {
-          result = await callDeepSeekAPI(userText, messages, apiKey || ENV_KEY_DEEP);
-      } else if (provider === 'gigachat') {
-          result = await callGigaChatAPI(userText, messages, apiKey || ENV_KEY_GIGA);
+      // Пробуем умный AI (Qwen)
+      let result = await callSmartAI(userText, messages);
+
+      // Если AI не ответил, используем локальную логику
+      if (!result || !result.text) {
+        result = callLocalLogic(userText);
       }
 
       if (result) {
-          const products = MENU_ITEMS.filter(i => result.ids.includes(i.id));
-          setMessages(prev => [...prev, { role: 'assistant', content: result.text, suggestedProducts: products }]);
+        const products = MENU_ITEMS.filter(i => result?.ids.includes(i.id));
+        setMessages(prev => [...prev, { role: 'assistant', content: result.text, suggestedProducts: products }]);
       }
-    } catch (e: any) {
-      console.error(e);
-      setMessages(prev => [...prev, { role: 'assistant', content: `Ошибка (${provider}): ${e.message}` }]);
-      if (e.message.includes('401') || e.message.includes('402') || e.message.includes('403') || !apiKey) {
-          setShowSettings(true);
-      }
+
+    } catch (e) {
+      setMessages(prev => [...prev, { role: 'assistant', content: "Что-то связь барахлит, но я всё равно готов принять заказ!" }]);
     } finally {
       setIsLoading(false);
     }
@@ -285,146 +175,106 @@ const AIChatModal: React.FC<AIChatModalProps> = ({ onClose, onSelectProduct }) =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none p-4">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm pointer-events-auto transition-opacity" onClick={onClose} />
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-md pointer-events-auto transition-opacity" onClick={onClose} />
       
-      <div className="glass-modal w-full max-w-md h-[85vh] rounded-3xl relative z-10 animate-slide-up pointer-events-auto shadow-2xl flex flex-col overflow-hidden bg-[#09090b]">
+      {/* Modal Window */}
+      <div className="glass-modal w-full max-w-md h-[85vh] rounded-3xl relative z-10 animate-slide-up pointer-events-auto shadow-[0_0_50px_rgba(250,204,21,0.1)] flex flex-col overflow-hidden bg-[#09090b] border border-white/10">
         
         {/* Header */}
         <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5 backdrop-blur-md">
-          <div className="flex items-center gap-2" onClick={() => setShowSettings(!showSettings)}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-black shadow-lg cursor-pointer transition-colors ${
-                 provider === 'demo' ? 'bg-gray-500' :
-                 provider === 'pollinations' ? 'bg-blue-500' :
-                 provider === 'deepseek' ? 'bg-brand-yellow' : 'bg-green-500'
-            }`}>
-              <SparklesIcon className="w-5 h-5" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-yellow to-yellow-500 text-black flex items-center justify-center shadow-lg shadow-brand-yellow/20 animate-pulse">
+              <SparklesIcon className="w-6 h-6" />
             </div>
-            <div className="cursor-pointer">
-              <h3 className="font-bold text-white text-sm">AI Бариста</h3>
-              <p className="text-[10px] text-brand-muted uppercase tracking-wider">
-                {provider === 'demo' && 'Smart Demo'}
-                {provider === 'pollinations' && 'Free AI'}
-                {provider === 'deepseek' && 'DeepSeek'}
-                {provider === 'gigachat' && 'GigaChat'}
+            <div>
+              <h3 className="font-bold text-white text-base">AI Бариста</h3>
+              <p className="text-[10px] text-brand-muted font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block shadow-[0_0_5px_rgba(34,197,94,0.8)]"></span>
+                Qwen AI (Smart)
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-brand-muted hover:text-white p-2 text-sm font-bold">Закрыть</button>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors">
+            ✕
+          </button>
         </div>
 
-        {/* Settings Screen */}
-        {showSettings ? (
-             <div className="flex-1 p-6 flex flex-col animate-fade-in bg-black/40 overflow-y-auto no-scrollbar">
-                <h3 className="text-white font-bold mb-4 text-lg">Настройки ИИ</h3>
-                
-                <label className="text-xs text-brand-muted mb-2 font-bold uppercase">Выберите мозг</label>
-                <div className="flex flex-col gap-2 mb-6">
-                    {/* Demo */}
-                    <button 
-                        onClick={() => { setProvider('demo'); setShowSettings(false); }}
-                        className={`p-4 rounded-xl text-left border transition-all ${provider === 'demo' ? 'bg-white/10 border-gray-500 text-gray-200' : 'bg-black/20 border-white/10 text-brand-muted'}`}
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar">
+          {messages.map((msg, idx) => (
+            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-fade-in`}>
+              
+              {/* Bubble */}
+              <div 
+                className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm backdrop-blur-sm ${
+                  msg.role === 'user' 
+                    ? 'bg-brand-yellow text-black font-bold rounded-tr-sm shadow-[0_4px_15px_rgba(250,204,21,0.2)]' 
+                    : 'bg-white/10 text-white border border-white/5 rounded-tl-sm'
+                }`}
+              >
+                {msg.content}
+              </div>
+
+              {/* Product Cards (if any) */}
+              {msg.role === 'assistant' && msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
+                <div className="mt-3 flex flex-col gap-2 w-full max-w-[90%]">
+                  <span className="text-[10px] text-brand-muted font-bold uppercase ml-1 tracking-widest">Рекомендую:</span>
+                  {msg.suggestedProducts.map(product => (
+                    <div 
+                      key={product.id} 
+                      onClick={() => onSelectProduct(product)} 
+                      className="flex items-center gap-3 p-2.5 rounded-xl bg-black/40 border border-white/10 hover:border-brand-yellow/50 hover:bg-white/5 active:scale-95 transition-all cursor-pointer group"
                     >
-                        <div className="font-bold flex items-center gap-2">🤖 Smart Demo (Оффлайн)</div>
-                        <div className="text-[10px] opacity-70">Работает всегда. Простой поиск по меню.</div>
-                    </button>
-
-                    {/* Pollinations */}
-                    <button 
-                        onClick={() => { setProvider('pollinations'); setShowSettings(false); }}
-                        className={`p-4 rounded-xl text-left border transition-all ${provider === 'pollinations' ? 'bg-white/10 border-blue-500 text-blue-400' : 'bg-black/20 border-white/10 text-brand-muted'}`}
-                    >
-                        <div className="font-bold flex items-center gap-2">🌐 Free AI (Pollinations)</div>
-                        <div className="text-[10px] opacity-70">Бесплатно. Без ключей. Умный как ChatGPT.</div>
-                    </button>
-
-                    {/* DeepSeek */}
-                    <button 
-                        onClick={() => setProvider('deepseek')}
-                        className={`p-4 rounded-xl text-left border transition-all ${provider === 'deepseek' ? 'bg-white/10 border-brand-yellow text-brand-yellow' : 'bg-black/20 border-white/10 text-brand-muted'}`}
-                    >
-                        <div className="font-bold">🐳 DeepSeek (Нужен ключ)</div>
-                        <div className="text-[10px] opacity-70">Дешево, но нужен платный аккаунт.</div>
-                    </button>
-
-                    {/* GigaChat */}
-                    <button 
-                        onClick={() => setProvider('gigachat')}
-                        className={`p-4 rounded-xl text-left border transition-all ${provider === 'gigachat' ? 'bg-white/10 border-green-500 text-green-400' : 'bg-black/20 border-white/10 text-brand-muted'}`}
-                    >
-                        <div className="font-bold">🟢 GigaChat</div>
-                        <div className="text-[10px] opacity-70">Нужен прокси. Нестабильно в браузере.</div>
-                    </button>
+                      <img src={product.image} alt={product.name} className="w-12 h-12 rounded-lg object-cover shadow-sm" />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-bold text-white truncate group-hover:text-brand-yellow transition-colors">{product.name}</h4>
+                        <p className="text-xs text-brand-muted font-mono">{product.variants[0].price}₽</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-brand-yellow text-black flex items-center justify-center shadow-lg transform group-hover:rotate-90 transition-transform">
+                        <PlusIcon className="w-5 h-5" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              )}
+            </div>
+          ))}
+          
+          {/* Typing Indicator */}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-white/5 px-4 py-3 rounded-2xl rounded-tl-sm flex gap-1.5 items-center border border-white/5">
+                <div className="w-1.5 h-1.5 bg-brand-yellow rounded-full animate-[bounce_1s_infinite_0ms]"></div>
+                <div className="w-1.5 h-1.5 bg-brand-yellow rounded-full animate-[bounce_1s_infinite_200ms]"></div>
+                <div className="w-1.5 h-1.5 bg-brand-yellow rounded-full animate-[bounce_1s_infinite_400ms]"></div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
 
-                {(provider === 'deepseek' || provider === 'gigachat') && (
-                    <>
-                        <label className="text-xs text-brand-muted mb-2 font-bold uppercase">API Ключ ({provider})</label>
-                        <input 
-                            type="password" 
-                            value={apiKey}
-                            onChange={(e) => setApiKey(e.target.value)}
-                            placeholder={provider === 'gigachat' ? "MDE..." : "sk-..."}
-                            className="w-full glass-input p-3 rounded-xl text-white mb-4 outline-none focus:border-brand-yellow"
-                        />
-                        {provider === 'deepseek' && (
-                            <p className="text-[10px] text-red-400 mb-2">
-                                Ошибка 402 означает, что на балансе ключа нет денег. Пополните счет или используйте <b>Free AI</b>.
-                            </p>
-                        )}
-                    </>
-                )}
+        {/* Input Area */}
+        <div className="p-4 border-t border-white/10 bg-black/60 backdrop-blur-xl">
+          <div className="relative flex items-center group">
+            <input 
+              type="text" 
+              value={inputValue} 
+              onChange={(e) => setInputValue(e.target.value)} 
+              onKeyDown={handleKeyDown} 
+              placeholder="Хочу что-то сладкое..."
+              className="w-full bg-white/5 text-white pl-5 pr-14 py-4 rounded-2xl outline-none border border-white/10 focus:border-brand-yellow/50 focus:bg-white/10 transition-all placeholder:text-white/20 font-medium" 
+            />
+            <button 
+              onClick={handleSend} 
+              disabled={isLoading || !inputValue.trim()} 
+              className="absolute right-2 p-2.5 bg-brand-yellow text-black rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 shadow-[0_0_15px_rgba(250,204,21,0.3)]"
+            >
+              <SendIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
-                <button onClick={() => setShowSettings(false)} className="mt-auto w-full bg-brand-yellow text-black font-bold py-3 rounded-xl">Готово</button>
-             </div>
-        ) : (
-            <>
-                {/* Chat Area */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-5 no-scrollbar">
-                    {messages.map((msg, idx) => (
-                        <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                        <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-brand-yellow text-black font-medium rounded-tr-none' : 'glass-panel text-white rounded-tl-none'}`}>
-                            {msg.content}
-                        </div>
-                        {msg.role === 'assistant' && msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
-                            <div className="mt-2 flex flex-col gap-2 w-full max-w-[85%] animate-fade-in">
-                            <span className="text-[10px] text-brand-muted font-bold uppercase ml-1">Найдено в меню:</span>
-                            {msg.suggestedProducts.map(product => (
-                                <div key={product.id} onClick={() => onSelectProduct(product)} className="flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95 transition-all cursor-pointer group">
-                                <img src={product.image} alt={product.name} className="w-12 h-12 rounded-lg object-cover" />
-                                <div className="flex-1 min-w-0">
-                                    <h4 className="text-sm font-bold text-white truncate group-hover:text-brand-yellow">{product.name}</h4>
-                                    <p className="text-xs text-brand-muted">{product.variants[0].price}₽</p>
-                                </div>
-                                <div className="w-8 h-8 rounded-full bg-brand-yellow text-black flex items-center justify-center"><PlusIcon className="w-5 h-5" /></div>
-                                </div>
-                            ))}
-                            </div>
-                        )}
-                        </div>
-                    ))}
-                    {isLoading && <div className="flex justify-start"><div className="glass-panel px-4 py-3 rounded-2xl rounded-tl-none flex gap-1.5 animate-pulse"><div className="w-1.5 h-1.5 bg-brand-yellow rounded-full"></div><div className="w-1.5 h-1.5 bg-brand-yellow rounded-full delay-100"></div><div className="w-1.5 h-1.5 bg-brand-yellow rounded-full delay-200"></div></div></div>}
-                    <div ref={messagesEndRef} />
-                </div>
-
-                {/* Input Area */}
-                <div className="p-3 border-t border-white/10 bg-black/60 backdrop-blur-xl">
-                <div className="relative flex items-center">
-                    <input 
-                        type="text" 
-                        value={inputValue} 
-                        onChange={(e) => setInputValue(e.target.value)} 
-                        onKeyDown={handleKeyDown} 
-                        placeholder={
-                            provider === 'demo' ? "Поиск по меню (Smart Demo)..." : 
-                            provider === 'pollinations' ? "Спроси Free AI..." : "Спроси баристу..."
-                        }
-                        className="w-full glass-input text-white pl-4 pr-12 py-3.5 rounded-2xl outline-none focus:border-brand-yellow/50 transition-all placeholder:text-white/30" 
-                    />
-                    <button onClick={handleSend} disabled={isLoading || !inputValue.trim()} className="absolute right-2 p-2 bg-brand-yellow text-black rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"><SendIcon className="w-5 h-5" /></button>
-                </div>
-                </div>
-            </>
-        )}
       </div>
     </div>
   );
