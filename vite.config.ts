@@ -3,14 +3,17 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Загружаем переменные из .env файла (если есть локально)
   const env = loadEnv(mode, process.cwd(), '');
   
-  // Получаем ключи из окружения ИЛИ используем ваши значения
+  // ВСТАВЬТЕ СЮДА ВАШ API КЛЮЧ GEMINI
   const geminiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || 'AIzaSyCL2OSF22FWV-tj2e2LtbsPSMet3bfNgCQ';
   
-  // URL прокси. Убираем слеш в конце, если пользователь скопировал с ним
+  // ВСТАВЬТЕ СЮДА ССЫЛКУ НА ВАШ CLOUDFLARE WORKER
+  // Пример: 'https://misty-field-1234.ваше_имя.workers.dev'
+  // Оставьте пустым (''), если используете VPN и прямой доступ
   let geminiGateway = process.env.GEMINI_GATEWAY_URL || env.GEMINI_GATEWAY_URL || 'https://gemenicofe.stejlovv.workers.dev';
+
+  // Убираем слеш в конце, если он есть, чтобы не ломать путь
   if (geminiGateway.endsWith('/')) {
     geminiGateway = geminiGateway.slice(0, -1);
   }
@@ -22,7 +25,6 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
     },
     define: {
-      // "Запекаем" ключи в код при сборке
       'process.env.GEMINI_API_KEY': JSON.stringify(geminiKey),
       'process.env.GEMINI_GATEWAY_URL': JSON.stringify(geminiGateway),
     }
