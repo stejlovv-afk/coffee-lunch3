@@ -16,6 +16,12 @@ export interface Product {
   isCustom?: boolean; // Флаг для кастомных товаров
 }
 
+export interface PromoCode {
+  code: string;
+  discountPercent: number;
+  firstOrderOnly: boolean;
+}
+
 export interface CartItemOption {
   temperature?: 'hot' | 'cold';
   sugar?: number;
@@ -64,6 +70,8 @@ export interface OrderActionPayload {
   pickupTime: string;
   comment: string;
   username?: string; 
+  promoCode?: string; // Примененный промокод
+  discountAmount?: number; // Сумма скидки
 }
 
 // Data sent to Bot to update Menu
@@ -92,8 +100,26 @@ export interface DeleteProductPayload {
   id: string;
 }
 
+export interface AddPromoPayload {
+  action: 'add_promo';
+  promo: PromoCode;
+}
+
+export interface DeletePromoPayload {
+  action: 'delete_promo';
+  code: string;
+}
+
 export interface RefreshMenuPayload {
   action: 'refresh_menu';
 }
 
-export type WebAppPayload = OrderActionPayload | MenuUpdateActionPayload | RefreshMenuPayload | ToggleShiftPayload | AddProductPayload | DeleteProductPayload;
+export type WebAppPayload = 
+  | OrderActionPayload 
+  | MenuUpdateActionPayload 
+  | RefreshMenuPayload 
+  | ToggleShiftPayload 
+  | AddProductPayload 
+  | DeleteProductPayload
+  | AddPromoPayload
+  | DeletePromoPayload;
