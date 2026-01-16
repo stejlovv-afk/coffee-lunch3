@@ -13,6 +13,7 @@ export interface Product {
   image: string;
   isDrink: boolean;
   description?: string;
+  isCustom?: boolean; // Флаг для кастомных товаров
 }
 
 export interface CartItemOption {
@@ -62,7 +63,7 @@ export interface OrderActionPayload {
   deliveryMethod: 'pickup' | 'delivery';
   pickupTime: string;
   comment: string;
-  username?: string; // Добавляем юзернейм
+  username?: string; 
 }
 
 // Data sent to Bot to update Menu
@@ -76,8 +77,18 @@ export interface ToggleShiftPayload {
   isClosed: boolean;
 }
 
+export interface AddProductPayload {
+  action: 'add_product';
+  product: {
+    name: string;
+    category: Category;
+    price: number;
+    image: string;
+  }
+}
+
 export interface RefreshMenuPayload {
   action: 'refresh_menu';
 }
 
-export type WebAppPayload = OrderActionPayload | MenuUpdateActionPayload | RefreshMenuPayload | ToggleShiftPayload;
+export type WebAppPayload = OrderActionPayload | MenuUpdateActionPayload | RefreshMenuPayload | ToggleShiftPayload | AddProductPayload;
