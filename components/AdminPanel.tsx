@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { MENU_ITEMS } from '../constants';
 import { Category, Product } from '../types';
-import { SearchIcon, PlusIcon } from './ui/Icons';
+import { SearchIcon, PlusIcon, TrashIcon } from './ui/Icons';
 
 interface AdminPanelProps {
+  products: Product[]; // Теперь принимаем полный список товаров
   hiddenItems: string[];
   onToggleHidden: (id: string) => void;
   onSaveToBot: () => void;
@@ -14,6 +14,7 @@ interface AdminPanelProps {
   isShiftClosed: boolean;
   onToggleShift: (isClosed: boolean) => void;
   onAddProduct: (product: { name: string; category: Category; price: number; image: string }) => void;
+  onDeleteProduct: (id: string) => void;
 }
 
 const CATEGORIES: {id: Category, label: string}[] = [
@@ -28,12 +29,13 @@ const CATEGORIES: {id: Category, label: string}[] = [
 ];
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ 
-  hiddenItems, onToggleHidden, onSaveToBot, onClose, isLoading,
-  dailyRevenue, monthlyRevenue, isShiftClosed, onToggleShift, onAddProduct
+  products, hiddenItems, onToggleHidden, onSaveToBot, onClose, isLoading,
+  dailyRevenue, monthlyRevenue, isShiftClosed, onToggleShift, onAddProduct, onDeleteProduct
 }) => {
-  const [activeTab, setActiveTab] = useState<'menu' | 'add' | 'revenue'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'add' | 'delete' | 'revenue'>('menu');
   const [searchTerm, setSearchTerm] = useState('');
   const [showShiftConfirm, setShowShiftConfirm] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null); // For delete confirmation
 
   // New Product Form State
   const [newName, setNewName] = useState('');
@@ -41,9 +43,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newCat, setNewCat] = useState<Category>('coffee');
   const [newImage, setNewImage] = useState('');
 
-  const filteredItems = MENU_ITEMS.filter(item => 
+  const filteredItems = products.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Filter only custom items for the delete tab
+  const customItems = products.filter(item => item.isCustom);
 
   const handleShiftClick = () => {
       if (!isShiftClosed) {
@@ -76,6 +81,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       alert("Товар отправлен на добавление!");
   };
 
+  const confirmDelete = () => {
+      if (deleteId) {
+          onDeleteProduct(deleteId);
+          setDeleteId(null);
+      }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex flex-col animate-slide-up">
       {/* Header */}
@@ -104,10 +116,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
 
         {/* Tabs */}
-        <div className="flex bg-black/40 p-1 rounded-xl mb-4">
-            <button onClick={() => setActiveTab('menu')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'menu' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Меню</button>
-            <button onClick={() => setActiveTab('add')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'add' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Добавить</button>
-            <button onClick={() => setActiveTab('revenue')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'revenue' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Выручка</button>
+        <div className="flex bg-black/40 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar">
+            <button onClick={() => setActiveTab('menu')} className={`flex-1 min-w-[70px] py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'menu' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Меню</button>
+            <button onClick={() => setActiveTab('add')} className={`flex-1 min-w-[70px] py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'add' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Добавить</button>
+            <button onClick={() => setActiveTab('delete')} className={`flex-1 min-w-[70px] py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'delete' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Удалить</button>
+            <button onClick={() => setActiveTab('revenue')} className={`flex-1 min-w-[70px] py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'revenue' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Выручка</button>
         </div>
         
         {/* Поиск (Только для меню) */}
@@ -199,6 +212,41 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
       )}
 
+      {/* CONTENT: DELETE PRODUCT */}
+      {activeTab === 'delete' && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              <div className="bg-red-500/5 p-4 border border-red-500/10 rounded-xl mb-4 text-xs text-red-300">
+                  <p>Здесь можно удалить товары, добавленные вручную.</p>
+                  <p className="font-bold mt-1">Действие необратимо.</p>
+              </div>
+
+              {customItems.length === 0 ? (
+                  <div className="text-center text-brand-muted py-10 opacity-50">
+                      Нет добавленных товаров
+                  </div>
+              ) : (
+                  customItems.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/5">
+                        <div className="flex items-center gap-3">
+                            <img src={item.image} className="w-10 h-10 rounded-full object-cover border border-white/10" />
+                            <div>
+                                <h4 className="font-bold text-sm text-brand-text">{item.name}</h4>
+                                <p className="text-[10px] text-brand-muted">{item.variants[0].price}₽</p>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setDeleteId(item.id)} 
+                            disabled={isLoading}
+                            className="p-2 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors"
+                        >
+                            <TrashIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                  ))
+              )}
+          </div>
+      )}
+
       {/* CONTENT: REVENUE */}
       {activeTab === 'revenue' && (
           <div className="flex-1 p-4 space-y-4 overflow-y-auto">
@@ -223,7 +271,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* Confirmation Modal: SHIFT */}
       {showShiftConfirm && (
           <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
               <div className="glass-panel p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-red-500/30">
@@ -237,6 +285,22 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div className="flex gap-3">
                       <button onClick={() => setShowShiftConfirm(false)} className="flex-1 py-3 rounded-xl font-bold bg-white/10 hover:bg-white/20 transition-colors">Отмена</button>
                       <button onClick={confirmCloseShift} className="flex-1 py-3 rounded-xl font-bold bg-red-500 text-white shadow-lg shadow-red-500/30 active:scale-95 transition-transform">Закрыть</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Confirmation Modal: DELETE PRODUCT */}
+      {deleteId && (
+          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+              <div className="glass-panel p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-red-500/30">
+                  <h3 className="text-xl font-bold text-center text-white mb-2">Удалить товар?</h3>
+                  <p className="text-center text-brand-muted text-sm mb-6">
+                      Товар исчезнет из меню навсегда.
+                  </p>
+                  <div className="flex gap-3">
+                      <button onClick={() => setDeleteId(null)} className="flex-1 py-3 rounded-xl font-bold bg-white/10 hover:bg-white/20 transition-colors">Отмена</button>
+                      <button onClick={confirmDelete} className="flex-1 py-3 rounded-xl font-bold bg-red-500 text-white shadow-lg shadow-red-500/30 active:scale-95 transition-transform">Удалить</button>
                   </div>
               </div>
           </div>
