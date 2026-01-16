@@ -78,6 +78,9 @@ const App: React.FC = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isSending, setIsSending] = useState(false);
   
+  // Products (Static + Custom)
+  const [allProducts, setAllProducts] = useState<Product[]>(MENU_ITEMS);
+
   // Revenue Stats & Shift
   const [dailyRevenue, setDailyRevenue] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
@@ -115,10 +118,36 @@ const App: React.FC = () => {
     const dayRev = Number(params.get('d') || 0);
     const monthRev = Number(params.get('m') || 0);
     const closed = params.get('closed') === 'true';
-    
     setDailyRevenue(dayRev);
     setMonthlyRevenue(monthRev);
     setIsShiftClosed(closed);
+
+    // Parse Custom Items (Parameter 'c')
+    // Format: id|name|cat|price|img~id|name...
+    const customParam = params.get('c');
+    if (customParam) {
+        try {
+            const rawItems = decodeURIComponent(customParam).split('~');
+            const customProducts: Product[] = rawItems.map(s => {
+                const parts = s.split('|');
+                if (parts.length < 5) return null;
+                const [id, name, cat, priceStr, img] = parts;
+                return {
+                    id,
+                    name,
+                    category: cat as Category,
+                    price: Number(priceStr),
+                    image: img,
+                    isDrink: ['coffee','tea','punch','seasonal','soda'].includes(cat),
+                    isCustom: true,
+                    variants: [{ size: 'порция', price: Number(priceStr) }]
+                };
+            }).filter(Boolean) as Product[];
+            
+            // Merge static and custom, avoid duplicates
+            setAllProducts([...MENU_ITEMS, ...customProducts]);
+        } catch(e) { console.error("Error parsing custom items", e); }
+    }
 
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -143,7 +172,7 @@ const App: React.FC = () => {
 
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => {
-      const product = MENU_ITEMS.find(p => p.id === item.productId);
+      const product = allProducts.find(p => p.id === item.productId);
       if (!product) return total;
       
       const variant = product.variants[item.variantIndex];
@@ -154,7 +183,7 @@ const App: React.FC = () => {
 
       return total + (price * item.quantity);
     }, 0);
-  }, [cart]);
+  }, [cart, allProducts]);
 
   // --- Checkout ---
   const handleCheckout = useCallback(() => {
@@ -174,7 +203,7 @@ const App: React.FC = () => {
     const payload: WebAppPayload = {
       action: 'order',
       items: cart.map((item, index) => {
-        const product = MENU_ITEMS.find(p => p.id === item.productId)!;
+        const product = allProducts.find(p => p.id === item.productId)!;
         const variant = product.variants[item.variantIndex];
         
         let details = variant.size;
@@ -225,7 +254,7 @@ const App: React.FC = () => {
       alert(`[Тест] Заказ отправлен.`);
       setIsSending(false);
     }
-  }, [cart, cartTotal, isSending, deliveryMethod, pickupTime, comment, username]);
+  }, [cart, cartTotal, isSending, deliveryMethod, pickupTime, comment, username, allProducts]);
 
   // Sync Telegram Button
   useEffect(() => {
@@ -258,7 +287,7 @@ const App: React.FC = () => {
 
   const addToCart = (productId: string, variantIdx: number, quantity: number, options: any) => {
     if (isShiftClosed) return; // Block adding to cart if closed
-    const product = MENU_ITEMS.find(p => p.id === productId);
+    const product = allProducts.find(p => p.id === productId);
     if (!product) return;
     const uniqueId = `${productId}-${variantIdx}-${JSON.stringify(options)}`;
     setCart(prev => {
@@ -288,6 +317,16 @@ const App: React.FC = () => {
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
       else {
           setIsShiftClosed(closed);
+          setIsSending(false);
+      }
+  };
+
+  const handleAddProduct = (product: { name: string; category: Category; price: number; image: string }) => {
+      setIsSending(true);
+      const payload: WebAppPayload = { action: 'add_product', product };
+      if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
+      else {
+          alert("Товар отправлен (тест)");
           setIsSending(false);
       }
   };
@@ -386,7 +425,7 @@ const App: React.FC = () => {
                 ))}
                 </div>
             </nav>
-            {renderProductGrid(MENU_ITEMS.filter(item => (item.category === activeCategory) && (isAdmin ? true : !hiddenItems.includes(item.id))))}
+            {renderProductGrid(allProducts.filter(item => (item.category === activeCategory) && (isAdmin ? true : !hiddenItems.includes(item.id))))}
         </>
       )}
 
@@ -404,7 +443,7 @@ const App: React.FC = () => {
                     className="w-full glass-input rounded-2xl py-3 pl-12 pr-4 text-white placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all shadow-lg"
                 />
             </div>
-            {renderProductGrid(MENU_ITEMS.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()) && (isAdmin ? true : !hiddenItems.includes(item.id))))}
+            {renderProductGrid(allProducts.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()) && (isAdmin ? true : !hiddenItems.includes(item.id))))}
         </div>
       )}
 
@@ -412,7 +451,7 @@ const App: React.FC = () => {
       {currentView === 'favorites' && (
         <div className="pt-4">
             <h2 className="px-4 text-xl font-bold text-white mb-4 drop-shadow-md">Избранное</h2>
-            {renderProductGrid(MENU_ITEMS.filter(item => favorites.includes(item.id)))}
+            {renderProductGrid(allProducts.filter(item => favorites.includes(item.id)))}
         </div>
       )}
 
@@ -445,7 +484,7 @@ const App: React.FC = () => {
                 <div className="flex flex-col items-center justify-center h-40 text-brand-muted opacity-50"><div className="text-4xl mb-2">🛒</div><p>Корзина пуста</p></div>
               ) : (
                 cart.map((item) => {
-                  const product = MENU_ITEMS.find(p => p.id === item.productId);
+                  const product = allProducts.find(p => p.id === item.productId);
                   if (!product) return null;
                   const variant = product.variants[item.variantIndex];
                   let itemPrice = variant.price;
@@ -535,6 +574,7 @@ const App: React.FC = () => {
             monthlyRevenue={monthlyRevenue} 
             isShiftClosed={isShiftClosed}
             onToggleShift={handleToggleShift}
+            onAddProduct={handleAddProduct}
           />
       )}
     </div>
