@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
-import { Category, Product, CartItem, WebAppPayload } from './types';
-import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon, HomeIcon, SearchIcon, CartIcon } from './components/ui/Icons';
+import { Category, Product, CartItem, WebAppPayload, PromoCode } from './types';
+import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon, HomeIcon, SearchIcon, CartIcon, SparklesIcon } from './components/ui/Icons';
 import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 
@@ -80,6 +80,10 @@ const App: React.FC = () => {
   
   // Products (Static + Custom)
   const [allProducts, setAllProducts] = useState<Product[]>(MENU_ITEMS);
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+
+  // User Stats
+  const [isFirstOrder, setIsFirstOrder] = useState(false); // True if user has NO orders in history
 
   // Revenue Stats & Shift
   const [dailyRevenue, setDailyRevenue] = useState(0);
@@ -94,6 +98,11 @@ const App: React.FC = () => {
   const [pickupTime, setPickupTime] = useState(getDefaultTime());
   const [comment, setComment] = useState('');
   const [username, setUsername] = useState<string>('');
+  
+  // Promo Input
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
+  const [promoError, setPromoError] = useState('');
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   
@@ -114,16 +123,18 @@ const App: React.FC = () => {
        if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
     }
 
-    // Parse Revenue & Shift Params from URL
+    // Parse Params
     const dayRev = Number(params.get('d') || 0);
     const monthRev = Number(params.get('m') || 0);
     const closed = params.get('closed') === 'true';
+    const isNewUser = params.get('n') === 'true'; // Передается ботом: true если нет истории
+    
     setDailyRevenue(dayRev);
     setMonthlyRevenue(monthRev);
     setIsShiftClosed(closed);
+    setIsFirstOrder(isNewUser);
 
     // Parse Custom Items (Parameter 'c')
-    // Format: id|name|cat|price|img~id|name...
     const customParam = params.get('c');
     if (customParam) {
         try {
@@ -143,10 +154,27 @@ const App: React.FC = () => {
                     variants: [{ size: 'порция', price: Number(priceStr) }]
                 };
             }).filter(Boolean) as Product[];
-            
-            // Merge static and custom, avoid duplicates
             setAllProducts([...MENU_ITEMS, ...customProducts]);
         } catch(e) { console.error("Error parsing custom items", e); }
+    }
+
+    // Parse Promo Codes (Parameter 'p')
+    // Format: code|percent|isFirst~...
+    const promoParam = params.get('p');
+    if (promoParam) {
+        try {
+            const rawPromos = decodeURIComponent(promoParam).split('~');
+            const parsedPromos: PromoCode[] = rawPromos.map(s => {
+                const parts = s.split('|');
+                if (parts.length < 3) return null;
+                return {
+                    code: parts[0],
+                    discountPercent: Number(parts[1]),
+                    firstOrderOnly: parts[2] === '1'
+                };
+            }).filter(Boolean) as PromoCode[];
+            setPromoCodes(parsedPromos);
+        } catch(e) { console.error("Error parsing promos", e); }
     }
 
     if (window.Telegram?.WebApp) {
@@ -154,23 +182,19 @@ const App: React.FC = () => {
       tg.ready();
       tg.expand();
       try {
-        tg.setHeaderColor('#09090b'); // Matches brand-dark
+        tg.setHeaderColor('#09090b');
         tg.setBackgroundColor('#09090b');
         tg.enableClosingConfirmation();
-        
-        // Get user data
         const user = tg.initDataUnsafe?.user;
         if (user) {
             const userStr = user.username ? `@${user.username}` : `${user.first_name}`;
             setUsername(userStr);
         }
-      } catch (e) {
-        console.log('TG styling failed', e);
-      }
+      } catch (e) {}
     }
   }, []);
 
-  const cartTotal = useMemo(() => {
+  const rawTotal = useMemo(() => {
     return cart.reduce((total, item) => {
       const product = allProducts.find(p => p.id === item.productId);
       if (!product) return total;
@@ -185,17 +209,48 @@ const App: React.FC = () => {
     }, 0);
   }, [cart, allProducts]);
 
+  const discountAmount = useMemo(() => {
+      if (!appliedPromo) return 0;
+      return Math.round((rawTotal * appliedPromo.discountPercent) / 100);
+  }, [rawTotal, appliedPromo]);
+
+  const finalTotal = rawTotal - discountAmount;
+
+  const handleApplyPromo = () => {
+      const code = promoInput.toUpperCase().trim();
+      const found = promoCodes.find(p => p.code === code);
+      
+      if (!found) {
+          setPromoError('Неверный код');
+          setAppliedPromo(null);
+          return;
+      }
+      
+      if (found.firstOrderOnly && !isFirstOrder) {
+          setPromoError('Только для первого заказа');
+          setAppliedPromo(null);
+          return;
+      }
+
+      setAppliedPromo(found);
+      setPromoError('');
+      setPromoInput(''); // Clear input on success? Or keep? Let's clear to show it worked
+      if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+  };
+
+  const removePromo = () => {
+      setAppliedPromo(null);
+      setPromoInput('');
+      setPromoError('');
+  };
+
   // --- Checkout ---
   const handleCheckout = useCallback(() => {
     if (cart.length === 0 || isSending) return;
 
-    if (cartTotal < 100) {
-        if (window.Telegram?.WebApp?.showPopup) {
-            window.Telegram.WebApp.showPopup({ title: 'Сумма заказа', message: 'Минимальная сумма — 100₽.', buttons: [{type: 'ok'}] });
-        } else {
-            alert("Минимальная сумма — 100₽");
-        }
-        return;
+    if (finalTotal < 1) { // Changed min sum logic slightly if discount is huge
+         alert("Сумма заказа слишком мала");
+         return;
     }
 
     setIsSending(true);
@@ -223,7 +278,6 @@ const App: React.FC = () => {
             details += `, Греть: ${item.options.heating === 'grill' ? 'Гриль' : 'СВЧ'}`;
         }
 
-        // HACK: Add Order Info to the first item description to ensure the admin sees it 
         if (index === 0) {
             details += `\n[Инфо: ${pickupTime}, ${comment || 'без коммент'}, ${username}]`;
         }
@@ -240,11 +294,13 @@ const App: React.FC = () => {
           details
         };
       }),
-      total: cartTotal,
+      total: finalTotal, // Отправляем сумму со скидкой
       deliveryMethod,
       pickupTime,
       comment,
-      username 
+      username,
+      promoCode: appliedPromo?.code,
+      discountAmount: discountAmount
     };
 
     if (window.Telegram?.WebApp) {
@@ -254,7 +310,7 @@ const App: React.FC = () => {
       alert(`[Тест] Заказ отправлен.`);
       setIsSending(false);
     }
-  }, [cart, cartTotal, isSending, deliveryMethod, pickupTime, comment, username, allProducts]);
+  }, [cart, finalTotal, isSending, deliveryMethod, pickupTime, comment, username, allProducts, appliedPromo, discountAmount]);
 
   // Sync Telegram Button
   useEffect(() => {
@@ -262,9 +318,8 @@ const App: React.FC = () => {
     const tg = window.Telegram.WebApp;
     const mainBtn = tg.MainButton;
 
-    // Show MainButton only in Cart View, AND IF SHIFT IS OPEN
     if (currentView === 'cart' && cart.length > 0 && !isShiftClosed) {
-        mainBtn.setText(`ОПЛАТИТЬ ${cartTotal}₽`);
+        mainBtn.setText(`ОПЛАТИТЬ ${finalTotal}₽`);
         mainBtn.textColor = "#000000";
         mainBtn.color = "#FACC15"; 
         mainBtn.isVisible = true;
@@ -274,7 +329,7 @@ const App: React.FC = () => {
         mainBtn.offClick(handleCheckout);
     }
     return () => { mainBtn.offClick(handleCheckout); };
-  }, [currentView, cart.length, cartTotal, handleCheckout, isShiftClosed]);
+  }, [currentView, cart.length, finalTotal, handleCheckout, isShiftClosed]);
 
   useEffect(() => { localStorage.setItem('favorites', JSON.stringify(favorites)); }, [favorites]);
   useEffect(() => { localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems)); }, [hiddenItems]);
@@ -337,6 +392,26 @@ const App: React.FC = () => {
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
       else {
           alert("Запрос на удаление отправлен (тест)");
+          setIsSending(false);
+      }
+  };
+
+  const handleAddPromo = (promo: PromoCode) => {
+      setIsSending(true);
+      const payload: WebAppPayload = { action: 'add_promo', promo };
+      if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
+      else {
+          alert("Промокод отправлен (тест)");
+          setIsSending(false);
+      }
+  };
+
+  const handleDeletePromo = (code: string) => {
+      setIsSending(true);
+      const payload: WebAppPayload = { action: 'delete_promo', code };
+      if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
+      else {
+          alert("Промокод удален (тест)");
           setIsSending(false);
       }
   };
@@ -476,6 +551,32 @@ const App: React.FC = () => {
                  <button onClick={() => alert("Доставка появится позже!")} className="flex-1 py-3 rounded-xl font-bold text-sm text-brand-muted/50 cursor-not-allowed flex flex-col items-center justify-center leading-none"><span>Доставка</span><span className="text-[9px] mt-0.5 opacity-60">скоро</span></button>
             </div>
 
+            {/* Promo Code Input */}
+            <div className="glass-panel p-4 rounded-2xl mb-4 relative overflow-hidden">
+                <label className="flex items-center gap-2 text-sm font-bold text-brand-muted mb-2"><SparklesIcon className="w-4 h-4" />Промокод</label>
+                {appliedPromo ? (
+                    <div className="flex justify-between items-center bg-brand-yellow/10 border border-brand-yellow/30 rounded-xl p-3">
+                        <div>
+                            <span className="font-bold text-brand-yellow tracking-wider">{appliedPromo.code}</span>
+                            <span className="text-xs text-brand-muted ml-2">(-{appliedPromo.discountPercent}%)</span>
+                        </div>
+                        <button onClick={removePromo} className="text-xs text-red-400 font-bold border-b border-red-400/30">Удалить</button>
+                    </div>
+                ) : (
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={promoInput} 
+                            onChange={(e) => setPromoInput(e.target.value)} 
+                            className="flex-1 glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 uppercase" 
+                            placeholder="CODE..."
+                        />
+                        <button onClick={handleApplyPromo} className="bg-white/10 hover:bg-white/20 px-4 rounded-xl font-bold text-sm transition-colors">OK</button>
+                    </div>
+                )}
+                {promoError && <div className="text-red-400 text-xs mt-2 font-medium">{promoError}</div>}
+            </div>
+
             {/* Inputs */}
             <div className="space-y-4 mb-6">
                 <div className="glass-panel p-4 rounded-2xl">
@@ -485,6 +586,15 @@ const App: React.FC = () => {
                 <div className="glass-panel p-4 rounded-2xl">
                    <label className="flex items-center gap-2 text-sm font-bold text-brand-muted mb-2"><ChatIcon className="w-4 h-4" />Комментарий</label>
                    <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Погорячее, поменьше льда..." rows={2} className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all resize-none placeholder:text-brand-muted/50" />
+                </div>
+            </div>
+
+            {/* Total Summary */}
+            <div className="flex justify-between items-center mb-4 px-2">
+                <span className="text-brand-muted font-bold">Итого:</span>
+                <div className="text-right">
+                    {appliedPromo && <span className="text-sm text-brand-muted line-through mr-2">{rawTotal}₽</span>}
+                    <span className="text-xl font-black text-white">{finalTotal}₽</span>
                 </div>
             </div>
 
@@ -528,7 +638,7 @@ const App: React.FC = () => {
             {!window.Telegram?.WebApp && (
                  <div className="pt-8 pb-4">
                     <button onClick={handleCheckout} disabled={isSending} className={`w-full text-black py-4 rounded-2xl font-bold text-lg shadow-[0_0_20px_rgba(250,204,21,0.2)] transition-all mb-2 flex items-center justify-center gap-2 ${isSending ? 'bg-brand-yellow/50 cursor-not-allowed' : 'bg-brand-yellow active:scale-95 hover:bg-yellow-300'}`}>
-                        {isSending ? 'Отправка...' : `Оплатить ${cartTotal}₽`}
+                        {isSending ? 'Отправка...' : `Оплатить ${finalTotal}₽`}
                     </button>
                  </div>
             )}
@@ -576,6 +686,7 @@ const App: React.FC = () => {
       {showAdminPanel && (
           <AdminPanel 
             products={allProducts}
+            promoCodes={promoCodes}
             hiddenItems={hiddenItems} 
             onToggleHidden={(id) => setHiddenItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} 
             onSaveToBot={handleSaveMenuToBot} 
@@ -587,6 +698,8 @@ const App: React.FC = () => {
             onToggleShift={handleToggleShift}
             onAddProduct={handleAddProduct}
             onDeleteProduct={handleDeleteProduct}
+            onAddPromo={handleAddPromo}
+            onDeletePromo={handleDeletePromo}
           />
       )}
     </div>
