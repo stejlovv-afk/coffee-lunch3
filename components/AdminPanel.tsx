@@ -10,18 +10,36 @@ interface AdminPanelProps {
   isLoading: boolean;
   dailyRevenue: number;
   monthlyRevenue: number;
+  isShiftClosed: boolean;
+  onToggleShift: (isClosed: boolean) => void;
 }
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ 
   hiddenItems, onToggleHidden, onSaveToBot, onClose, isLoading,
-  dailyRevenue, monthlyRevenue
+  dailyRevenue, monthlyRevenue, isShiftClosed, onToggleShift
 }) => {
   const [activeTab, setActiveTab] = useState<'menu' | 'revenue'>('menu');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showShiftConfirm, setShowShiftConfirm] = useState(false);
 
   const filteredItems = MENU_ITEMS.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleShiftClick = () => {
+      // Если смена закрыта (мы хотим открыть) - подтверждение не нужно, просто открываем.
+      // Если смена открыта (хотим закрыть) - спрашиваем подтверждение.
+      if (!isShiftClosed) {
+          setShowShiftConfirm(true);
+      } else {
+          onToggleShift(false); // Открыть
+      }
+  };
+
+  const confirmCloseShift = () => {
+      onToggleShift(true); // Закрыть
+      setShowShiftConfirm(false);
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex flex-col animate-slide-up">
@@ -32,6 +50,22 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           <button onClick={onClose} disabled={isLoading} className="text-brand-muted font-medium hover:text-white transition-colors">
             {isLoading ? '' : 'Закрыть'}
           </button>
+        </div>
+
+        {/* Shift Status Button */}
+        <div className="mb-4">
+             <button 
+                onClick={handleShiftClick}
+                disabled={isLoading}
+                className={`w-full py-3 rounded-xl font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 ${
+                    isShiftClosed 
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30' 
+                    : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                }`}
+             >
+                 <div className={`w-3 h-3 rounded-full ${isShiftClosed ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
+                 {isShiftClosed ? 'СМЕНА ЗАКРЫТА (Нажмите, чтобы открыть)' : 'СМЕНА ОТКРЫТА (Нажмите, чтобы закрыть)'}
+             </button>
         </div>
 
         {/* Tabs */}
@@ -146,6 +180,35 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="text-center text-xs text-brand-muted/50 mt-10">
                   <p>Данные обновляются при открытии приложения.</p>
                   <p>Чтобы обновить, закройте и откройте меню заново.</p>
+              </div>
+          </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showShiftConfirm && (
+          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+              <div className="glass-panel p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-red-500/30">
+                  <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/30">
+                      <div className="w-8 h-8 rounded bg-red-500 animate-pulse"></div>
+                  </div>
+                  <h3 className="text-xl font-bold text-center text-white mb-2">Закрыть смену?</h3>
+                  <p className="text-center text-brand-muted text-sm mb-6">
+                      Пользователи не смогут делать заказы, пока вы снова не откроете смену.
+                  </p>
+                  <div className="flex gap-3">
+                      <button 
+                        onClick={() => setShowShiftConfirm(false)}
+                        className="flex-1 py-3 rounded-xl font-bold bg-white/10 hover:bg-white/20 transition-colors"
+                      >
+                          Отмена
+                      </button>
+                      <button 
+                        onClick={confirmCloseShift}
+                        className="flex-1 py-3 rounded-xl font-bold bg-red-500 text-white shadow-lg shadow-red-500/30 active:scale-95 transition-transform"
+                      >
+                          Закрыть
+                      </button>
+                  </div>
               </div>
           </div>
       )}
