@@ -78,9 +78,10 @@ const App: React.FC = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isSending, setIsSending] = useState(false);
   
-  // Revenue Stats
+  // Revenue Stats & Shift
   const [dailyRevenue, setDailyRevenue] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [isShiftClosed, setIsShiftClosed] = useState(false);
 
   // Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -110,11 +111,14 @@ const App: React.FC = () => {
        if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
     }
 
-    // Parse Revenue Params from URL
+    // Parse Revenue & Shift Params from URL
     const dayRev = Number(params.get('d') || 0);
     const monthRev = Number(params.get('m') || 0);
+    const closed = params.get('closed') === 'true';
+    
     setDailyRevenue(dayRev);
     setMonthlyRevenue(monthRev);
+    setIsShiftClosed(closed);
 
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
@@ -229,8 +233,8 @@ const App: React.FC = () => {
     const tg = window.Telegram.WebApp;
     const mainBtn = tg.MainButton;
 
-    // Show MainButton only in Cart View
-    if (currentView === 'cart' && cart.length > 0) {
+    // Show MainButton only in Cart View, AND IF SHIFT IS OPEN
+    if (currentView === 'cart' && cart.length > 0 && !isShiftClosed) {
         mainBtn.setText(`ОПЛАТИТЬ ${cartTotal}₽`);
         mainBtn.textColor = "#000000";
         mainBtn.color = "#FACC15"; 
@@ -241,7 +245,7 @@ const App: React.FC = () => {
         mainBtn.offClick(handleCheckout);
     }
     return () => { mainBtn.offClick(handleCheckout); };
-  }, [currentView, cart.length, cartTotal, handleCheckout]);
+  }, [currentView, cart.length, cartTotal, handleCheckout, isShiftClosed]);
 
   useEffect(() => { localStorage.setItem('favorites', JSON.stringify(favorites)); }, [favorites]);
   useEffect(() => { localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems)); }, [hiddenItems]);
@@ -253,6 +257,7 @@ const App: React.FC = () => {
   };
 
   const addToCart = (productId: string, variantIdx: number, quantity: number, options: any) => {
+    if (isShiftClosed) return; // Block adding to cart if closed
     const product = MENU_ITEMS.find(p => p.id === productId);
     if (!product) return;
     const uniqueId = `${productId}-${variantIdx}-${JSON.stringify(options)}`;
@@ -277,6 +282,16 @@ const App: React.FC = () => {
     else setIsSending(false);
   };
 
+  const handleToggleShift = (closed: boolean) => {
+      setIsSending(true);
+      const payload: WebAppPayload = { action: 'toggle_shift', isClosed: closed };
+      if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
+      else {
+          setIsShiftClosed(closed);
+          setIsSending(false);
+      }
+  };
+
   const handleLongPress = useLongPress(() => setShowAdminAuth(true));
   const verifyAdmin = () => {
     if (adminPassword === '7654') {
@@ -295,19 +310,19 @@ const App: React.FC = () => {
             <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none opacity-50"></div>
             
             <div className="relative mb-3 group z-10">
-              <img src={item.image} alt={item.name} className="w-full aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all" onClick={() => setSelectedProduct(item)} />
+              <img src={item.image} alt={item.name} className="w-full aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all" onClick={() => !isShiftClosed && setSelectedProduct(item)} />
               <button onClick={(e) => toggleFavorite(e, item.id)} className="absolute top-2 right-2 p-2 bg-black/40 backdrop-blur-md rounded-full text-brand-yellow transition-transform active:scale-125 hover:bg-black/60 border border-white/10">
                 <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
               </button>
               {hiddenItems.includes(item.id) && <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm"><EyeSlashIcon className="w-8 h-8 text-white" /></div>}
             </div>
             
-            <div onClick={() => setSelectedProduct(item)} className="z-10 relative">
+            <div onClick={() => !isShiftClosed && setSelectedProduct(item)} className="z-10 relative">
               <h3 className="font-bold text-white leading-tight mb-1 text-sm sm:text-base line-clamp-2 min-h-[2.5em] drop-shadow-sm">{item.name}</h3>
               <p className="text-brand-yellow font-black text-lg drop-shadow-md">{item.variants[0].price}₽</p>
             </div>
             
-            <button onClick={() => setSelectedProduct(item)} className="z-10 mt-3 w-full py-3 bg-white/10 hover:bg-brand-yellow hover:text-black border border-white/10 text-white rounded-2xl flex items-center justify-center transition-all active:scale-95 group backdrop-blur-sm shadow-inner">
+            <button onClick={() => !isShiftClosed && setSelectedProduct(item)} className="z-10 mt-3 w-full py-3 bg-white/10 hover:bg-brand-yellow hover:text-black border border-white/10 text-white rounded-2xl flex items-center justify-center transition-all active:scale-95 group backdrop-blur-sm shadow-inner">
               <PlusIcon className="w-6 h-6 group-active:rotate-90 transition-transform" />
             </button>
           </div>
@@ -328,11 +343,26 @@ const App: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen font-sans text-brand-text selection:bg-brand-yellow selection:text-black">
+    <div className="min-h-screen font-sans text-brand-text selection:bg-brand-yellow selection:text-black relative">
       
+      {/* --- CLOSED OVERLAY --- */}
+      {isShiftClosed && (
+          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+              <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6 border border-white/10">
+                  <span className="text-4xl">😴</span>
+              </div>
+              <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tight">Кофейня закрыта</h2>
+              <p className="text-brand-muted text-lg font-medium">Бариста отдыхает. <br/> Ждем вас в рабочее время!</p>
+              
+              {/* Invisible area for Admin to trigger login when closed */}
+              <div {...handleLongPress} className="absolute top-0 left-0 right-0 h-24 bg-transparent" />
+          </div>
+      )}
+
       {/* --- HEADER --- */}
       <header className="sticky top-0 z-20 bg-brand-dark/70 backdrop-blur-xl border-b border-white/5 px-4 py-3 flex justify-between items-center transition-colors">
         <div>
+          {/* Long press works on header text even if overlay is not there (but overlay blocks clicks, so we added invisible area above) */}
           <h1 {...handleLongPress} className="text-2xl font-black text-brand-yellow tracking-tighter select-none cursor-pointer italic drop-shadow-glow">COFFEE LUNCH</h1>
           <p className="text-[10px] text-brand-muted font-bold tracking-widest uppercase opacity-80">Best Coffee In Town</p>
         </div>
@@ -481,8 +511,32 @@ const App: React.FC = () => {
 
       {selectedProduct && <ItemModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)} />}
       
-      {showAdminAuth && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl"><div className="glass-panel p-6 rounded-3xl w-80 shadow-2xl animate-slide-up"><h3 className="text-xl font-bold mb-4 text-center text-white">Вход для админа</h3><input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Пароль" className="w-full p-3 glass-input text-white rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-brand-yellow/50" /><div className="flex gap-2"><button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button><button onClick={verifyAdmin} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Войти</button></div></div></div>}
-      {showAdminPanel && <AdminPanel hiddenItems={hiddenItems} onToggleHidden={(id) => setHiddenItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} onSaveToBot={handleSaveMenuToBot} onClose={() => setShowAdminPanel(false)} isLoading={isSending} dailyRevenue={dailyRevenue} monthlyRevenue={monthlyRevenue} />}
+      {showAdminAuth && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl">
+              <div className="glass-panel p-6 rounded-3xl w-80 shadow-2xl animate-slide-up">
+                  <h3 className="text-xl font-bold mb-4 text-center text-white">Вход для админа</h3>
+                  <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Пароль" className="w-full p-3 glass-input text-white rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-brand-yellow/50" />
+                  <div className="flex gap-2">
+                      <button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button>
+                      <button onClick={verifyAdmin} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Войти</button>
+                  </div>
+              </div>
+          </div>
+      )}
+      
+      {showAdminPanel && (
+          <AdminPanel 
+            hiddenItems={hiddenItems} 
+            onToggleHidden={(id) => setHiddenItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} 
+            onSaveToBot={handleSaveMenuToBot} 
+            onClose={() => setShowAdminPanel(false)} 
+            isLoading={isSending} 
+            dailyRevenue={dailyRevenue} 
+            monthlyRevenue={monthlyRevenue} 
+            isShiftClosed={isShiftClosed}
+            onToggleShift={handleToggleShift}
+          />
+      )}
     </div>
   );
 };
