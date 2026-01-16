@@ -198,6 +198,15 @@ export const MENU_ITEMS: Product[] = [
     image: `${IMG_PATH}/unnamed (1).jpg`, 
     variants: [{ size: 'шт', price: 390 }],
   },
+  {
+    id: 'olivie',
+    name: 'Оливье',
+    category: 'food',
+    isDrink: false,
+    // Используем плейсхолдер или загрузите фото с именем olivie.jpg
+    image: `${IMG_PATH}/olivie.jpg`, 
+    variants: [{ size: 'порция', price: 200 }],
+  },
 
   // --- TEA ---
   {
