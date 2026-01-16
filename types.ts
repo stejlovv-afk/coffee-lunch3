@@ -71,8 +71,13 @@ export interface MenuUpdateActionPayload {
   hiddenItems: string[];
 }
 
+export interface ToggleShiftPayload {
+  action: 'toggle_shift';
+  isClosed: boolean;
+}
+
 export interface RefreshMenuPayload {
   action: 'refresh_menu';
 }
 
-export type WebAppPayload = OrderActionPayload | MenuUpdateActionPayload | RefreshMenuPayload;
+export type WebAppPayload = OrderActionPayload | MenuUpdateActionPayload | RefreshMenuPayload | ToggleShiftPayload;
