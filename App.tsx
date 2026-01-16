@@ -330,6 +330,16 @@ const App: React.FC = () => {
           setIsSending(false);
       }
   };
+  
+  const handleDeleteProduct = (id: string) => {
+      setIsSending(true);
+      const payload: WebAppPayload = { action: 'delete_product', id };
+      if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
+      else {
+          alert("Запрос на удаление отправлен (тест)");
+          setIsSending(false);
+      }
+  };
 
   const handleLongPress = useLongPress(() => setShowAdminAuth(true));
   const verifyAdmin = () => {
@@ -565,6 +575,7 @@ const App: React.FC = () => {
       
       {showAdminPanel && (
           <AdminPanel 
+            products={allProducts}
             hiddenItems={hiddenItems} 
             onToggleHidden={(id) => setHiddenItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} 
             onSaveToBot={handleSaveMenuToBot} 
@@ -575,6 +586,7 @@ const App: React.FC = () => {
             isShiftClosed={isShiftClosed}
             onToggleShift={handleToggleShift}
             onAddProduct={handleAddProduct}
+            onDeleteProduct={handleDeleteProduct}
           />
       )}
     </div>
