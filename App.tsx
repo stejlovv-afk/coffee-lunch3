@@ -82,8 +82,8 @@ const App: React.FC = () => {
   const [allProducts, setAllProducts] = useState<Product[]>(MENU_ITEMS);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
 
-  // User Stats
-  const [isFirstOrder, setIsFirstOrder] = useState(false); // True if user has NO orders in history
+  // Promo Logic Stats
+  const [usedPromoCodes, setUsedPromoCodes] = useState<string[]>([]); // List of codes used by this user
 
   // Revenue Stats & Shift
   const [dailyRevenue, setDailyRevenue] = useState(0);
@@ -127,12 +127,16 @@ const App: React.FC = () => {
     const dayRev = Number(params.get('d') || 0);
     const monthRev = Number(params.get('m') || 0);
     const closed = params.get('closed') === 'true';
-    const isNewUser = params.get('n') === 'true'; // Передается ботом: true если нет истории
+    
+    // Parse USED PROMOS (param 'u')
+    const usedPromosParam = params.get('u');
+    if (usedPromosParam) {
+        setUsedPromoCodes(usedPromosParam.split(','));
+    }
     
     setDailyRevenue(dayRev);
     setMonthlyRevenue(monthRev);
     setIsShiftClosed(closed);
-    setIsFirstOrder(isNewUser);
 
     // Parse Custom Items (Parameter 'c')
     const customParam = params.get('c');
@@ -226,15 +230,16 @@ const App: React.FC = () => {
           return;
       }
       
-      if (found.firstOrderOnly && !isFirstOrder) {
-          setPromoError('Только для первого заказа');
+      // LOGIC UPDATE: Check if this specific promo code was used by this user
+      if (found.firstOrderOnly && usedPromoCodes.includes(found.code)) {
+          setPromoError('Вы уже использовали этот промокод');
           setAppliedPromo(null);
           return;
       }
 
       setAppliedPromo(found);
       setPromoError('');
-      setPromoInput(''); // Clear input on success? Or keep? Let's clear to show it worked
+      setPromoInput(''); 
       if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
   };
 
@@ -248,7 +253,7 @@ const App: React.FC = () => {
   const handleCheckout = useCallback(() => {
     if (cart.length === 0 || isSending) return;
 
-    if (finalTotal < 1) { // Changed min sum logic slightly if discount is huge
+    if (finalTotal < 1) { 
          alert("Сумма заказа слишком мала");
          return;
     }
