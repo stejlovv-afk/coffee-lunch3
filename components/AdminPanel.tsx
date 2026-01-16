@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MENU_ITEMS } from '../constants';
-import { SearchIcon } from './ui/Icons';
+import { Category, Product } from '../types';
+import { SearchIcon, PlusIcon } from './ui/Icons';
 
 interface AdminPanelProps {
   hiddenItems: string[];
@@ -12,33 +13,67 @@ interface AdminPanelProps {
   monthlyRevenue: number;
   isShiftClosed: boolean;
   onToggleShift: (isClosed: boolean) => void;
+  onAddProduct: (product: { name: string; category: Category; price: number; image: string }) => void;
 }
+
+const CATEGORIES: {id: Category, label: string}[] = [
+    { id: 'coffee', label: 'Кофе' },
+    { id: 'tea', label: 'Чай' },
+    { id: 'seasonal', label: 'Сезонное' },
+    { id: 'punch', label: 'Пунши' },
+    { id: 'salads', label: 'Салаты' },
+    { id: 'food', label: 'Еда' },
+    { id: 'sweets', label: 'Сладости' },
+    { id: 'soda', label: 'Напитки' },
+];
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ 
   hiddenItems, onToggleHidden, onSaveToBot, onClose, isLoading,
-  dailyRevenue, monthlyRevenue, isShiftClosed, onToggleShift
+  dailyRevenue, monthlyRevenue, isShiftClosed, onToggleShift, onAddProduct
 }) => {
-  const [activeTab, setActiveTab] = useState<'menu' | 'revenue'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'add' | 'revenue'>('menu');
   const [searchTerm, setSearchTerm] = useState('');
   const [showShiftConfirm, setShowShiftConfirm] = useState(false);
+
+  // New Product Form State
+  const [newName, setNewName] = useState('');
+  const [newPrice, setNewPrice] = useState('');
+  const [newCat, setNewCat] = useState<Category>('coffee');
+  const [newImage, setNewImage] = useState('');
 
   const filteredItems = MENU_ITEMS.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleShiftClick = () => {
-      // Если смена закрыта (мы хотим открыть) - подтверждение не нужно, просто открываем.
-      // Если смена открыта (хотим закрыть) - спрашиваем подтверждение.
       if (!isShiftClosed) {
           setShowShiftConfirm(true);
       } else {
-          onToggleShift(false); // Открыть
+          onToggleShift(false);
       }
   };
 
   const confirmCloseShift = () => {
-      onToggleShift(true); // Закрыть
+      onToggleShift(true); 
       setShowShiftConfirm(false);
+  };
+
+  const handleAddSubmit = () => {
+      if (!newName || !newPrice || !newImage) {
+          alert("Заполните все поля");
+          return;
+      }
+      onAddProduct({
+          name: newName,
+          category: newCat,
+          price: Number(newPrice),
+          image: newImage
+      });
+      // Clear form
+      setNewName('');
+      setNewPrice('');
+      setNewImage('');
+      alert("Товар отправлен на добавление!");
   };
 
   return (
@@ -64,24 +99,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                 }`}
              >
                  <div className={`w-3 h-3 rounded-full ${isShiftClosed ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
-                 {isShiftClosed ? 'СМЕНА ЗАКРЫТА (Нажмите, чтобы открыть)' : 'СМЕНА ОТКРЫТА (Нажмите, чтобы закрыть)'}
+                 {isShiftClosed ? 'СМЕНА ЗАКРЫТА (Открыть)' : 'СМЕНА ОТКРЫТА (Закрыть)'}
              </button>
         </div>
 
         {/* Tabs */}
         <div className="flex bg-black/40 p-1 rounded-xl mb-4">
-            <button 
-                onClick={() => setActiveTab('menu')} 
-                className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'menu' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}
-            >
-                Меню
-            </button>
-            <button 
-                onClick={() => setActiveTab('revenue')} 
-                className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'revenue' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}
-            >
-                Выручка
-            </button>
+            <button onClick={() => setActiveTab('menu')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'menu' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Меню</button>
+            <button onClick={() => setActiveTab('add')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'add' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Добавить</button>
+            <button onClick={() => setActiveTab('revenue')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'revenue' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Выручка</button>
         </div>
         
         {/* Поиск (Только для меню) */}
@@ -99,67 +125,83 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </div>
       
-      {activeTab === 'menu' ? (
+      {/* CONTENT: MENU */}
+      {activeTab === 'menu' && (
         <>
             <div className="bg-brand-yellow/5 p-4 border-b border-brand-yellow/10 text-xs text-brand-yellow/80">
                 <p>1. Нажмите на товар, чтобы скрыть/показать.</p>
                 <p>2. "Сохранить и Разослать" обновит бота.</p>
             </div>
-
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {filteredItems.map((item) => {
                 const isHidden = hiddenItems.includes(item.id);
                 return (
-                    <div 
-                    key={item.id} 
-                    onClick={() => !isLoading && onToggleHidden(item.id)}
-                    className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors backdrop-blur-sm ${
-                        isHidden 
-                        ? 'bg-red-900/10 border-red-500/20' 
-                        : 'bg-white/5 border-white/5 hover:bg-white/10'
-                    } ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
-                    >
+                    <div key={item.id} onClick={() => !isLoading && onToggleHidden(item.id)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors backdrop-blur-sm ${isHidden ? 'bg-red-900/10 border-red-500/20' : 'bg-white/5 border-white/5 hover:bg-white/10'} ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="flex items-center gap-3">
                         <img src={item.image} className={`w-10 h-10 rounded-full object-cover border border-white/10 ${isHidden ? 'opacity-50 grayscale' : ''}`} />
-                        <span className={`font-bold text-sm ${isHidden ? 'text-red-400 line-through' : 'text-brand-text'}`}>
-                        {item.name}
-                        </span>
+                        <span className={`font-bold text-sm ${isHidden ? 'text-red-400 line-through' : 'text-brand-text'}`}>{item.name}</span>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded border ${isHidden ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>
-                        {isHidden ? 'СКРЫТО' : 'АКТИВНО'}
-                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded border ${isHidden ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>{isHidden ? 'СКРЫТО' : 'АКТИВНО'}</span>
                     </div>
                 );
                 })}
-                {filteredItems.length === 0 && (
-                <div className="text-center text-brand-muted py-10">Товары не найдены</div>
-                )}
             </div>
-
             <div className="p-4 border-t border-white/10 glass-panel safe-area-bottom">
-                <button 
-                onClick={onSaveToBot}
-                disabled={isLoading}
-                className={`w-full py-3 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(250,204,21,0.3)] transition-all flex items-center justify-center gap-2 ${
-                    isLoading 
-                    ? 'bg-brand-yellow/50 text-black/50 cursor-not-allowed' 
-                    : 'bg-brand-yellow text-black active:scale-95'
-                }`}
-                >
-                {isLoading ? (
-                    <>
-                    <span className="animate-spin h-5 w-5 border-2 border-black/50 border-t-transparent rounded-full"/>
-                    Рассылка...
-                    </>
-                ) : (
-                    'Сохранить и Разослать'
-                )}
+                <button onClick={onSaveToBot} disabled={isLoading} className={`w-full py-3 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(250,204,21,0.3)] transition-all flex items-center justify-center gap-2 ${isLoading ? 'bg-brand-yellow/50 text-black/50 cursor-not-allowed' : 'bg-brand-yellow text-black active:scale-95'}`}>
+                {isLoading ? 'Рассылка...' : 'Сохранить и Разослать'}
                 </button>
             </div>
         </>
-      ) : (
+      )}
+
+      {/* CONTENT: ADD PRODUCT */}
+      {activeTab === 'add' && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <h3 className="text-white font-bold text-lg mb-2">Новый товар</h3>
+              
+              <div>
+                  <label className="text-xs text-brand-muted uppercase font-bold ml-1">Название</label>
+                  <input type="text" value={newName} onChange={e => setNewName(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50" placeholder="Например: Пончик" />
+              </div>
+
+              <div>
+                  <label className="text-xs text-brand-muted uppercase font-bold ml-1">Цена (₽)</label>
+                  <input type="number" value={newPrice} onChange={e => setNewPrice(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50" placeholder="150" />
+              </div>
+
+              <div>
+                  <label className="text-xs text-brand-muted uppercase font-bold ml-1">Категория</label>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                      {CATEGORIES.map(cat => (
+                          <button 
+                            key={cat.id} 
+                            onClick={() => setNewCat(cat.id)} 
+                            className={`py-2 rounded-lg text-xs font-bold border ${newCat === cat.id ? 'bg-brand-yellow text-black border-brand-yellow' : 'bg-white/5 text-brand-muted border-white/10'}`}
+                          >
+                              {cat.label}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+
+              <div>
+                  <label className="text-xs text-brand-muted uppercase font-bold ml-1">Ссылка на фото</label>
+                  <input type="text" value={newImage} onChange={e => setNewImage(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50" placeholder="https://..." />
+                  <p className="text-[10px] text-brand-muted mt-1">Скопируйте URL картинки из интернета или Telegram.</p>
+              </div>
+
+              <div className="pt-4">
+                  <button onClick={handleAddSubmit} disabled={isLoading} className="w-full py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold border border-white/20 flex items-center justify-center gap-2">
+                      <PlusIcon className="w-5 h-5" />
+                      Добавить товар
+                  </button>
+              </div>
+          </div>
+      )}
+
+      {/* CONTENT: REVENUE */}
+      {activeTab === 'revenue' && (
           <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-              {/* Daily Revenue */}
               <div className="glass-panel p-6 rounded-2xl border border-brand-yellow/20 relative overflow-hidden group">
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-brand-yellow/10 rounded-full blur-2xl group-hover:bg-brand-yellow/20 transition-colors"></div>
                   <h3 className="text-brand-muted text-sm font-bold uppercase tracking-widest mb-1">Выручка за сегодня</h3>
@@ -167,8 +209,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       {dailyRevenue.toLocaleString('ru-RU')} <span className="text-brand-yellow">₽</span>
                   </div>
               </div>
-
-              {/* Monthly Revenue */}
                <div className="glass-panel p-6 rounded-2xl border border-purple-500/20 relative overflow-hidden group">
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-colors"></div>
                   <h3 className="text-brand-muted text-sm font-bold uppercase tracking-widest mb-1">Выручка за месяц</h3>
@@ -176,7 +216,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       {monthlyRevenue.toLocaleString('ru-RU')} <span className="text-purple-400">₽</span>
                   </div>
               </div>
-
               <div className="text-center text-xs text-brand-muted/50 mt-10">
                   <p>Данные обновляются при открытии приложения.</p>
                   <p>Чтобы обновить, закройте и откройте меню заново.</p>
@@ -193,21 +232,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                   <h3 className="text-xl font-bold text-center text-white mb-2">Закрыть смену?</h3>
                   <p className="text-center text-brand-muted text-sm mb-6">
-                      Пользователи не смогут делать заказы, пока вы снова не откроете смену.
+                      Пользователи не смогут делать заказы. <br/> <span className="text-brand-yellow">Выручка за день обнулится.</span>
                   </p>
                   <div className="flex gap-3">
-                      <button 
-                        onClick={() => setShowShiftConfirm(false)}
-                        className="flex-1 py-3 rounded-xl font-bold bg-white/10 hover:bg-white/20 transition-colors"
-                      >
-                          Отмена
-                      </button>
-                      <button 
-                        onClick={confirmCloseShift}
-                        className="flex-1 py-3 rounded-xl font-bold bg-red-500 text-white shadow-lg shadow-red-500/30 active:scale-95 transition-transform"
-                      >
-                          Закрыть
-                      </button>
+                      <button onClick={() => setShowShiftConfirm(false)} className="flex-1 py-3 rounded-xl font-bold bg-white/10 hover:bg-white/20 transition-colors">Отмена</button>
+                      <button onClick={confirmCloseShift} className="flex-1 py-3 rounded-xl font-bold bg-red-500 text-white shadow-lg shadow-red-500/30 active:scale-95 transition-transform">Закрыть</button>
                   </div>
               </div>
           </div>
