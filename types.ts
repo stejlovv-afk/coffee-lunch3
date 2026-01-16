@@ -87,8 +87,13 @@ export interface AddProductPayload {
   }
 }
 
+export interface DeleteProductPayload {
+  action: 'delete_product';
+  id: string;
+}
+
 export interface RefreshMenuPayload {
   action: 'refresh_menu';
 }
 
-export type WebAppPayload = OrderActionPayload | MenuUpdateActionPayload | RefreshMenuPayload | ToggleShiftPayload | AddProductPayload;
+export type WebAppPayload = OrderActionPayload | MenuUpdateActionPayload | RefreshMenuPayload | ToggleShiftPayload | AddProductPayload | DeleteProductPayload;
