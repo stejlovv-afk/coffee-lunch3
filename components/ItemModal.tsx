@@ -47,10 +47,6 @@ const SYRUP_GROUPS = {
 
 // --- HELPERS ---
 const getAddonPrice = (type: 'milk' | 'syrup', size: string) => {
-  // Цены: 250мл -> Milk 70 / Syrup 30
-  //       350мл -> Milk 80 / Syrup 40
-  //       450мл -> Milk 90 / Syrup 50
-  
   let sizeLevel = 0; // 0 = 250, 1 = 350, 2 = 450
   if (size.includes('350')) sizeLevel = 1;
   if (size.includes('450')) sizeLevel = 2;
@@ -77,7 +73,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const [buckthornHoney, setBuckthornHoney] = useState<boolean>(false);
   const [buckthornFilter, setBuckthornFilter] = useState<boolean>(false);
   const [cutlery, setCutlery] = useState<boolean>(false);
-  const [heating, setHeating] = useState<'grill' | 'microwave' | 'none'>('none');
+  const [heating, setHeating] = useState<'grill' | 'microwave' | 'none' | 'yes'>('none');
   const [matchaColor, setMatchaColor] = useState<'green' | 'blue'>('green');
 
   // UI State for Tooltips
@@ -105,17 +101,22 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const canHaveMilk = product.isDrink && 
                       !['espresso', 'americano'].includes(product.id) && 
                       product.category !== 'punch' &&
-                      product.category !== 'tea' && // Убрали молоко из чая
-                      !product.id.includes('bumble') && // Бамбл на соке
-                      !product.id.includes('chern_');   // Вода/Лимонад
+                      product.category !== 'tea' && 
+                      !product.id.includes('bumble') && 
+                      !product.id.includes('chern_'); 
 
   // Logic for temperature: SODA category can have Warm/Cold.
   const canHaveTemp = product.category === 'soda' && !product.id.includes('chern_');
 
+  // New Categories Logic
+  const needsCutlery = ['salads', 'soups', 'hot_dishes', 'combo', 'side_dishes'].includes(product.category);
+  const needsHeatingSimple = ['soups', 'hot_dishes', 'combo', 'side_dishes'].includes(product.category);
+  const needsHeatingAdvanced = product.category === 'fast_food';
+
   const handleAdd = () => {
     onAddToCart(selectedVariantIdx, quantity, {
       temperature: canHaveTemp ? temp : undefined,
-      sugar: product.isDrink && !product.id.includes('chern') ? sugar : undefined, // Сахар не нужен для бутылок
+      sugar: product.isDrink && !product.id.includes('chern') ? sugar : undefined,
       cinnamon: product.isDrink ? cinnamon : undefined,
       milk: canHaveMilk && selectedMilk !== 'none' ? selectedMilk : undefined,
       syrup: product.isDrink && selectedSyrup !== 'none' ? selectedSyrup : undefined,
@@ -124,16 +125,14 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
       gas: product.id === 'chern_water' ? waterGas : undefined,
       honey: product.id === 'punch_buckthorn' ? buckthornHoney : undefined,
       filter: product.id === 'punch_buckthorn' ? buckthornFilter : undefined,
-      cutlery: (product.category === 'salads' || product.category === 'food') ? cutlery : undefined,
-      heating: (product.category === 'food') ? heating : undefined,
+      cutlery: needsCutlery ? cutlery : undefined,
+      heating: (needsHeatingSimple || needsHeatingAdvanced) ? heating : undefined,
       matchaColor: product.id.includes('matcha') ? matchaColor : undefined,
     });
     onClose();
   };
 
-  // Helper to calculate price for display on buttons
   const displayMilkPrice = getAddonPrice('milk', currentVariant.size);
-  const displaySyrupPrice = getAddonPrice('syrup', currentVariant.size);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
@@ -244,8 +243,8 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
           </div>
         )}
 
-        {/* 5. Food / Salads Cutlery */}
-        {(product.category === 'food' || product.category === 'salads') && (
+        {/* 5. Cutlery (New Categories) */}
+        {needsCutlery && (
            <div className="mb-6 flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
              <span className="text-sm font-bold text-white">Нужны приборы?</span>
              <div onClick={() => setCutlery(!cutlery)} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors border border-white/10 ${cutlery ? 'bg-brand-yellow/80' : 'bg-black/40'}`}>
@@ -254,8 +253,18 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
            </div>
         )}
 
-        {/* 6. Sandwich Heating */}
-        {product.category === 'food' && (
+        {/* 6. Simple Heating (Yes/No) - Soups, Hot Dishes, Combo */}
+        {needsHeatingSimple && (
+          <div className="mb-6 flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
+             <span className="text-sm font-bold text-white">Подогреть еду?</span>
+             <div onClick={() => setHeating(heating === 'yes' ? 'none' : 'yes')} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors border border-white/10 ${heating === 'yes' ? 'bg-brand-yellow/80' : 'bg-black/40'}`}>
+               <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${heating === 'yes' ? 'left-7' : 'left-1'}`} />
+             </div>
+           </div>
+        )}
+
+        {/* 7. Advanced Heating (Fast Food / Sandwiches) */}
+        {needsHeatingAdvanced && (
           <div className="mb-6">
             <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Подогреть?</label>
              <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
@@ -271,7 +280,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
         {product.isDrink && !product.id.includes('chern_') && (
           <div className="space-y-6 mb-6">
             
-            {/* Temp (For Soda/Juices or if manually enabled) */}
+            {/* Temp */}
             {canHaveTemp && (
               <div>
                 <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Температура</label>
@@ -282,7 +291,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
               </div>
             )}
 
-            {/* Milk Selection (Visible Buttons instead of Select) */}
+            {/* Milk Selection */}
             {canHaveMilk && (
               <div className="mb-6">
                  <div className="flex justify-between mb-3">
@@ -307,7 +316,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
               </div>
             )}
 
-            {/* Syrup Selection (Visible Chips instead of Select) */}
+            {/* Syrup Selection */}
             <div>
                <div className="flex justify-between mb-3">
                  <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider">Сироп</label>
