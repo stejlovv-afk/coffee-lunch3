@@ -66,7 +66,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   // If editId changes, populate form
   useEffect(() => {
     if (editId) {
-        const item = customItems.find(i => i.id === editId);
+        // Find in ALL products, not just custom
+        const item = products.find(i => i.id === editId);
         if (item) {
             setNewName(item.name);
             setNewPrice(String(item.variants[0].price));
@@ -75,7 +76,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
             setActiveTab('add'); // Switch to add/edit tab
         }
     }
-  }, [editId]);
+  }, [editId, products]);
 
   const handleShiftClick = () => {
       if (!isShiftClosed) {
@@ -209,12 +210,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                 {filteredItems.map((item) => {
                 const isHidden = hiddenItems.includes(item.id);
                 return (
-                    <div key={item.id} onClick={() => !isLoading && onToggleHidden(item.id)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors backdrop-blur-sm ${isHidden ? 'bg-red-900/10 border-red-500/20' : 'bg-white/5 border-white/5 hover:bg-white/10'} ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
-                    <div className="flex items-center gap-3">
+                    <div key={item.id} className={`flex items-center justify-between p-3 rounded-xl border transition-colors backdrop-blur-sm ${isHidden ? 'bg-red-900/10 border-red-500/20' : 'bg-white/5 border-white/5 hover:bg-white/10'} ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => !isLoading && onToggleHidden(item.id)}>
                         <img src={item.image} className={`w-10 h-10 rounded-full object-cover border border-white/10 ${isHidden ? 'opacity-50 grayscale' : ''}`} />
                         <span className={`font-bold text-sm ${isHidden ? 'text-red-400 line-through' : 'text-brand-text'}`}>{item.name}</span>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded border ${isHidden ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>{isHidden ? 'СКРЫТО' : 'АКТИВНО'}</span>
+                    
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setEditId(item.id)} disabled={isLoading} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20 hover:bg-blue-500/20 transition-colors text-xs font-bold">✏️</button>
+                        <span onClick={() => !isLoading && onToggleHidden(item.id)} className={`cursor-pointer text-[10px] font-bold px-2 py-1 rounded border ${isHidden ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>{isHidden ? 'СКРЫТО' : 'АКТИВНО'}</span>
+                    </div>
                     </div>
                 );
                 })}
@@ -255,7 +260,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* CONTENT: DELETE PRODUCT (With Edit Trigger) */}
       {activeTab === 'delete' && (
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              <div className="bg-red-500/5 p-4 border border-red-500/10 rounded-xl mb-4 text-xs text-red-300"><p>Здесь можно удалить или изменить товары, добавленные вручную.</p></div>
+              <div className="bg-red-500/5 p-4 border border-red-500/10 rounded-xl mb-4 text-xs text-red-300"><p>Здесь можно удалить товары, добавленные вручную.</p></div>
               {customItems.length === 0 ? (<div className="text-center text-brand-muted py-10 opacity-50">Нет добавленных товаров</div>) : (
                   customItems.map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/5">
@@ -264,7 +269,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                             <div><h4 className="font-bold text-sm text-brand-text">{item.name}</h4><p className="text-[10px] text-brand-muted">{item.variants[0].price}₽</p></div>
                         </div>
                         <div className="flex gap-2">
-                             <button onClick={() => setEditId(item.id)} disabled={isLoading} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20 hover:bg-blue-500/20 transition-colors text-xs font-bold">ИЗМ</button>
                              <button onClick={() => setDeleteId(item.id)} disabled={isLoading} className="p-2 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors"><TrashIcon className="w-5 h-5" /></button>
                         </div>
                     </div>
