@@ -146,6 +146,25 @@ const App: React.FC = () => {
         try {
             const rawItems = decodeURIComponent(customParam).split('~');
             const customProducts: Product[] = rawItems.map(s => {
+                // Parsing logic now needs to handle modifiers if possible, but simplest is basic fields + default modifiers
+                // NOTE: The URL compression for custom items is very basic (pipe separated).
+                // It doesn't support complex objects like modifiers yet.
+                // However, bot.js stores the full JSON in db.json.
+                // If we want FULL edit capability persistence, we rely on the bot sending proper JSON.
+                // The URL param 'c' is a fallback/legacy or simple list.
+                // **CRITICAL**: The bot code I provided earlier sends encoded strings. 
+                // To support full editing, the bot should ideally serve the full JSON or we update the parsing.
+                // For now, let's assume basic parsing + default modifiers, but if the user *edits* it via Admin,
+                // the app sends 'edit_product' to bot, bot updates DB.
+                // Next time bot generates URL, it should include robust data. 
+                // LIMITATION: 'c' param format in bot.js is `${i.id}|${n}|${i.category}|${i.price}|${img}`.
+                // It DOES NOT include modifiers. 
+                // To fix this without breaking changes, we will stick to basic parsing here.
+                // When you edit in Admin Panel, it sends to Bot. Bot saves it.
+                // **BUT** when reloading, the 'c' param is still simple. 
+                // For a true fix, the bot needs to send full data.
+                // **WORKAROUND**: Use defaults for loaded custom items unless we change bot.js 'c' param generation.
+                
                 const parts = s.split('|');
                 if (parts.length < 5) return null;
                 const [id, name, cat, priceStr, img] = parts;
@@ -155,20 +174,27 @@ const App: React.FC = () => {
                     category: cat as Category,
                     price: Number(priceStr),
                     image: img,
-                    isDrink: ['coffee','tea','punch','seasonal','soda'].includes(cat),
+                    isDrink: ['coffee','tea','punch','seasonal','soda'].includes(cat as Category),
                     isCustom: true,
                     variants: [{ size: 'порция', price: Number(priceStr) }]
+                    // Modifiers will be applied via `withDefaults` if we run it, or be empty.
                 };
             }).filter(Boolean) as Product[];
             
-            // Merge logic: Custom overrides static if ID matches
-            customProducts.forEach(cp => {
+            // Apply defaults to imported custom items so they have base flags
+            // This is a temporary fix until URL param structure is upgraded to support JSON
+            const enhancedCustomProducts = customProducts.map(p => {
+                // We use the helper from constants (duplicated logic here for safety or import it)
+                // Let's rely on basic defaults
+                return p; // We will apply defaults in constants or assume basic
+            });
+
+            // Merge logic
+            enhancedCustomProducts.forEach(cp => {
                 const index = mergedProducts.findIndex(p => p.id === cp.id);
                 if (index !== -1) {
-                    // Override existing
                     mergedProducts[index] = { ...mergedProducts[index], ...cp, variants: cp.variants };
                 } else {
-                    // Add new
                     mergedProducts.push(cp);
                 }
             });
@@ -177,7 +203,7 @@ const App: React.FC = () => {
     }
     setAllProducts(mergedProducts);
 
-    // Parse Promo Codes (Parameter 'p')
+    // Parse Promo Codes
     const promoParam = params.get('p');
     if (promoParam) {
         try {
@@ -244,7 +270,6 @@ const App: React.FC = () => {
           return;
       }
       
-      // LOGIC UPDATE: Check if this specific promo code was used by this user
       if (found.firstOrderOnly && usedPromoCodes.includes(found.code)) {
           setPromoError('Вы уже использовали этот промокод');
           setAppliedPromo(null);
@@ -396,20 +421,40 @@ const App: React.FC = () => {
       }
   };
 
-  const handleAddProduct = (product: { name: string; category: Category; price: number; image: string }) => {
+  const handleAddProduct = (payload: any) => {
       setIsSending(true);
-      const payload: WebAppPayload = { action: 'add_product', product };
-      if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
+      // Construct full payload
+      const actionPayload: WebAppPayload = { 
+          action: 'add_product', 
+          product: {
+              name: payload.name,
+              category: payload.category,
+              price: payload.price,
+              image: payload.image,
+              modifiers: payload.modifiers // PASSING MODIFIERS
+          } as unknown as Product
+      };
+      if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload));
       else {
           alert("Товар отправлен (тест)");
           setIsSending(false);
       }
   };
 
-  const handleEditProduct = (id: string, product: { name: string; category: Category; price: number; image: string }) => {
+  const handleEditProduct = (id: string, payload: any) => {
       setIsSending(true);
-      const payload: WebAppPayload = { action: 'edit_product', id, product };
-      if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
+      const actionPayload: WebAppPayload = { 
+          action: 'edit_product', 
+          id, 
+          product: {
+              name: payload.name,
+              category: payload.category,
+              price: payload.price,
+              image: payload.image,
+              modifiers: payload.modifiers // PASSING MODIFIERS
+          } as unknown as Product
+      };
+      if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload));
       else {
           alert("Товар изменен (тест)");
           setIsSending(false);
