@@ -16,7 +16,7 @@ interface AdminPanelProps {
   onToggleShift: (isClosed: boolean) => void;
   onAddProduct: (product: any) => void;
   onEditProduct: (id: string, product: any) => void;
-  onDeleteProduct: (id: string) => void;
+  onDeleteProduct: (ids: string[]) => void;
   onAddPromo: (promo: PromoCode) => void;
   onDeletePromo: (code: string) => void;
 }
@@ -42,13 +42,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'menu' | 'editor' | 'revenue' | 'promo'>('menu');
   const [searchTerm, setSearchTerm] = useState('');
-  const [editorSearchTerm, setEditorSearchTerm] = useState(''); // Separate search for Editor
+  const [editorSearchTerm, setEditorSearchTerm] = useState(''); 
   const [showShiftConfirm, setShowShiftConfirm] = useState(false);
   
   // Editor State
   const [editorMode, setEditorMode] = useState<'list' | 'form'>('list');
   const [editId, setEditId] = useState<string | null>(null);
   
+  // Bulk Selection
+  const [selectedDeleteIds, setSelectedDeleteIds] = useState<string[]>([]);
+
   // Form State
   const [newName, setNewName] = useState('');
   const [newPrice, setNewPrice] = useState('');
@@ -66,12 +69,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Filtered items for Editor tab (Show ALL items)
+  // Filtered items for Editor tab
   const filteredEditorItems = products.filter(item => 
     item.name.toLowerCase().includes(editorSearchTerm.toLowerCase())
   );
 
-  // Handle Edit Start
   const startEdit = (product: Product) => {
       setEditId(product.id);
       setNewName(product.name);
@@ -131,11 +133,25 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       setEditorMode('list');
   };
 
-  const handleDelete = () => {
-      if (editId && confirm("Удалить этот товар?")) {
-          onDeleteProduct(editId);
+  const handleDelete = (id: string) => {
+      if (confirm("Удалить этот товар?")) {
+          onDeleteProduct([id]);
           setEditorMode('list');
       }
+  };
+
+  const handleBulkDelete = () => {
+      if (selectedDeleteIds.length === 0) return;
+      if (confirm(`Удалить выбранные товары (${selectedDeleteIds.length})?`)) {
+          onDeleteProduct(selectedDeleteIds);
+          setSelectedDeleteIds([]);
+      }
+  };
+
+  const toggleSelectId = (id: string) => {
+      setSelectedDeleteIds(prev => 
+          prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      );
   };
 
   const handleAddPromoSubmit = () => {
@@ -197,7 +213,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* TAB: MENU */}
       {activeTab === 'menu' && (
         <>
-            {/* Search */}
             <div className="px-4 pb-2">
                 <div className="relative">
                     <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-brand-muted" />
@@ -238,9 +253,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="flex-1 overflow-y-auto p-4">
               {editorMode === 'list' ? (
                   <div className="space-y-4">
-                      <button onClick={startAdd} className="w-full py-3 bg-brand-yellow text-black rounded-xl font-bold flex items-center justify-center gap-2 mb-2">
-                          <PlusIcon className="w-5 h-5" /> Добавить товар
-                      </button>
+                      <div className="flex gap-2 mb-2">
+                          <button onClick={startAdd} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold flex items-center justify-center gap-2">
+                              <PlusIcon className="w-5 h-5" /> Добавить
+                          </button>
+                          {selectedDeleteIds.length > 0 && (
+                              <button onClick={handleBulkDelete} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 animate-fade-in">
+                                  <TrashIcon className="w-5 h-5" /> Удалить ({selectedDeleteIds.length})
+                              </button>
+                          )}
+                      </div>
 
                       <div className="relative mb-4">
                         <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-brand-muted" />
@@ -257,15 +279,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       {filteredEditorItems.length === 0 ? <div className="text-center text-brand-muted text-sm py-4">Товары не найдены</div> : (
                           <div className="space-y-2 pb-10">
                               {filteredEditorItems.map(item => (
-                                  <div key={item.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                                      <div className="flex items-center gap-3 overflow-hidden">
-                                          <img src={item.image} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                                          <div className="min-w-0"><h4 className="font-bold text-sm text-white truncate">{item.name}</h4><p className="text-xs text-brand-muted">{item.variants[0].price}₽ {item.isCustom ? '(Custom)' : ''}</p></div>
+                                  <div key={item.id} className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${selectedDeleteIds.includes(item.id) ? 'bg-red-500/10 border-red-500/30' : 'bg-white/5 border-white/5'}`}>
+                                      <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                          {/* Checkbox for Bulk Select */}
+                                          <div onClick={() => toggleSelectId(item.id)} className={`w-5 h-5 rounded border flex items-center justify-center cursor-pointer transition-colors ${selectedDeleteIds.includes(item.id) ? 'bg-red-500 border-red-500' : 'border-white/20'}`}>
+                                              {selectedDeleteIds.includes(item.id) && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
+                                          </div>
+                                          <img src={item.image} className="w-10 h-10 rounded-full object-cover flex-shrink-0" onClick={() => startEdit(item)} />
+                                          <div className="min-w-0" onClick={() => startEdit(item)}><h4 className="font-bold text-sm text-white truncate">{item.name}</h4><p className="text-xs text-brand-muted">{item.variants[0].price}₽</p></div>
                                       </div>
                                       <div className="flex gap-2 flex-shrink-0">
                                           <button onClick={() => startEdit(item)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20">✏️</button>
-                                          {/* Delete enabled for ALL items */}
-                                          <button onClick={() => { setEditId(item.id); handleDelete(); }} className="p-2 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20"><TrashIcon className="w-5 h-5" /></button>
                                       </div>
                                   </div>
                               ))}
@@ -312,6 +336,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                               <input type="checkbox" checked={modifiers.hasCinnamon || false} onChange={e => toggleModifier('hasCinnamon', e.target.checked)} className="accent-brand-yellow w-5 h-5" />
                           </div>
                           <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">Можно Соус</span>
+                              <input type="checkbox" checked={modifiers.hasSauce || false} onChange={e => toggleModifier('hasSauce', e.target.checked)} className="accent-brand-yellow w-5 h-5" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">Можно Температуру</span>
+                              <input type="checkbox" checked={modifiers.hasTemp || false} onChange={e => toggleModifier('hasTemp', e.target.checked)} className="accent-brand-yellow w-5 h-5" />
+                          </div>
+                          <div className="flex items-center justify-between">
                               <span className="text-sm text-white">Нужны приборы</span>
                               <input type="checkbox" checked={modifiers.needsCutlery || false} onChange={e => toggleModifier('needsCutlery', e.target.checked)} className="accent-brand-yellow w-5 h-5" />
                           </div>
@@ -327,7 +359,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       </div>
 
                       <div className="pt-4 flex gap-2">
-                          {editId && <button onClick={handleDelete} className="flex-1 py-3 bg-red-500/10 text-red-400 rounded-xl font-bold border border-red-500/20">Удалить</button>}
+                          {editId && <button onClick={() => handleDelete(editId)} className="flex-1 py-3 bg-red-500/10 text-red-400 rounded-xl font-bold border border-red-500/20">Удалить</button>}
                           <button onClick={handleEditorSubmit} disabled={isLoading} className="flex-[2] py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Сохранить</button>
                       </div>
                   </div>
