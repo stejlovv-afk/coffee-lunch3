@@ -78,7 +78,7 @@ const App: React.FC = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isSending, setIsSending] = useState(false);
   
-  // Products (Static + Custom)
+  // Products (Static + Custom merged)
   const [allProducts, setAllProducts] = useState<Product[]>(MENU_ITEMS);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
 
@@ -138,8 +138,10 @@ const App: React.FC = () => {
     setMonthlyRevenue(monthRev);
     setIsShiftClosed(closed);
 
-    // Parse Custom Items (Parameter 'c')
+    // Parse Custom Items (Parameter 'c') and merge with static
     const customParam = params.get('c');
+    let mergedProducts = [...MENU_ITEMS];
+
     if (customParam) {
         try {
             const rawItems = decodeURIComponent(customParam).split('~');
@@ -158,12 +160,24 @@ const App: React.FC = () => {
                     variants: [{ size: 'порция', price: Number(priceStr) }]
                 };
             }).filter(Boolean) as Product[];
-            setAllProducts([...MENU_ITEMS, ...customProducts]);
+            
+            // Merge logic: Custom overrides static if ID matches
+            customProducts.forEach(cp => {
+                const index = mergedProducts.findIndex(p => p.id === cp.id);
+                if (index !== -1) {
+                    // Override existing
+                    mergedProducts[index] = { ...mergedProducts[index], ...cp, variants: cp.variants };
+                } else {
+                    // Add new
+                    mergedProducts.push(cp);
+                }
+            });
+            
         } catch(e) { console.error("Error parsing custom items", e); }
     }
+    setAllProducts(mergedProducts);
 
     // Parse Promo Codes (Parameter 'p')
-    // Format: code|percent|isFirst~...
     const promoParam = params.get('p');
     if (promoParam) {
         try {
