@@ -53,7 +53,9 @@ const SYRUP_GROUPS = {
 };
 
 // --- HELPERS ---
-const getAddonPrice = (type: 'milk' | 'syrup', size: string) => {
+const getAddonPrice = (type: 'milk' | 'syrup' | 'sauce', size: string) => {
+  if (type === 'sauce') return 40;
+
   let sizeLevel = 0; // 0 = 250, 1 = 350, 2 = 450
   if (size.includes('350')) sizeLevel = 1;
   if (size.includes('450')) sizeLevel = 2;
@@ -103,7 +105,12 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
     return getAddonPrice('syrup', currentVariant.size);
   }, [selectedSyrup, currentVariant.size]);
 
-  const totalPrice = (basePrice + milkPrice + syrupPrice) * quantity;
+  const saucePrice = useMemo(() => {
+    if (!selectedSauce) return 0;
+    return getAddonPrice('sauce', currentVariant.size);
+  }, [selectedSauce, currentVariant.size]);
+
+  const totalPrice = (basePrice + milkPrice + syrupPrice + saucePrice) * quantity;
 
   // Flags from Modifiers
   const canHaveMilk = mods.hasMilk;
@@ -194,6 +201,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
           <div className="mb-6">
              <div className="flex justify-between mb-3">
                <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider">Добавить соус?</label>
+               {selectedSauce && <span className="text-xs font-bold text-brand-yellow">+{saucePrice}₽</span>}
              </div>
              <div className="flex flex-wrap gap-2">
                 {SAUCE_OPTIONS.map(s => (
