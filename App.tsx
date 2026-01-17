@@ -280,7 +280,8 @@ const App: React.FC = () => {
         if (item.options.filter !== undefined) details += `, ${item.options.filter ? 'Профильтровать' : 'С ягодами'}`;
         if (item.options.cutlery) details += `, С приборами`;
         if (item.options.heating && item.options.heating !== 'none') {
-            details += `, Греть: ${item.options.heating === 'grill' ? 'Гриль' : 'СВЧ'}`;
+            if (item.options.heating === 'yes') details += `, Подогреть`;
+            else details += `, Греть: ${item.options.heating === 'grill' ? 'Гриль' : 'СВЧ'}`;
         }
 
         if (index === 0) {
@@ -390,6 +391,16 @@ const App: React.FC = () => {
           setIsSending(false);
       }
   };
+
+  const handleEditProduct = (id: string, product: { name: string; category: Category; price: number; image: string }) => {
+      setIsSending(true);
+      const payload: WebAppPayload = { action: 'edit_product', id, product };
+      if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
+      else {
+          alert("Товар изменен (тест)");
+          setIsSending(false);
+      }
+  };
   
   const handleDeleteProduct = (id: string) => {
       setIsSending(true);
@@ -465,10 +476,13 @@ const App: React.FC = () => {
     { id: 'tea', label: 'Чай' },
     { id: 'seasonal', label: 'Сезонное' },
     { id: 'punch', label: 'Пунши' },
-    { id: 'salads', label: 'Салаты' },
-    { id: 'food', label: 'Еда' },
-    { id: 'sweets', label: 'Сладости' },
     { id: 'soda', label: 'Напитки' },
+    { id: 'fast_food', label: 'Фастфуд' },
+    { id: 'combo', label: 'Комбо' },
+    { id: 'hot_dishes', label: 'Горячее' },
+    { id: 'soups', label: 'Супы' },
+    { id: 'side_dishes', label: 'Гарниры' },
+    { id: 'salads', label: 'Салаты' },
   ];
 
   return (
@@ -702,6 +716,7 @@ const App: React.FC = () => {
             isShiftClosed={isShiftClosed}
             onToggleShift={handleToggleShift}
             onAddProduct={handleAddProduct}
+            onEditProduct={handleEditProduct}
             onDeleteProduct={handleDeleteProduct}
             onAddPromo={handleAddPromo}
             onDeletePromo={handleDeletePromo}
