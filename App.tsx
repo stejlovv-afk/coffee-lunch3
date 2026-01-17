@@ -24,6 +24,10 @@ const SYRUP_LABELS: Record<string, string> = {
     lemongrass: 'Лемонграсс', popcorn: 'Попкорн', mint: 'Мята', bubblegum: 'Баблгам', salted_caramel: 'Соленая карамель'
 };
 
+const SAUCE_LABELS: Record<string, string> = {
+    cheese: 'Сырный', ketchup: 'Кетчуп', mustard: 'Горчичный', bbq: 'Барбекю'
+};
+
 // --- Helper Hook for Long Press ---
 function useLongPress(callback: () => void, ms = 1500) {
   const [startLongPress, setStartLongPress] = useState(false);
@@ -304,6 +308,7 @@ const App: React.FC = () => {
         if (item.options.temperature) details += `, ${item.options.temperature === 'hot' ? 'Горячий' : 'Холодный'}`;
         if (item.options.milk && MILK_LABELS[item.options.milk]) details += `, ${MILK_LABELS[item.options.milk]}`;
         if (item.options.syrup && SYRUP_LABELS[item.options.syrup]) details += `, Сироп: ${SYRUP_LABELS[item.options.syrup]}`;
+        if (item.options.sauce && SAUCE_LABELS[item.options.sauce]) details += `, Соус: ${SAUCE_LABELS[item.options.sauce]}`;
         if (item.options.sugar !== undefined && item.options.sugar > 0) details += `, Сахар: ${item.options.sugar}г`;
         if (item.options.cinnamon) details += `, Корица`;
         if (item.options.juice) details += `, Сок: ${item.options.juice === 'orange' ? 'Апельсин' : 'Вишня'}`;
@@ -455,9 +460,9 @@ const App: React.FC = () => {
       }
   };
   
-  const handleDeleteProduct = (id: string) => {
+  const handleDeleteProduct = (ids: string[]) => {
       setIsSending(true);
-      const payload: WebAppPayload = { action: 'delete_product', id };
+      const payload: WebAppPayload = { action: 'delete_product', ids };
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
       else {
           alert("Запрос на удаление отправлен (тест)");
@@ -693,6 +698,7 @@ const App: React.FC = () => {
                           {item.options.temperature && ` • ${item.options.temperature === 'hot' ? 'Горячий' : 'Холодный'}`}
                           {item.options.milk && MILK_LABELS[item.options.milk] ? ` • ${MILK_LABELS[item.options.milk]}` : ''}
                           {item.options.syrup && SYRUP_LABELS[item.options.syrup] ? ` • ${SYRUP_LABELS[item.options.syrup]}` : ''}
+                          {item.options.sauce && SAUCE_LABELS[item.options.sauce] ? ` • Соус: ${SAUCE_LABELS[item.options.sauce]}` : ''}
                           {item.options.juice ? ` • Сок ${item.options.juice}` : ''}
                         </p>
                         <div className="flex justify-between items-center mt-3">
