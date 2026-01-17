@@ -58,7 +58,6 @@ export const MENU_ITEMS: Product[] = [
     name: 'Флат Уайт',
     category: 'coffee',
     isDrink: true,
-    // Нет фото флэт уайт, используем похожее или эспрессо2
     image: `${IMG_PATH}/эспрессо2.jpg`, 
     variants: [
       { size: '250мл', price: 220 },
@@ -71,7 +70,6 @@ export const MENU_ITEMS: Product[] = [
     name: 'Раф',
     category: 'coffee',
     isDrink: true,
-    // Нет обычного рафа, берем латте как заглушку
     image: `${IMG_PATH}/latte.jpg`, 
     variants: [
       { size: '250мл', price: 210 },
@@ -161,7 +159,26 @@ export const MENU_ITEMS: Product[] = [
     ],
   },
 
-  // --- SALADS / FOOD ---
+  // --- FAST FOOD (Sandwiches, Croissants) ---
+  {
+    id: 'club_sandwich',
+    name: 'Клаб-сэндвич',
+    category: 'fast_food',
+    isDrink: false,
+    image: `${IMG_PATH}/sendvichvetcina.jpg`,
+    description: 'С ветчиной и сыром',
+    variants: [{ size: 'шт', price: 280 }],
+  },
+  {
+    id: 'croissant_salmon',
+    name: 'Круассан с лососем',
+    category: 'fast_food',
+    isDrink: false,
+    image: `${IMG_PATH}/unnamed (1).jpg`, 
+    variants: [{ size: 'шт', price: 390 }],
+  },
+
+  // --- SALADS ---
   {
     id: 'caesar_chicken',
     name: 'Цезарь с курицей',
@@ -181,29 +198,10 @@ export const MENU_ITEMS: Product[] = [
     variants: [{ size: 'порция', price: 320 }],
   },
   {
-    id: 'club_sandwich',
-    name: 'Клаб-сэндвич',
-    category: 'food',
-    isDrink: false,
-    image: `${IMG_PATH}/sendvichvetcina.jpg`,
-    description: 'С ветчиной и сыром',
-    variants: [{ size: 'шт', price: 280 }],
-  },
-  {
-    id: 'croissant_salmon',
-    name: 'Круассан с лососем',
-    category: 'food',
-    isDrink: false,
-    // Предполагаю, что unnamed (1) это круассан, так как других фото нет
-    image: `${IMG_PATH}/unnamed (1).jpg`, 
-    variants: [{ size: 'шт', price: 390 }],
-  },
-  {
     id: 'olivie',
     name: 'Оливье',
-    category: 'food',
+    category: 'salads',
     isDrink: false,
-    // Используем плейсхолдер или загрузите фото с именем olivie.jpg
     image: `${IMG_PATH}/olivie.jpg`, 
     variants: [{ size: 'порция', price: 200 }],
   },
@@ -349,104 +347,6 @@ export const MENU_ITEMS: Product[] = [
       { size: '350мл', price: 320 },
       { size: '450мл', price: 380 },
     ],
-  },
-
-  // --- SWEETS ---
-  {
-    id: 'bombbar_hazel',
-    name: 'Bombbar Лесной Орех',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/bombbarfunduk.jpg`,
-    variants: [{ size: 'шт', price: 130 }],
-  },
-  {
-    id: 'bombbar_rasp',
-    name: 'Bombbar Малиновый',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/bombbarmalina.jpg`,
-    variants: [{ size: 'шт', price: 130 }],
-  },
-  {
-    id: 'bombbar_coco',
-    name: 'Bombbar Кокос',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/bombbarcocos.jpg`,
-    variants: [{ size: 'шт', price: 130 }],
-  },
-  {
-    id: 'snaqer',
-    name: 'Snaqer Орех-Карамель',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/snaqerfunduk.jpg`,
-    variants: [{ size: 'шт', price: 130 }],
-  },
-  {
-    id: 'chika_currant',
-    name: 'Chika Biscuit Смородина',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/chikabiscuitblackcurrant.jpg`,
-    variants: [{ size: 'шт', price: 170 }],
-  },
-  {
-    id: 'chika_banana',
-    name: 'Chika Biscuit Банан',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/chikabiscuitbanan.jpg`,
-    variants: [{ size: 'шт', price: 170 }],
-  },
-  {
-    id: 'chokopie',
-    name: 'Choko Pie',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/chokopie.jpg`,
-    variants: [{ size: 'шт', price: 30 }],
-  },
-  {
-    id: 'choc_bitter',
-    name: 'Горький Шоколад',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/chokolatgorkiy.jpg`,
-    variants: [{ size: 'шт', price: 80 }],
-  },
-  {
-    id: 'choc_milk',
-    name: 'Молочный Шоколад',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/chokolatmoloko.jpg`,
-    variants: [{ size: 'шт', price: 80 }],
-  },
-  {
-    id: 'bar_chudo',
-    name: 'Батончик Чудо',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/chudo.jpg`,
-    variants: [{ size: 'шт', price: 60 }],
-  },
-  {
-    id: 'bar_babaev',
-    name: 'Бабаевский Батончик',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/babka.jpg`,
-    variants: [{ size: 'шт', price: 100 }],
-  },
-  {
-    id: 'gum_eclipse',
-    name: 'Жвачка Eclipse',
-    category: 'sweets',
-    isDrink: false,
-    image: `${IMG_PATH}/eclipce.jpg`,
-    variants: [{ size: 'шт', price: 80 }],
   },
 
   // --- SODA/DRINKS ---
