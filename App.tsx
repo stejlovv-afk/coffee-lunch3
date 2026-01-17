@@ -59,7 +59,9 @@ const getDefaultTime = () => {
   return `${hours}:${minutes}`;
 };
 
-const getAddonPrice = (type: 'milk' | 'syrup', variantSize: string) => {
+const getAddonPrice = (type: 'milk' | 'syrup' | 'sauce', variantSize: string) => {
+  if (type === 'sauce') return 40;
+  
   let sizeLevel = 0; 
   if (variantSize.includes('350')) sizeLevel = 1;
   if (variantSize.includes('450')) sizeLevel = 2;
@@ -246,6 +248,7 @@ const App: React.FC = () => {
       
       if (item.options.milk && item.options.milk !== 'none') price += getAddonPrice('milk', variant.size);
       if (item.options.syrup && item.options.syrup !== 'none') price += getAddonPrice('syrup', variant.size);
+      if (item.options.sauce) price += getAddonPrice('sauce', variant.size);
 
       return total + (price * item.quantity);
     }, 0);
@@ -329,6 +332,7 @@ const App: React.FC = () => {
         let finalPrice = variant.price;
         if (item.options.milk && item.options.milk !== 'none') finalPrice += getAddonPrice('milk', variant.size);
         if (item.options.syrup && item.options.syrup !== 'none') finalPrice += getAddonPrice('syrup', variant.size);
+        if (item.options.sauce) finalPrice += getAddonPrice('sauce', variant.size);
 
         return {
           name: product.name,
@@ -687,6 +691,7 @@ const App: React.FC = () => {
                   let itemPrice = variant.price;
                   if (item.options.milk && item.options.milk !== 'none') itemPrice += getAddonPrice('milk', variant.size);
                   if (item.options.syrup && item.options.syrup !== 'none') itemPrice += getAddonPrice('syrup', variant.size);
+                  if (item.options.sauce) itemPrice += getAddonPrice('sauce', variant.size);
                   
                   return (
                     <div key={item.uniqueId} className="flex gap-4 items-start glass-panel p-3 rounded-2xl">
