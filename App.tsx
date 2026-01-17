@@ -146,28 +146,20 @@ const App: React.FC = () => {
         try {
             const rawItems = decodeURIComponent(customParam).split('~');
             const customProducts: Product[] = rawItems.map(s => {
-                // Parsing logic now needs to handle modifiers if possible, but simplest is basic fields + default modifiers
-                // NOTE: The URL compression for custom items is very basic (pipe separated).
-                // It doesn't support complex objects like modifiers yet.
-                // However, bot.js stores the full JSON in db.json.
-                // If we want FULL edit capability persistence, we rely on the bot sending proper JSON.
-                // The URL param 'c' is a fallback/legacy or simple list.
-                // **CRITICAL**: The bot code I provided earlier sends encoded strings. 
-                // To support full editing, the bot should ideally serve the full JSON or we update the parsing.
-                // For now, let's assume basic parsing + default modifiers, but if the user *edits* it via Admin,
-                // the app sends 'edit_product' to bot, bot updates DB.
-                // Next time bot generates URL, it should include robust data. 
-                // LIMITATION: 'c' param format in bot.js is `${i.id}|${n}|${i.category}|${i.price}|${img}`.
-                // It DOES NOT include modifiers. 
-                // To fix this without breaking changes, we will stick to basic parsing here.
-                // When you edit in Admin Panel, it sends to Bot. Bot saves it.
-                // **BUT** when reloading, the 'c' param is still simple. 
-                // For a true fix, the bot needs to send full data.
-                // **WORKAROUND**: Use defaults for loaded custom items unless we change bot.js 'c' param generation.
-                
                 const parts = s.split('|');
                 if (parts.length < 5) return null;
-                const [id, name, cat, priceStr, img] = parts;
+                const [id, name, cat, priceStr, img, modsBase64] = parts;
+                
+                // Decode modifiers if present
+                let modifiers = {};
+                if (modsBase64) {
+                    try {
+                        modifiers = JSON.parse(atob(modsBase64));
+                    } catch (e) {
+                        console.error("Failed to parse modifiers", e);
+                    }
+                }
+
                 return {
                     id,
                     name,
@@ -176,25 +168,19 @@ const App: React.FC = () => {
                     image: img,
                     isDrink: ['coffee','tea','punch','seasonal','soda'].includes(cat as Category),
                     isCustom: true,
-                    variants: [{ size: 'порция', price: Number(priceStr) }]
-                    // Modifiers will be applied via `withDefaults` if we run it, or be empty.
+                    variants: [{ size: 'порция', price: Number(priceStr) }],
+                    modifiers: modifiers
                 };
             }).filter(Boolean) as Product[];
             
-            // Apply defaults to imported custom items so they have base flags
-            // This is a temporary fix until URL param structure is upgraded to support JSON
-            const enhancedCustomProducts = customProducts.map(p => {
-                // We use the helper from constants (duplicated logic here for safety or import it)
-                // Let's rely on basic defaults
-                return p; // We will apply defaults in constants or assume basic
-            });
-
             // Merge logic
-            enhancedCustomProducts.forEach(cp => {
+            customProducts.forEach(cp => {
                 const index = mergedProducts.findIndex(p => p.id === cp.id);
                 if (index !== -1) {
-                    mergedProducts[index] = { ...mergedProducts[index], ...cp, variants: cp.variants };
+                    // Override existing
+                    mergedProducts[index] = { ...mergedProducts[index], ...cp, variants: cp.variants, modifiers: cp.modifiers };
                 } else {
+                    // Add new
                     mergedProducts.push(cp);
                 }
             });
