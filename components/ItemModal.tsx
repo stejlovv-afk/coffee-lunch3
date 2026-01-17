@@ -17,6 +17,13 @@ const MILK_OPTIONS = [
   { id: 'almond', label: 'Миндальное', basePrice: 70 },
 ];
 
+const SAUCE_OPTIONS = [
+    { id: 'cheese', label: 'Сырный' },
+    { id: 'ketchup', label: 'Кетчуп' },
+    { id: 'mustard', label: 'Горчичный' },
+    { id: 'bbq', label: 'Барбекю' },
+];
+
 const SYRUP_GROUPS = {
   'Ореховые': [
     { id: 'pistachio', label: 'Фисташка' },
@@ -66,6 +73,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const [cinnamon, setCinnamon] = useState<boolean>(false);
   const [selectedMilk, setSelectedMilk] = useState<string>('none');
   const [selectedSyrup, setSelectedSyrup] = useState<string>('none');
+  const [selectedSauce, setSelectedSauce] = useState<string | undefined>(undefined);
   
   // Specific Options
   const [bumbleJuice, setBumbleJuice] = useState<'orange' | 'cherry'>('orange');
@@ -103,16 +111,20 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const canHaveSugar = mods.hasSugar;
   const canHaveCinnamon = mods.hasCinnamon;
   const canHaveCutlery = mods.needsCutlery;
+  const canHaveSauce = mods.hasSauce;
+  const canHaveTemp = mods.isSoda || mods.hasTemp;
+  
   const heatingType = mods.heatingType; // 'simple', 'advanced', or undefined/'none'
-  const isSoda = mods.isSoda; // Controls temp and gas
+  const isSoda = mods.isSoda; // Controls temp and gas default
 
   const handleAdd = () => {
     onAddToCart(selectedVariantIdx, quantity, {
-      temperature: isSoda ? temp : undefined,
+      temperature: canHaveTemp ? temp : undefined,
       sugar: canHaveSugar ? sugar : undefined,
       cinnamon: canHaveCinnamon ? cinnamon : undefined,
       milk: canHaveMilk && selectedMilk !== 'none' ? selectedMilk : undefined,
       syrup: canHaveSyrup && selectedSyrup !== 'none' ? selectedSyrup : undefined,
+      sauce: canHaveSauce ? selectedSauce : undefined,
       // Specifics
       juice: mods.isBumble ? bumbleJuice : undefined,
       gas: isSoda && product.id === 'chern_water' ? waterGas : undefined, // specific hack for water brand
@@ -164,7 +176,42 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
           </div>
         </div>
 
-        {/* ================= SPECIAL OPTIONS ================= */}
+        {/* ================= OPTIONS ================= */}
+
+        {/* Temp */}
+        {canHaveTemp && (
+          <div className="mb-6">
+            <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Температура</label>
+            <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+              <button onClick={() => setTemp('cold')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'cold' ? 'bg-white/10 shadow-sm border border-white/10 text-blue-400' : 'text-brand-muted'}`}>Холодный</button>
+              <button onClick={() => setTemp('hot')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'hot' ? 'bg-white/10 shadow-sm border border-white/10 text-brand-yellow' : 'text-brand-muted'}`}>Теплый</button>
+            </div>
+          </div>
+        )}
+
+        {/* Sauce */}
+        {canHaveSauce && (
+          <div className="mb-6">
+             <div className="flex justify-between mb-3">
+               <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider">Добавить соус?</label>
+             </div>
+             <div className="flex flex-wrap gap-2">
+                {SAUCE_OPTIONS.map(s => (
+                   <button
+                     key={s.id}
+                     onClick={() => setSelectedSauce(selectedSauce === s.id ? undefined : s.id)}
+                     className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                        selectedSauce === s.id 
+                        ? 'bg-brand-yellow text-black border-brand-yellow shadow-sm' 
+                        : 'bg-white/5 text-brand-muted border-white/5 hover:bg-white/10'
+                     }`}
+                   >
+                     {s.label}
+                   </button>
+                ))}
+             </div>
+          </div>
+        )}
 
         {/* 1. Bumble Juice */}
         {mods.isBumble && (
@@ -271,17 +318,6 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
         {/* ================= DRINK OPTIONS ================= */}
         
-        {/* Temp */}
-        {isSoda && (
-          <div className="mb-6">
-            <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Температура</label>
-            <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
-              <button onClick={() => setTemp('cold')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'cold' ? 'bg-white/10 shadow-sm border border-white/10 text-blue-400' : 'text-brand-muted'}`}>Холодный</button>
-              <button onClick={() => setTemp('hot')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'hot' ? 'bg-white/10 shadow-sm border border-white/10 text-brand-yellow' : 'text-brand-muted'}`}>Теплый</button>
-            </div>
-          </div>
-        )}
-
         {/* Milk Selection */}
         {canHaveMilk && (
           <div className="mb-6">
