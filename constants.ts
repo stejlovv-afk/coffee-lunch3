@@ -1,11 +1,44 @@
 import { Product } from './types';
 
-// Используем пути относительно корня сайта. 
-// Vite соберет файлы из public/img и положит их в корень/img.
 const IMG_PATH = "./img";
-const COMBO_IMG = "./img/combo.jpg"; // Placeholder for combos
+const COMBO_IMG = "./img/combo.jpg"; 
 
-export const MENU_ITEMS: Product[] = [
+// Helper to apply default modifiers based on category to keep old logic working
+const withDefaults = (p: Product): Product => {
+  const m = p.modifiers || {};
+  
+  // Logic from previous ItemModal
+  if (p.isDrink) {
+      if (['coffee', 'seasonal', 'cacao'].includes(p.category) && !p.id.includes('espresso') && !p.id.includes('bumble')) {
+          m.hasMilk = true;
+          m.hasSyrup = true;
+          m.hasSugar = true;
+          m.hasCinnamon = true;
+      }
+      if (p.category === 'tea' || p.category === 'punch') {
+          m.hasSugar = true;
+          m.hasSyrup = true;
+      }
+      if (p.category === 'soda' && !p.id.includes('chern_')) {
+          m.isSoda = true;
+      }
+  }
+
+  if (p.id.includes('bumble')) m.isBumble = true;
+  if (p.id.includes('matcha')) { m.isMatcha = true; m.hasMilk = true; m.hasSyrup = true; }
+  if (p.id === 'punch_buckthorn') m.isBuckthorn = true;
+  if (p.id === 'chern_water') m.isSoda = true; // reusing isSoda for gas flag logic
+
+  if (p.category === 'fast_food') m.heatingType = 'advanced'; // Grill/Micro
+  if (['soups', 'hot_dishes', 'combo', 'side_dishes', 'salads'].includes(p.category)) {
+      m.needsCutlery = true;
+      if (p.category !== 'salads') m.heatingType = 'simple'; // Yes/No
+  }
+
+  return { ...p, modifiers: m };
+};
+
+const RAW_MENU_ITEMS: Product[] = [
   // --- COFFEE ---
   {
     id: 'cappuccino',
@@ -13,11 +46,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/kapuchino.jpg`,
-    variants: [
-      { size: '250мл', price: 190 },
-      { size: '350мл', price: 230 },
-      { size: '450мл', price: 270 },
-    ],
+    variants: [{ size: '250мл', price: 190 }, { size: '350мл', price: 230 }, { size: '450мл', price: 270 }],
   },
   {
     id: 'latte',
@@ -25,11 +54,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/latte.jpg`,
-    variants: [
-      { size: '250мл', price: 190 },
-      { size: '350мл', price: 230 },
-      { size: '450мл', price: 270 },
-    ],
+    variants: [{ size: '250мл', price: 190 }, { size: '350мл', price: 230 }, { size: '450мл', price: 270 }],
   },
   {
     id: 'espresso',
@@ -37,10 +62,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/espresso1.jpg`,
-    variants: [
-      { size: '30мл', price: 110 },
-      { size: '60мл', price: 150 },
-    ],
+    variants: [{ size: '30мл', price: 110 }, { size: '60мл', price: 150 }],
   },
   {
     id: 'americano',
@@ -48,11 +70,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/americano.jpg`,
-    variants: [
-      { size: '250мл', price: 180 },
-      { size: '350мл', price: 220 },
-      { size: '450мл', price: 260 },
-    ],
+    variants: [{ size: '250мл', price: 180 }, { size: '350мл', price: 220 }, { size: '450мл', price: 260 }],
   },
   {
     id: 'flat_white',
@@ -60,11 +78,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/эспрессо2.jpg`, 
-    variants: [
-      { size: '250мл', price: 220 },
-      { size: '350мл', price: 260 },
-      { size: '450мл', price: 360 },
-    ],
+    variants: [{ size: '250мл', price: 220 }, { size: '350мл', price: 260 }, { size: '450мл', price: 360 }],
   },
   {
     id: 'raf',
@@ -72,11 +86,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/latte.jpg`, 
-    variants: [
-      { size: '250мл', price: 210 },
-      { size: '350мл', price: 250 },
-      { size: '450мл', price: 290 },
-    ],
+    variants: [{ size: '250мл', price: 210 }, { size: '350мл', price: 250 }, { size: '450мл', price: 290 }],
   },
   {
     id: 'bumble_warm',
@@ -84,11 +94,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/babblteplo.jpg`,
-    variants: [
-      { size: '250мл', price: 270 },
-      { size: '350мл', price: 270 },
-      { size: '450мл', price: 300 },
-    ],
+    variants: [{ size: '250мл', price: 270 }, { size: '350мл', price: 270 }, { size: '450мл', price: 300 }],
   },
   {
     id: 'bumble_cold',
@@ -96,10 +102,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/icebambl.jpg`,
-    variants: [
-      { size: '250мл', price: 270 },
-      { size: '350мл', price: 300 },
-    ],
+    variants: [{ size: '250мл', price: 270 }, { size: '350мл', price: 300 }],
   },
   {
     id: 'espresso_tonic',
@@ -108,10 +111,7 @@ export const MENU_ITEMS: Product[] = [
     isDrink: true,
     image: `${IMG_PATH}/granattonic.jpg`,
     description: 'Гранатовый / Обычный',
-    variants: [
-      { size: '250мл', price: 250 },
-      { size: '350мл', price: 290 },
-    ],
+    variants: [{ size: '250мл', price: 250 }, { size: '350мл', price: 290 }],
   },
   {
     id: 'ice_latte',
@@ -119,10 +119,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/icelatte.jpg`,
-    variants: [
-      { size: '250мл', price: 240 },
-      { size: '350мл', price: 280 },
-    ],
+    variants: [{ size: '250мл', price: 240 }, { size: '350мл', price: 280 }],
   },
   {
     id: 'matcha',
@@ -130,11 +127,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/matcha.jpg`,
-    variants: [
-      { size: '250мл', price: 180 },
-      { size: '350мл', price: 220 },
-      { size: '450мл', price: 260 },
-    ],
+    variants: [{ size: '250мл', price: 180 }, { size: '350мл', price: 220 }, { size: '450мл', price: 260 }],
   },
   {
     id: 'ice_matcha',
@@ -142,10 +135,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/matcha.jpg`,
-    variants: [
-      { size: '250мл', price: 230 },
-      { size: '350мл', price: 270 },
-    ],
+    variants: [{ size: '250мл', price: 230 }, { size: '350мл', price: 270 }],
   },
   {
     id: 'cacao',
@@ -153,21 +143,16 @@ export const MENU_ITEMS: Product[] = [
     category: 'coffee',
     isDrink: true,
     image: `${IMG_PATH}/kakao.jpg`,
-    variants: [
-      { size: '250мл', price: 180 },
-      { size: '350мл', price: 220 },
-      { size: '450мл', price: 260 },
-    ],
+    variants: [{ size: '250мл', price: 180 }, { size: '350мл', price: 220 }, { size: '450мл', price: 260 }],
   },
 
-  // --- FAST FOOD (Sandwiches, Croissants) ---
+  // --- FAST FOOD ---
   {
     id: 'club_sandwich',
     name: 'Клаб-сэндвич',
     category: 'fast_food',
     isDrink: false,
     image: `${IMG_PATH}/sendvichvetcina.jpg`,
-    description: 'С ветчиной и сыром',
     variants: [{ size: 'шт', price: 280 }],
   },
   {
@@ -186,7 +171,6 @@ export const MENU_ITEMS: Product[] = [
     category: 'salads',
     isDrink: false,
     image: `${IMG_PATH}/salatcezar.jpg`,
-    description: 'Классический цезарь с сочной куриной грудкой',
     variants: [{ size: 'порция', price: 350 }],
   },
   {
@@ -195,7 +179,6 @@ export const MENU_ITEMS: Product[] = [
     category: 'salads',
     isDrink: false,
     image: `${IMG_PATH}/salatgrek.jpg`,
-    description: 'Свежие овощи, фета и оливки',
     variants: [{ size: 'порция', price: 320 }],
   },
   {
@@ -214,11 +197,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'tea',
     isDrink: true,
     image: `${IMG_PATH}/teablack.jpg`,
-    variants: [
-        { size: '250мл', price: 120 },
-        { size: '350мл', price: 150 },
-        { size: '450мл', price: 180 },
-    ]
+    variants: [{ size: '250мл', price: 120 }, { size: '350мл', price: 150 }, { size: '450мл', price: 180 }],
   },
   {
     id: 'tea_green',
@@ -226,11 +205,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'tea',
     isDrink: true,
     image: `${IMG_PATH}/greentea.jpg`,
-    variants: [
-        { size: '250мл', price: 120 },
-        { size: '350мл', price: 150 },
-        { size: '450мл', price: 180 },
-    ]
+    variants: [{ size: '250мл', price: 120 }, { size: '350мл', price: 150 }, { size: '450мл', price: 180 }],
   },
   {
     id: 'tea_karkade',
@@ -238,11 +213,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'tea',
     isDrink: true,
     image: `${IMG_PATH}/karkadetea.jpg`,
-    variants: [
-        { size: '250мл', price: 120 },
-        { size: '350мл', price: 150 },
-        { size: '450мл', price: 180 },
-    ]
+    variants: [{ size: '250мл', price: 120 }, { size: '350мл', price: 150 }, { size: '450мл', price: 180 }],
   },
   {
     id: 'tea_jasmine',
@@ -250,11 +221,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'tea',
     isDrink: true,
     image: `${IMG_PATH}/greenjasmin.jpg`,
-    variants: [
-        { size: '250мл', price: 120 },
-        { size: '350мл', price: 150 },
-        { size: '450мл', price: 180 },
-    ]
+    variants: [{ size: '250мл', price: 120 }, { size: '350мл', price: 150 }, { size: '450мл', price: 180 }],
   },
   {
     id: 'spiced_tea',
@@ -262,11 +229,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'tea',
     isDrink: true,
     image: `${IMG_PATH}/pryanytea.jpg`,
-    variants: [
-      { size: '250мл', price: 240 },
-      { size: '350мл', price: 280 },
-      { size: '450мл', price: 320 },
-    ],
+    variants: [{ size: '250мл', price: 240 }, { size: '350мл', price: 280 }, { size: '450мл', price: 320 }],
   },
   {
     id: 'gluhwein',
@@ -274,10 +237,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'tea',
     isDrink: true,
     image: `${IMG_PATH}/glintveinpunch.jpg`,
-    variants: [
-      { size: '350мл', price: 230 },
-      { size: '450мл', price: 270 },
-    ],
+    variants: [{ size: '350мл', price: 230 }, { size: '450мл', price: 270 }],
   },
 
   // --- PUNCH ---
@@ -287,10 +247,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'punch',
     isDrink: true,
     image: `${IMG_PATH}/oblepihapunch.jpg`,
-    variants: [
-      { size: '350мл', price: 230 },
-      { size: '450мл', price: 270 },
-    ],
+    variants: [{ size: '350мл', price: 230 }, { size: '450мл', price: 270 }],
   },
   {
     id: 'punch_raspberry',
@@ -298,10 +255,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'punch',
     isDrink: true,
     image: `${IMG_PATH}/malinapunsh.jpg`,
-    variants: [
-      { size: '350мл', price: 230 },
-      { size: '450мл', price: 270 },
-    ],
+    variants: [{ size: '350мл', price: 230 }, { size: '450мл', price: 270 }],
   },
 
   // --- SEASONAL ---
@@ -311,10 +265,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'seasonal',
     isDrink: true,
     image: `${IMG_PATH}/lattehalva.jpg`,
-    variants: [
-      { size: '350мл', price: 290 },
-      { size: '450мл', price: 350 },
-    ],
+    variants: [{ size: '350мл', price: 290 }, { size: '450мл', price: 350 }],
   },
   {
     id: 'latte_pumpkin',
@@ -322,10 +273,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'seasonal',
     isDrink: true,
     image: `${IMG_PATH}/lattetikva.jpg`,
-    variants: [
-      { size: '350мл', price: 290 },
-      { size: '450мл', price: 350 },
-    ],
+    variants: [{ size: '350мл', price: 290 }, { size: '450мл', price: 350 }],
   },
   {
     id: 'raf_snickers',
@@ -333,10 +281,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'seasonal',
     isDrink: true,
     image: `${IMG_PATH}/rafsnikers.jpg`,
-    variants: [
-      { size: '350мл', price: 320 },
-      { size: '450мл', price: 380 },
-    ],
+    variants: [{ size: '350мл', price: 320 }, { size: '450мл', price: 380 }],
   },
   {
     id: 'latte_orange',
@@ -344,10 +289,7 @@ export const MENU_ITEMS: Product[] = [
     category: 'seasonal',
     isDrink: true,
     image: `${IMG_PATH}/latteorangecristmas.jpg`,
-    variants: [
-      { size: '350мл', price: 320 },
-      { size: '450мл', price: 380 },
-    ],
+    variants: [{ size: '350мл', price: 320 }, { size: '450мл', price: 380 }],
   },
 
   // --- SODA/DRINKS ---
@@ -396,12 +338,9 @@ export const MENU_ITEMS: Product[] = [
     name: 'Лимонад Авторский',
     category: 'soda',
     isDrink: true,
-    image: `${IMG_PATH}/lemonchernogo.jpg`, // Заглушка, если нет фото авторского
+    image: `${IMG_PATH}/lemonchernogo.jpg`, 
     description: 'Скиви-Фейхоа, Манго-Маракуйя, Смородина-Мята',
-    variants: [
-      { size: '250мл', price: 260 },
-      { size: '350мл', price: 290 },
-    ],
+    variants: [{ size: '250мл', price: 260 }, { size: '350мл', price: 290 }],
   },
   {
     id: 'energy_cosmos_tropic',
@@ -515,3 +454,5 @@ export const MENU_ITEMS: Product[] = [
   { id: 'combo_44', name: 'Рис с гуляшом', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
   { id: 'combo_45', name: 'Гречка с тефтелей из индейки', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] }
 ];
+
+export const MENU_ITEMS = RAW_MENU_ITEMS.map(withDefaults);
