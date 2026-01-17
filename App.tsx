@@ -138,6 +138,10 @@ const App: React.FC = () => {
     setMonthlyRevenue(monthRev);
     setIsShiftClosed(closed);
 
+    // Get Permanently Deleted Items
+    const deletedParam = params.get('del');
+    const deletedItems = deletedParam ? deletedParam.split(',') : [];
+
     // Parse Custom Items (Parameter 'c') and merge with static
     const customParam = params.get('c');
     let mergedProducts = [...MENU_ITEMS];
@@ -177,16 +181,20 @@ const App: React.FC = () => {
             customProducts.forEach(cp => {
                 const index = mergedProducts.findIndex(p => p.id === cp.id);
                 if (index !== -1) {
-                    // Override existing
+                    // Override existing (edited static or updated custom)
                     mergedProducts[index] = { ...mergedProducts[index], ...cp, variants: cp.variants, modifiers: cp.modifiers };
                 } else {
-                    // Add new
+                    // Add new custom
                     mergedProducts.push(cp);
                 }
             });
             
         } catch(e) { console.error("Error parsing custom items", e); }
     }
+
+    // Filter out deleted items
+    mergedProducts = mergedProducts.filter(p => !deletedItems.includes(p.id));
+
     setAllProducts(mergedProducts);
 
     // Parse Promo Codes
