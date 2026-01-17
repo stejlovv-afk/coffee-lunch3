@@ -5,6 +5,19 @@ export interface ProductVariant {
   price: number;
 }
 
+export interface ProductModifiers {
+  hasMilk?: boolean;      // Обычное, альтернативное
+  hasSyrup?: boolean;     // Сиропы
+  hasSugar?: boolean;     // Сахар
+  hasCinnamon?: boolean;  // Корица
+  heatingType?: 'none' | 'simple' | 'advanced'; // simple = Да/Нет, advanced = Гриль/СВЧ
+  needsCutlery?: boolean; // Приборы
+  isBumble?: boolean;     // Спец. опция для бамбла (выбор сока)
+  isMatcha?: boolean;     // Спец. опция для матчи (цвет)
+  isBuckthorn?: boolean;  // Спец. опция для облепихи (мед/фильтр)
+  isSoda?: boolean;       // Газ/Негаз, Температура
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -13,7 +26,8 @@ export interface Product {
   image: string;
   isDrink: boolean;
   description?: string;
-  isCustom?: boolean; // Флаг для кастомных товаров
+  isCustom?: boolean; 
+  modifiers?: ProductModifiers; // Новое поле настроек
 }
 
 export interface PromoCode {
@@ -28,14 +42,13 @@ export interface CartItemOption {
   cinnamon?: boolean;
   milk?: string;
   syrup?: string;
-  // Новые опции
-  juice?: 'orange' | 'cherry';         // Для Бамбл
-  gas?: boolean;                       // Для воды (true = с газом)
-  honey?: boolean;                     // Для облепихи
-  filter?: boolean;                    // Для облепихи (профильтровать)
-  cutlery?: boolean;                   // Приборы
-  heating?: 'grill' | 'microwave' | 'none' | 'yes'; // Подогрев (yes для супов/горячего)
-  matchaColor?: 'green' | 'blue';      // Цвет матчи
+  juice?: 'orange' | 'cherry';         
+  gas?: boolean;                       
+  honey?: boolean;                     
+  filter?: boolean;                    
+  cutlery?: boolean;                   
+  heating?: 'grill' | 'microwave' | 'none' | 'yes'; 
+  matchaColor?: 'green' | 'blue';      
 }
 
 export interface CartItem {
@@ -61,8 +74,8 @@ export interface OrderActionPayload {
   pickupTime: string;
   comment: string;
   username?: string; 
-  promoCode?: string; // Примененный промокод
-  discountAmount?: number; // Сумма скидки
+  promoCode?: string; 
+  discountAmount?: number; 
 }
 
 // Data sent to Bot to update Menu
@@ -78,23 +91,13 @@ export interface ToggleShiftPayload {
 
 export interface AddProductPayload {
   action: 'add_product';
-  product: {
-    name: string;
-    category: Category;
-    price: number;
-    image: string;
-  }
+  product: Product; // Send full product object
 }
 
 export interface EditProductPayload {
   action: 'edit_product';
   id: string;
-  product: {
-    name: string;
-    category: Category;
-    price: number;
-    image: string;
-  }
+  product: Product;
 }
 
 export interface DeleteProductPayload {
