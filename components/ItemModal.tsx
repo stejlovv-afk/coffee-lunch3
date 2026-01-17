@@ -11,7 +11,7 @@ interface ItemModalProps {
 // --- DATA ---
 const MILK_OPTIONS = [
   { id: 'none', label: 'Обычное', basePrice: 0 },
-  { id: 'lactose_free', label: 'Безлактозное', basePrice: 70 }, // Base price for 250ml
+  { id: 'lactose_free', label: 'Безлактозное', basePrice: 70 }, 
   { id: 'banana', label: 'Банановое', basePrice: 70 },
   { id: 'coconut', label: 'Кокосовое', basePrice: 70 },
   { id: 'almond', label: 'Миндальное', basePrice: 70 },
@@ -61,7 +61,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const [quantity, setQuantity] = useState(1);
   
   // Options State
-  const [temp, setTemp] = useState<'hot' | 'cold'>('cold'); // Default cold for sodas
+  const [temp, setTemp] = useState<'hot' | 'cold'>('cold'); 
   const [sugar, setSugar] = useState<number>(0);
   const [cinnamon, setCinnamon] = useState<boolean>(false);
   const [selectedMilk, setSelectedMilk] = useState<string>('none');
@@ -69,7 +69,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   
   // Specific Options
   const [bumbleJuice, setBumbleJuice] = useState<'orange' | 'cherry'>('orange');
-  const [waterGas, setWaterGas] = useState<boolean>(false); // false = без газа
+  const [waterGas, setWaterGas] = useState<boolean>(false); 
   const [buckthornHoney, setBuckthornHoney] = useState<boolean>(false);
   const [buckthornFilter, setBuckthornFilter] = useState<boolean>(false);
   const [cutlery, setCutlery] = useState<boolean>(false);
@@ -82,9 +82,9 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
   const currentVariant = product.variants[selectedVariantIdx];
   const basePrice = currentVariant.price;
+  const mods = product.modifiers || {};
 
   // --- LOGIC ---
-  
   const milkPrice = useMemo(() => {
     if (selectedMilk === 'none') return 0;
     return getAddonPrice('milk', currentVariant.size);
@@ -97,37 +97,30 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
   const totalPrice = (basePrice + milkPrice + syrupPrice) * quantity;
 
-  // Hide Milk logic: Espresso, Americano, Punch, TEA
-  const canHaveMilk = product.isDrink && 
-                      !['espresso', 'americano'].includes(product.id) && 
-                      product.category !== 'punch' &&
-                      product.category !== 'tea' && 
-                      !product.id.includes('bumble') && 
-                      !product.id.includes('chern_'); 
-
-  // Logic for temperature: SODA category can have Warm/Cold.
-  const canHaveTemp = product.category === 'soda' && !product.id.includes('chern_');
-
-  // New Categories Logic
-  const needsCutlery = ['salads', 'soups', 'hot_dishes', 'combo', 'side_dishes'].includes(product.category);
-  const needsHeatingSimple = ['soups', 'hot_dishes', 'combo', 'side_dishes'].includes(product.category);
-  const needsHeatingAdvanced = product.category === 'fast_food';
+  // Flags from Modifiers
+  const canHaveMilk = mods.hasMilk;
+  const canHaveSyrup = mods.hasSyrup;
+  const canHaveSugar = mods.hasSugar;
+  const canHaveCinnamon = mods.hasCinnamon;
+  const canHaveCutlery = mods.needsCutlery;
+  const heatingType = mods.heatingType; // 'simple', 'advanced', or undefined/'none'
+  const isSoda = mods.isSoda; // Controls temp and gas
 
   const handleAdd = () => {
     onAddToCart(selectedVariantIdx, quantity, {
-      temperature: canHaveTemp ? temp : undefined,
-      sugar: product.isDrink && !product.id.includes('chern') ? sugar : undefined,
-      cinnamon: product.isDrink ? cinnamon : undefined,
+      temperature: isSoda ? temp : undefined,
+      sugar: canHaveSugar ? sugar : undefined,
+      cinnamon: canHaveCinnamon ? cinnamon : undefined,
       milk: canHaveMilk && selectedMilk !== 'none' ? selectedMilk : undefined,
-      syrup: product.isDrink && selectedSyrup !== 'none' ? selectedSyrup : undefined,
+      syrup: canHaveSyrup && selectedSyrup !== 'none' ? selectedSyrup : undefined,
       // Specifics
-      juice: product.id.includes('bumble') ? bumbleJuice : undefined,
-      gas: product.id === 'chern_water' ? waterGas : undefined,
-      honey: product.id === 'punch_buckthorn' ? buckthornHoney : undefined,
-      filter: product.id === 'punch_buckthorn' ? buckthornFilter : undefined,
-      cutlery: needsCutlery ? cutlery : undefined,
-      heating: (needsHeatingSimple || needsHeatingAdvanced) ? heating : undefined,
-      matchaColor: product.id.includes('matcha') ? matchaColor : undefined,
+      juice: mods.isBumble ? bumbleJuice : undefined,
+      gas: isSoda && product.id === 'chern_water' ? waterGas : undefined, // specific hack for water brand
+      honey: mods.isBuckthorn ? buckthornHoney : undefined,
+      filter: mods.isBuckthorn ? buckthornFilter : undefined,
+      cutlery: canHaveCutlery ? cutlery : undefined,
+      heating: heatingType && heatingType !== 'none' ? heating : undefined,
+      matchaColor: mods.isMatcha ? matchaColor : undefined,
     });
     onClose();
   };
@@ -174,7 +167,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
         {/* ================= SPECIAL OPTIONS ================= */}
 
         {/* 1. Bumble Juice */}
-        {product.id.includes('bumble') && (
+        {mods.isBumble && (
           <div className="mb-6">
              <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Сок (Бесплатно)</label>
              <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
@@ -185,7 +178,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
         )}
 
         {/* 2. Chernogolovka Water Gas */}
-        {product.id === 'chern_water' && (
+        {isSoda && product.id === 'chern_water' && (
           <div className="mb-6">
              <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Газация</label>
              <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
@@ -196,7 +189,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
         )}
 
         {/* 3. Matcha Color */}
-        {product.id.includes('matcha') && (
+        {mods.isMatcha && (
           <div className="mb-6 relative">
              <div className="flex items-center gap-2 mb-2">
                 <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider">Цвет матчи</label>
@@ -216,7 +209,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
         )}
 
         {/* 4. Buckthorn Options */}
-        {product.id === 'punch_buckthorn' && (
+        {mods.isBuckthorn && (
           <div className="mb-6 space-y-3">
              {/* Honey */}
              <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
@@ -243,8 +236,8 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
           </div>
         )}
 
-        {/* 5. Cutlery (New Categories) */}
-        {needsCutlery && (
+        {/* 5. Cutlery */}
+        {canHaveCutlery && (
            <div className="mb-6 flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
              <span className="text-sm font-bold text-white">Нужны приборы?</span>
              <div onClick={() => setCutlery(!cutlery)} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors border border-white/10 ${cutlery ? 'bg-brand-yellow/80' : 'bg-black/40'}`}>
@@ -253,8 +246,8 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
            </div>
         )}
 
-        {/* 6. Simple Heating (Yes/No) - Soups, Hot Dishes, Combo */}
-        {needsHeatingSimple && (
+        {/* 6. Simple Heating (Yes/No) */}
+        {heatingType === 'simple' && (
           <div className="mb-6 flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
              <span className="text-sm font-bold text-white">Подогреть еду?</span>
              <div onClick={() => setHeating(heating === 'yes' ? 'none' : 'yes')} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors border border-white/10 ${heating === 'yes' ? 'bg-brand-yellow/80' : 'bg-black/40'}`}>
@@ -263,8 +256,8 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
            </div>
         )}
 
-        {/* 7. Advanced Heating (Fast Food / Sandwiches) */}
-        {needsHeatingAdvanced && (
+        {/* 7. Advanced Heating */}
+        {heatingType === 'advanced' && (
           <div className="mb-6">
             <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Подогреть?</label>
              <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
@@ -277,112 +270,114 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
 
 
         {/* ================= DRINK OPTIONS ================= */}
-        {product.isDrink && !product.id.includes('chern_') && (
-          <div className="space-y-6 mb-6">
-            
-            {/* Temp */}
-            {canHaveTemp && (
-              <div>
-                <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Температура</label>
-                <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
-                  <button onClick={() => setTemp('cold')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'cold' ? 'bg-white/10 shadow-sm border border-white/10 text-blue-400' : 'text-brand-muted'}`}>Холодный</button>
-                  <button onClick={() => setTemp('hot')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'hot' ? 'bg-white/10 shadow-sm border border-white/10 text-brand-yellow' : 'text-brand-muted'}`}>Теплый</button>
-                </div>
-              </div>
-            )}
+        
+        {/* Temp */}
+        {isSoda && (
+          <div className="mb-6">
+            <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Температура</label>
+            <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+              <button onClick={() => setTemp('cold')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'cold' ? 'bg-white/10 shadow-sm border border-white/10 text-blue-400' : 'text-brand-muted'}`}>Холодный</button>
+              <button onClick={() => setTemp('hot')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'hot' ? 'bg-white/10 shadow-sm border border-white/10 text-brand-yellow' : 'text-brand-muted'}`}>Теплый</button>
+            </div>
+          </div>
+        )}
 
-            {/* Milk Selection */}
-            {canHaveMilk && (
-              <div className="mb-6">
-                 <div className="flex justify-between mb-3">
-                   <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider">Молоко</label>
-                   {selectedMilk !== 'none' && <span className="text-xs font-bold text-brand-yellow">+{milkPrice}₽</span>}
-                 </div>
-                 <div className="flex flex-wrap gap-2">
-                    {MILK_OPTIONS.map(m => (
-                       <button
-                         key={m.id}
-                         onClick={() => setSelectedMilk(m.id)}
-                         className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
-                            selectedMilk === m.id 
-                            ? 'bg-brand-yellow text-black border-brand-yellow shadow-sm' 
-                            : 'bg-white/5 text-brand-muted border-white/5 hover:bg-white/10'
-                         }`}
-                       >
-                         {m.label} {m.basePrice > 0 ? ` (+${displayMilkPrice}₽)` : ''}
-                       </button>
-                    ))}
-                 </div>
-              </div>
-            )}
+        {/* Milk Selection */}
+        {canHaveMilk && (
+          <div className="mb-6">
+             <div className="flex justify-between mb-3">
+               <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider">Молоко</label>
+               {selectedMilk !== 'none' && <span className="text-xs font-bold text-brand-yellow">+{milkPrice}₽</span>}
+             </div>
+             <div className="flex flex-wrap gap-2">
+                {MILK_OPTIONS.map(m => (
+                   <button
+                     key={m.id}
+                     onClick={() => setSelectedMilk(m.id)}
+                     className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                        selectedMilk === m.id 
+                        ? 'bg-brand-yellow text-black border-brand-yellow shadow-sm' 
+                        : 'bg-white/5 text-brand-muted border-white/5 hover:bg-white/10'
+                     }`}
+                   >
+                     {m.label} {m.basePrice > 0 ? ` (+${displayMilkPrice}₽)` : ''}
+                   </button>
+                ))}
+             </div>
+          </div>
+        )}
 
-            {/* Syrup Selection */}
-            <div>
-               <div className="flex justify-between mb-3">
-                 <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider">Сироп</label>
-                 {selectedSyrup !== 'none' && <span className="text-xs font-bold text-brand-yellow">+{syrupPrice}₽</span>}
-               </div>
-               
-               <div className="space-y-4">
-                  {Object.entries(SYRUP_GROUPS).map(([group, options]) => (
-                    <div key={group}>
-                       <h4 className="text-[10px] text-brand-muted/70 font-bold uppercase mb-2 ml-1">{group}</h4>
-                       <div className="flex flex-wrap gap-2">
-                          {options.map(s => (
-                             <button
-                               key={s.id}
-                               onClick={() => setSelectedSyrup(selectedSyrup === s.id ? 'none' : s.id)}
-                               className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
-                                  selectedSyrup === s.id 
-                                  ? 'bg-brand-yellow text-black border-brand-yellow shadow-sm' 
-                                  : 'bg-white/5 text-brand-muted border-white/5 hover:bg-white/10'
-                               }`}
-                             >
-                               {s.label}
-                             </button>
-                          ))}
-                       </div>
-                    </div>
-                  ))}
-               </div>
-               {selectedSyrup !== 'none' && (
-                  <div className="mt-3">
-                     <button onClick={() => setSelectedSyrup('none')} className="text-xs text-red-400 font-bold border-b border-red-400/30 pb-0.5">
-                        Убрать сироп
-                     </button>
+        {/* Syrup Selection */}
+        {canHaveSyrup && (
+          <div className="mb-6">
+             <div className="flex justify-between mb-3">
+               <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider">Сироп</label>
+               {selectedSyrup !== 'none' && <span className="text-xs font-bold text-brand-yellow">+{syrupPrice}₽</span>}
+             </div>
+             
+             <div className="space-y-4">
+                {Object.entries(SYRUP_GROUPS).map(([group, options]) => (
+                  <div key={group}>
+                     <h4 className="text-[10px] text-brand-muted/70 font-bold uppercase mb-2 ml-1">{group}</h4>
+                     <div className="flex flex-wrap gap-2">
+                        {options.map(s => (
+                           <button
+                             key={s.id}
+                             onClick={() => setSelectedSyrup(selectedSyrup === s.id ? 'none' : s.id)}
+                             className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                                selectedSyrup === s.id 
+                                ? 'bg-brand-yellow text-black border-brand-yellow shadow-sm' 
+                                : 'bg-white/5 text-brand-muted border-white/5 hover:bg-white/10'
+                             }`}
+                           >
+                             {s.label}
+                           </button>
+                        ))}
+                     </div>
                   </div>
-               )}
-            </div>
+                ))}
+             </div>
+             {selectedSyrup !== 'none' && (
+                <div className="mt-3">
+                   <button onClick={() => setSelectedSyrup('none')} className="text-xs text-red-400 font-bold border-b border-red-400/30 pb-0.5">
+                      Убрать сироп
+                   </button>
+                </div>
+             )}
+          </div>
+        )}
 
-            {/* Sugar Slider */}
-            <div>
-              <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Сахар ({sugar}г)</label>
-              <input 
-                type="range" 
-                min="0" 
-                max="10" 
-                step="1" 
-                value={sugar}
-                onChange={(e) => setSugar(Number(e.target.value))}
-                className="w-full accent-brand-yellow h-2 bg-black/30 rounded-lg appearance-none cursor-pointer"
-              />
-              <div className="flex justify-between text-[10px] text-brand-muted mt-2 font-mono">
-                <span>0г</span>
-                <span>5г</span>
-                <span>10г</span>
-              </div>
+        {/* Sugar Slider */}
+        {canHaveSugar && (
+          <div className="mb-6">
+            <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Сахар ({sugar}г)</label>
+            <input 
+              type="range" 
+              min="0" 
+              max="10" 
+              step="1" 
+              value={sugar}
+              onChange={(e) => setSugar(Number(e.target.value))}
+              className="w-full accent-brand-yellow h-2 bg-black/30 rounded-lg appearance-none cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-brand-muted mt-2 font-mono">
+              <span>0г</span>
+              <span>5г</span>
+              <span>10г</span>
             </div>
+          </div>
+        )}
 
-            {/* Cinnamon */}
-            <div className="flex items-center justify-between py-2 border-t border-white/5 mt-4">
-              <span className="text-sm font-bold text-white">Добавить корицу?</span>
-              <button 
-                onClick={() => setCinnamon(!cinnamon)}
-                className={`w-12 h-6 rounded-full transition-colors relative border border-white/10 ${cinnamon ? 'bg-brand-yellow/80' : 'bg-black/40'}`}
-              >
-                <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${cinnamon ? 'left-7' : 'left-1'}`} />
-              </button>
-            </div>
+        {/* Cinnamon */}
+        {canHaveCinnamon && (
+          <div className="flex items-center justify-between py-2 border-t border-white/5 mt-4">
+            <span className="text-sm font-bold text-white">Добавить корицу?</span>
+            <button 
+              onClick={() => setCinnamon(!cinnamon)}
+              className={`w-12 h-6 rounded-full transition-colors relative border border-white/10 ${cinnamon ? 'bg-brand-yellow/80' : 'bg-black/40'}`}
+            >
+              <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all shadow-sm ${cinnamon ? 'left-7' : 'left-1'}`} />
+            </button>
           </div>
         )}
 
