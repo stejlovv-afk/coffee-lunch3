@@ -158,19 +158,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       setModifiers(prev => ({...prev, [key]: value}));
   };
 
-  // Bulk actions for Menu Tab
-  const selectAllVisible = () => {
-      filteredMenuItems.forEach(item => {
-          if (!hiddenItems.includes(item.id)) onToggleHidden(item.id);
-      });
-  };
-
-  const resetSelection = () => {
-      filteredMenuItems.forEach(item => {
-          if (hiddenItems.includes(item.id)) onToggleHidden(item.id);
-      });
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex flex-col animate-slide-up">
       {/* Header */}
@@ -210,8 +197,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* TAB: MENU */}
       {activeTab === 'menu' && (
         <>
-            {/* Search and Bulk Actions */}
-            <div className="px-4 pb-2 space-y-2">
+            {/* Search */}
+            <div className="px-4 pb-2">
                 <div className="relative">
                     <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-brand-muted" />
                     <input 
@@ -222,25 +209,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                         className="w-full glass-input rounded-xl py-2.5 pl-10 pr-4 text-white placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow/50"
                     />
                 </div>
-                <div className="flex gap-2">
-                    <button onClick={selectAllVisible} className="flex-1 py-2 bg-red-500/10 text-red-400 text-xs font-bold rounded-lg border border-red-500/20 hover:bg-red-500/20">Скрыть все</button>
-                    <button onClick={resetSelection} className="flex-1 py-2 bg-green-500/10 text-green-400 text-xs font-bold rounded-lg border border-green-500/20 hover:bg-green-500/20">Показать все</button>
-                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {filteredMenuItems.map((item) => {
                 const isHidden = hiddenItems.includes(item.id);
                 return (
-                    <div key={item.id} className={`flex items-center justify-between p-3 rounded-xl border transition-colors backdrop-blur-sm ${isHidden ? 'bg-red-900/10 border-red-500/20' : 'bg-white/5 border-white/5 hover:bg-white/10'} ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => !isLoading && onToggleHidden(item.id)}>
+                    <div key={item.id} onClick={() => !isLoading && onToggleHidden(item.id)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors backdrop-blur-sm ${isHidden ? 'bg-red-900/10 border-red-500/20' : 'bg-white/5 border-white/5 hover:bg-white/10'} ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className="flex items-center gap-3">
                         <img src={item.image} className={`w-10 h-10 rounded-full object-cover border border-white/10 ${isHidden ? 'opacity-50 grayscale' : ''}`} />
                         <span className={`font-bold text-sm ${isHidden ? 'text-red-400 line-through' : 'text-brand-text'}`}>{item.name}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => startEdit(item)} disabled={isLoading} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20 hover:bg-blue-500/20 transition-colors text-xs font-bold">✏️</button>
-                        <span onClick={() => !isLoading && onToggleHidden(item.id)} className={`cursor-pointer text-[10px] font-bold px-2 py-1 rounded border ${isHidden ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>{isHidden ? 'СКРЫТО' : 'АКТИВНО'}</span>
-                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded border ${isHidden ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>{isHidden ? 'СКРЫТО' : 'АКТИВНО'}</span>
                     </div>
                 );
                 })}
@@ -284,7 +264,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                                       </div>
                                       <div className="flex gap-2 flex-shrink-0">
                                           <button onClick={() => startEdit(item)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20">✏️</button>
-                                          {item.isCustom && <button onClick={() => { setEditId(item.id); handleDelete(); }} className="p-2 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20"><TrashIcon className="w-5 h-5" /></button>}
+                                          {/* Delete enabled for ALL items */}
+                                          <button onClick={() => { setEditId(item.id); handleDelete(); }} className="p-2 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20"><TrashIcon className="w-5 h-5" /></button>
                                       </div>
                                   </div>
                               ))}
@@ -346,7 +327,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       </div>
 
                       <div className="pt-4 flex gap-2">
-                          {editId && products.find(i => i.id === editId && i.isCustom) && <button onClick={handleDelete} className="flex-1 py-3 bg-red-500/10 text-red-400 rounded-xl font-bold border border-red-500/20">Удалить</button>}
+                          {editId && <button onClick={handleDelete} className="flex-1 py-3 bg-red-500/10 text-red-400 rounded-xl font-bold border border-red-500/20">Удалить</button>}
                           <button onClick={handleEditorSubmit} disabled={isLoading} className="flex-[2] py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Сохранить</button>
                       </div>
                   </div>
