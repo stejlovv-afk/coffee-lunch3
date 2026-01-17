@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Category, Product, PromoCode } from '../types';
+import { Category, Product, PromoCode, ProductModifiers } from '../types';
 import { SearchIcon, PlusIcon, TrashIcon } from './ui/Icons';
 
 interface AdminPanelProps {
@@ -14,8 +14,8 @@ interface AdminPanelProps {
   monthlyRevenue: number;
   isShiftClosed: boolean;
   onToggleShift: (isClosed: boolean) => void;
-  onAddProduct: (product: { name: string; category: Category; price: number; image: string }) => void;
-  onEditProduct: (id: string, product: { name: string; category: Category; price: number; image: string }) => void;
+  onAddProduct: (product: any) => void;
+  onEditProduct: (id: string, product: any) => void;
   onDeleteProduct: (id: string) => void;
   onAddPromo: (promo: PromoCode) => void;
   onDeletePromo: (code: string) => void;
@@ -40,43 +40,56 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   dailyRevenue, monthlyRevenue, isShiftClosed, onToggleShift, onAddProduct, onEditProduct, onDeleteProduct,
   onAddPromo, onDeletePromo
 }) => {
-  const [activeTab, setActiveTab] = useState<'menu' | 'add' | 'delete' | 'revenue' | 'promo'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'editor' | 'revenue' | 'promo'>('menu');
   const [searchTerm, setSearchTerm] = useState('');
   const [showShiftConfirm, setShowShiftConfirm] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null); 
-  const [editId, setEditId] = useState<string | null>(null); // New: Track which item is being edited
-
-  // Product Form State
+  
+  // Editor State
+  const [editorMode, setEditorMode] = useState<'list' | 'form'>('list');
+  const [editId, setEditId] = useState<string | null>(null);
+  
+  // Form State
   const [newName, setNewName] = useState('');
   const [newPrice, setNewPrice] = useState('');
   const [newCat, setNewCat] = useState<Category>('coffee');
   const [newImage, setNewImage] = useState('');
+  const [modifiers, setModifiers] = useState<ProductModifiers>({});
 
   // Promo Form State
   const [promoCode, setPromoCode] = useState('');
   const [promoPercent, setPromoPercent] = useState('');
   const [promoFirstOrder, setPromoFirstOrder] = useState(false);
 
+  // Filtered items for Menu tab
   const filteredItems = products.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Custom items list for Editor
   const customItems = products.filter(item => item.isCustom);
 
-  // If editId changes, populate form
-  useEffect(() => {
-    if (editId) {
-        // Find in ALL products, not just custom
-        const item = products.find(i => i.id === editId);
-        if (item) {
-            setNewName(item.name);
-            setNewPrice(String(item.variants[0].price));
-            setNewCat(item.category);
-            setNewImage(item.image);
-            setActiveTab('add'); // Switch to add/edit tab
-        }
-    }
-  }, [editId, products]);
+  // Handle Edit Start
+  const startEdit = (product: Product) => {
+      setEditId(product.id);
+      setNewName(product.name);
+      setNewPrice(String(product.variants[0].price));
+      setNewCat(product.category);
+      setNewImage(product.image);
+      setModifiers(product.modifiers || {});
+      setEditorMode('form');
+      setActiveTab('editor');
+  };
+
+  const startAdd = () => {
+      setEditId(null);
+      setNewName('');
+      setNewPrice('');
+      setNewCat('coffee');
+      setNewImage('');
+      setModifiers({});
+      setEditorMode('form');
+      setActiveTab('editor');
+  };
 
   const handleShiftClick = () => {
       if (!isShiftClosed) {
@@ -91,7 +104,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       setShowShiftConfirm(false);
   };
 
-  const handleAddSubmit = () => {
+  const handleEditorSubmit = () => {
       if (!newName || !newPrice || !newImage) {
           alert("Заполните все поля");
           return;
@@ -101,28 +114,25 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           name: newName,
           category: newCat,
           price: Number(newPrice),
-          image: newImage
+          image: newImage,
+          modifiers: modifiers
       };
 
       if (editId) {
           onEditProduct(editId, payload);
-          setEditId(null);
           alert("Товар обновлен!");
       } else {
           onAddProduct(payload);
-          alert("Товар отправлен на добавление!");
+          alert("Товар добавлен!");
       }
-
-      setNewName('');
-      setNewPrice('');
-      setNewImage('');
+      setEditorMode('list');
   };
 
-  const handleCancelEdit = () => {
-      setEditId(null);
-      setNewName('');
-      setNewPrice('');
-      setNewImage('');
+  const handleDelete = () => {
+      if (editId && confirm("Удалить этот товар?")) {
+          onDeleteProduct(editId);
+          setEditorMode('list');
+      }
   };
 
   const handleAddPromoSubmit = () => {
@@ -141,11 +151,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       alert("Промокод добавлен!");
   };
 
-  const confirmDelete = () => {
-      if (deleteId) {
-          onDeleteProduct(deleteId);
-          setDeleteId(null);
-      }
+  const toggleModifier = (key: keyof ProductModifiers, value: any) => {
+      setModifiers(prev => ({...prev, [key]: value}));
   };
 
   return (
@@ -159,7 +166,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           </button>
         </div>
 
-        {/* Shift Status Button */}
+        {/* Shift Status */}
         <div className="mb-4">
              <button 
                 onClick={handleShiftClick}
@@ -178,8 +185,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         {/* Tabs */}
         <div className="flex bg-black/40 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar gap-1">
             <button onClick={() => setActiveTab('menu')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'menu' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Меню</button>
-            <button onClick={() => setActiveTab('add')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'add' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>{editId ? 'ИЗМЕНИТЬ' : 'Добавить'}</button>
-            <button onClick={() => setActiveTab('delete')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'delete' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Удалить</button>
+            <button onClick={() => setActiveTab('editor')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'editor' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Редактор</button>
             <button onClick={() => setActiveTab('promo')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'promo' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Промо</button>
             <button onClick={() => setActiveTab('revenue')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'revenue' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Выручка</button>
         </div>
@@ -199,7 +205,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         )}
       </div>
       
-      {/* CONTENT: MENU */}
+      {/* TAB: MENU */}
       {activeTab === 'menu' && (
         <>
             <div className="bg-brand-yellow/5 p-4 border-b border-brand-yellow/10 text-xs text-brand-yellow/80">
@@ -215,9 +221,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                         <img src={item.image} className={`w-10 h-10 rounded-full object-cover border border-white/10 ${isHidden ? 'opacity-50 grayscale' : ''}`} />
                         <span className={`font-bold text-sm ${isHidden ? 'text-red-400 line-through' : 'text-brand-text'}`}>{item.name}</span>
                     </div>
-                    
                     <div className="flex items-center gap-2">
-                        <button onClick={() => setEditId(item.id)} disabled={isLoading} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20 hover:bg-blue-500/20 transition-colors text-xs font-bold">✏️</button>
+                        <button onClick={() => startEdit(item)} disabled={isLoading} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20 hover:bg-blue-500/20 transition-colors text-xs font-bold">✏️</button>
                         <span onClick={() => !isLoading && onToggleHidden(item.id)} className={`cursor-pointer text-[10px] font-bold px-2 py-1 rounded border ${isHidden ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>{isHidden ? 'СКРЫТО' : 'АКТИВНО'}</span>
                     </div>
                     </div>
@@ -232,58 +237,103 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </>
       )}
 
-      {/* CONTENT: ADD / EDIT PRODUCT */}
-      {activeTab === 'add' && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <h3 className="text-white font-bold text-lg mb-2">{editId ? 'Редактирование товара' : 'Новый товар'}</h3>
-              <div><label className="text-xs text-brand-muted uppercase font-bold ml-1">Название</label><input type="text" value={newName} onChange={e => setNewName(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50" placeholder="Например: Пончик" /></div>
-              <div><label className="text-xs text-brand-muted uppercase font-bold ml-1">Цена (₽)</label><input type="number" value={newPrice} onChange={e => setNewPrice(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50" placeholder="150" /></div>
-              <div>
-                  <label className="text-xs text-brand-muted uppercase font-bold ml-1">Категория</label>
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                      {CATEGORIES.map(cat => (
-                          <button key={cat.id} onClick={() => setNewCat(cat.id)} className={`py-2 rounded-lg text-xs font-bold border ${newCat === cat.id ? 'bg-brand-yellow text-black border-brand-yellow' : 'bg-white/5 text-brand-muted border-white/10'}`}>{cat.label}</button>
-                      ))}
+      {/* TAB: EDITOR (List + Form) */}
+      {activeTab === 'editor' && (
+          <div className="flex-1 overflow-y-auto p-4">
+              {editorMode === 'list' ? (
+                  <div className="space-y-4">
+                      <button onClick={startAdd} className="w-full py-3 bg-brand-yellow text-black rounded-xl font-bold flex items-center justify-center gap-2 mb-6">
+                          <PlusIcon className="w-5 h-5" /> Добавить товар
+                      </button>
+                      
+                      <h3 className="text-white font-bold text-lg mb-2">Добавленные товары</h3>
+                      {customItems.length === 0 ? <div className="text-center text-brand-muted text-sm py-4">Нет добавленных товаров</div> : (
+                          <div className="space-y-2">
+                              {customItems.map(item => (
+                                  <div key={item.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                                      <div className="flex items-center gap-3">
+                                          <img src={item.image} className="w-10 h-10 rounded-full object-cover" />
+                                          <div><h4 className="font-bold text-sm text-white">{item.name}</h4><p className="text-xs text-brand-muted">{item.variants[0].price}₽</p></div>
+                                      </div>
+                                      <div className="flex gap-2">
+                                          <button onClick={() => startEdit(item)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg">✏️</button>
+                                          <button onClick={() => { setEditId(item.id); handleDelete(); }} className="p-2 bg-red-500/10 text-red-400 rounded-lg"><TrashIcon className="w-5 h-5" /></button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      )}
                   </div>
-              </div>
-              <div><label className="text-xs text-brand-muted uppercase font-bold ml-1">Ссылка на фото</label><input type="text" value={newImage} onChange={e => setNewImage(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50" placeholder="https://..." /></div>
-              
-              <div className="pt-4 flex gap-2">
-                  {editId && <button onClick={handleCancelEdit} className="flex-1 py-3 bg-white/5 text-brand-muted rounded-xl font-bold border border-white/10">Отмена</button>}
-                  <button onClick={handleAddSubmit} disabled={isLoading} className="flex-[2] py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold border border-white/20 flex items-center justify-center gap-2">
-                    <PlusIcon className="w-5 h-5" /> {editId ? 'Сохранить изменения' : 'Добавить товар'}
-                  </button>
-              </div>
-          </div>
-      )}
+              ) : (
+                  <div className="space-y-4">
+                      <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-white font-bold text-lg">{editId ? 'Редактирование' : 'Новый товар'}</h3>
+                          <button onClick={() => setEditorMode('list')} className="text-sm text-brand-muted">Назад</button>
+                      </div>
+                      
+                      <div><label className="text-xs text-brand-muted uppercase font-bold ml-1">Название</label><input type="text" value={newName} onChange={e => setNewName(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none" placeholder="Название" /></div>
+                      <div><label className="text-xs text-brand-muted uppercase font-bold ml-1">Цена (₽)</label><input type="number" value={newPrice} onChange={e => setNewPrice(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none" placeholder="150" /></div>
+                      <div>
+                          <label className="text-xs text-brand-muted uppercase font-bold ml-1">Категория</label>
+                          <div className="grid grid-cols-2 gap-2 mt-1">
+                              {CATEGORIES.map(cat => (
+                                  <button key={cat.id} onClick={() => setNewCat(cat.id)} className={`py-2 rounded-lg text-xs font-bold border ${newCat === cat.id ? 'bg-brand-yellow text-black border-brand-yellow' : 'bg-white/5 text-brand-muted border-white/10'}`}>{cat.label}</button>
+                              ))}
+                          </div>
+                      </div>
+                      <div><label className="text-xs text-brand-muted uppercase font-bold ml-1">Фото (URL)</label><input type="text" value={newImage} onChange={e => setNewImage(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none" placeholder="https://..." /></div>
 
-      {/* CONTENT: DELETE PRODUCT (With Edit Trigger) */}
-      {activeTab === 'delete' && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              <div className="bg-red-500/5 p-4 border border-red-500/10 rounded-xl mb-4 text-xs text-red-300"><p>Здесь можно удалить товары, добавленные вручную.</p></div>
-              {customItems.length === 0 ? (<div className="text-center text-brand-muted py-10 opacity-50">Нет добавленных товаров</div>) : (
-                  customItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/5">
-                        <div className="flex items-center gap-3">
-                            <img src={item.image} className="w-10 h-10 rounded-full object-cover border border-white/10" />
-                            <div><h4 className="font-bold text-sm text-brand-text">{item.name}</h4><p className="text-[10px] text-brand-muted">{item.variants[0].price}₽</p></div>
-                        </div>
-                        <div className="flex gap-2">
-                             <button onClick={() => setDeleteId(item.id)} disabled={isLoading} className="p-2 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-colors"><TrashIcon className="w-5 h-5" /></button>
-                        </div>
-                    </div>
-                  ))
+                      {/* --- OPTIONS CHECKBOXES --- */}
+                      <div className="bg-white/5 p-4 rounded-xl border border-white/10 space-y-3">
+                          <h4 className="text-xs font-bold text-brand-yellow uppercase tracking-wider mb-2">Опции товара</h4>
+                          
+                          <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">Молоко</span>
+                              <input type="checkbox" checked={modifiers.hasMilk || false} onChange={e => toggleModifier('hasMilk', e.target.checked)} className="accent-brand-yellow w-5 h-5" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">Сироп</span>
+                              <input type="checkbox" checked={modifiers.hasSyrup || false} onChange={e => toggleModifier('hasSyrup', e.target.checked)} className="accent-brand-yellow w-5 h-5" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">Сахар</span>
+                              <input type="checkbox" checked={modifiers.hasSugar || false} onChange={e => toggleModifier('hasSugar', e.target.checked)} className="accent-brand-yellow w-5 h-5" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">Корица</span>
+                              <input type="checkbox" checked={modifiers.hasCinnamon || false} onChange={e => toggleModifier('hasCinnamon', e.target.checked)} className="accent-brand-yellow w-5 h-5" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">Нужны приборы</span>
+                              <input type="checkbox" checked={modifiers.needsCutlery || false} onChange={e => toggleModifier('needsCutlery', e.target.checked)} className="accent-brand-yellow w-5 h-5" />
+                          </div>
+                          
+                          <div>
+                              <span className="text-sm text-white block mb-1">Разогрев</span>
+                              <div className="flex bg-black/40 rounded-lg p-1">
+                                  <button onClick={() => toggleModifier('heatingType', 'none')} className={`flex-1 py-1 text-xs rounded ${(!modifiers.heatingType || modifiers.heatingType === 'none') ? 'bg-white/20 text-white' : 'text-brand-muted'}`}>Нет</button>
+                                  <button onClick={() => toggleModifier('heatingType', 'simple')} className={`flex-1 py-1 text-xs rounded ${modifiers.heatingType === 'simple' ? 'bg-brand-yellow text-black' : 'text-brand-muted'}`}>Да/Нет</button>
+                                  <button onClick={() => toggleModifier('heatingType', 'advanced')} className={`flex-1 py-1 text-xs rounded ${modifiers.heatingType === 'advanced' ? 'bg-orange-500 text-white' : 'text-brand-muted'}`}>Гриль/СВЧ</button>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div className="pt-4 flex gap-2">
+                          {editId && <button onClick={handleDelete} className="flex-1 py-3 bg-red-500/10 text-red-400 rounded-xl font-bold border border-red-500/20">Удалить</button>}
+                          <button onClick={handleEditorSubmit} disabled={isLoading} className="flex-[2] py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Сохранить</button>
+                      </div>
+                  </div>
               )}
           </div>
       )}
 
-      {/* CONTENT: PROMO */}
+      {/* TAB: PROMO */}
       {activeTab === 'promo' && (
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
               <div className="space-y-4 border-b border-white/5 pb-6">
                   <h3 className="text-white font-bold text-lg">Создать промокод</h3>
-                  <div><label className="text-xs text-brand-muted uppercase font-bold ml-1">Код</label><input type="text" value={promoCode} onChange={e => setPromoCode(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 uppercase" placeholder="SALE2024" /></div>
-                  <div><label className="text-xs text-brand-muted uppercase font-bold ml-1">Скидка (%)</label><input type="number" value={promoPercent} onChange={e => setPromoPercent(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50" placeholder="10" /></div>
+                  <div><label className="text-xs text-brand-muted uppercase font-bold ml-1">Код</label><input type="text" value={promoCode} onChange={e => setPromoCode(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none uppercase" placeholder="SALE2024" /></div>
+                  <div><label className="text-xs text-brand-muted uppercase font-bold ml-1">Скидка (%)</label><input type="number" value={promoPercent} onChange={e => setPromoPercent(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none" placeholder="10" /></div>
                   <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
                       <span className="text-sm font-bold text-white">Только первый заказ?</span>
                       <button onClick={() => setPromoFirstOrder(!promoFirstOrder)} className={`w-12 h-6 rounded-full transition-colors relative border border-white/10 ${promoFirstOrder ? 'bg-brand-yellow/80' : 'bg-black/40'}`}>
@@ -315,7 +365,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
       )}
 
-      {/* CONTENT: REVENUE */}
+      {/* TAB: REVENUE */}
       {activeTab === 'revenue' && (
           <div className="flex-1 p-4 space-y-4 overflow-y-auto">
               <div className="glass-panel p-6 rounded-2xl border border-brand-yellow/20 relative overflow-hidden group">
@@ -335,14 +385,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="glass-panel p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-red-500/30">
                   <h3 className="text-xl font-bold text-center text-white mb-2">Закрыть смену?</h3>
                   <div className="flex gap-3"><button onClick={() => setShowShiftConfirm(false)} className="flex-1 py-3 rounded-xl font-bold bg-white/10 hover:bg-white/20">Отмена</button><button onClick={confirmCloseShift} className="flex-1 py-3 rounded-xl font-bold bg-red-500 text-white">Закрыть</button></div>
-              </div>
-          </div>
-      )}
-      {deleteId && (
-          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-              <div className="glass-panel p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-red-500/30">
-                  <h3 className="text-xl font-bold text-center text-white mb-2">Удалить товар?</h3>
-                  <div className="flex gap-3"><button onClick={() => setDeleteId(null)} className="flex-1 py-3 rounded-xl font-bold bg-white/10 hover:bg-white/20">Отмена</button><button onClick={confirmDelete} className="flex-1 py-3 rounded-xl font-bold bg-red-500 text-white">Удалить</button></div>
               </div>
           </div>
       )}
