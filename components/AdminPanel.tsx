@@ -42,6 +42,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'menu' | 'editor' | 'revenue' | 'promo'>('menu');
   const [searchTerm, setSearchTerm] = useState('');
+  const [editorSearchTerm, setEditorSearchTerm] = useState(''); // Separate search for Editor
   const [showShiftConfirm, setShowShiftConfirm] = useState(false);
   
   // Editor State
@@ -61,12 +62,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [promoFirstOrder, setPromoFirstOrder] = useState(false);
 
   // Filtered items for Menu tab
-  const filteredItems = products.filter(item => 
+  const filteredMenuItems = products.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Custom items list for Editor
-  const customItems = products.filter(item => item.isCustom);
+  // Filtered items for Editor tab (Show ALL items)
+  const filteredEditorItems = products.filter(item => 
+    item.name.toLowerCase().includes(editorSearchTerm.toLowerCase())
+  );
 
   // Handle Edit Start
   const startEdit = (product: Product) => {
@@ -155,6 +158,19 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       setModifiers(prev => ({...prev, [key]: value}));
   };
 
+  // Bulk actions for Menu Tab
+  const selectAllVisible = () => {
+      filteredMenuItems.forEach(item => {
+          if (!hiddenItems.includes(item.id)) onToggleHidden(item.id);
+      });
+  };
+
+  const resetSelection = () => {
+      filteredMenuItems.forEach(item => {
+          if (hiddenItems.includes(item.id)) onToggleHidden(item.id);
+      });
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex flex-col animate-slide-up">
       {/* Header */}
@@ -189,31 +205,31 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
             <button onClick={() => setActiveTab('promo')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'promo' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Промо</button>
             <button onClick={() => setActiveTab('revenue')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'revenue' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Выручка</button>
         </div>
-        
-        {/* Поиск (Только для меню) */}
-        {activeTab === 'menu' && (
-            <div className="relative">
-            <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-brand-muted" />
-            <input 
-                type="text" 
-                placeholder="Найти товар..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full glass-input rounded-xl py-2.5 pl-10 pr-4 text-white placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow/50"
-            />
-            </div>
-        )}
       </div>
       
       {/* TAB: MENU */}
       {activeTab === 'menu' && (
         <>
-            <div className="bg-brand-yellow/5 p-4 border-b border-brand-yellow/10 text-xs text-brand-yellow/80">
-                <p>1. Нажмите на товар, чтобы скрыть/показать.</p>
-                <p>2. "Сохранить и Разослать" обновит бота.</p>
+            {/* Search and Bulk Actions */}
+            <div className="px-4 pb-2 space-y-2">
+                <div className="relative">
+                    <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-brand-muted" />
+                    <input 
+                        type="text" 
+                        placeholder="Найти товар..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full glass-input rounded-xl py-2.5 pl-10 pr-4 text-white placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow/50"
+                    />
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={selectAllVisible} className="flex-1 py-2 bg-red-500/10 text-red-400 text-xs font-bold rounded-lg border border-red-500/20 hover:bg-red-500/20">Скрыть все</button>
+                    <button onClick={resetSelection} className="flex-1 py-2 bg-green-500/10 text-green-400 text-xs font-bold rounded-lg border border-green-500/20 hover:bg-green-500/20">Показать все</button>
+                </div>
             </div>
+
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                {filteredItems.map((item) => {
+                {filteredMenuItems.map((item) => {
                 const isHidden = hiddenItems.includes(item.id);
                 return (
                     <div key={item.id} className={`flex items-center justify-between p-3 rounded-xl border transition-colors backdrop-blur-sm ${isHidden ? 'bg-red-900/10 border-red-500/20' : 'bg-white/5 border-white/5 hover:bg-white/10'} ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -242,22 +258,33 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="flex-1 overflow-y-auto p-4">
               {editorMode === 'list' ? (
                   <div className="space-y-4">
-                      <button onClick={startAdd} className="w-full py-3 bg-brand-yellow text-black rounded-xl font-bold flex items-center justify-center gap-2 mb-6">
+                      <button onClick={startAdd} className="w-full py-3 bg-brand-yellow text-black rounded-xl font-bold flex items-center justify-center gap-2 mb-2">
                           <PlusIcon className="w-5 h-5" /> Добавить товар
                       </button>
+
+                      <div className="relative mb-4">
+                        <SearchIcon className="absolute left-3 top-3 w-5 h-5 text-brand-muted" />
+                        <input 
+                            type="text" 
+                            placeholder="Поиск для редактирования..." 
+                            value={editorSearchTerm}
+                            onChange={(e) => setEditorSearchTerm(e.target.value)}
+                            className="w-full glass-input rounded-xl py-2.5 pl-10 pr-4 text-white placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow/50"
+                        />
+                      </div>
                       
-                      <h3 className="text-white font-bold text-lg mb-2">Добавленные товары</h3>
-                      {customItems.length === 0 ? <div className="text-center text-brand-muted text-sm py-4">Нет добавленных товаров</div> : (
-                          <div className="space-y-2">
-                              {customItems.map(item => (
+                      <h3 className="text-white font-bold text-lg mb-2">Все товары</h3>
+                      {filteredEditorItems.length === 0 ? <div className="text-center text-brand-muted text-sm py-4">Товары не найдены</div> : (
+                          <div className="space-y-2 pb-10">
+                              {filteredEditorItems.map(item => (
                                   <div key={item.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                                      <div className="flex items-center gap-3">
-                                          <img src={item.image} className="w-10 h-10 rounded-full object-cover" />
-                                          <div><h4 className="font-bold text-sm text-white">{item.name}</h4><p className="text-xs text-brand-muted">{item.variants[0].price}₽</p></div>
+                                      <div className="flex items-center gap-3 overflow-hidden">
+                                          <img src={item.image} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                                          <div className="min-w-0"><h4 className="font-bold text-sm text-white truncate">{item.name}</h4><p className="text-xs text-brand-muted">{item.variants[0].price}₽ {item.isCustom ? '(Custom)' : ''}</p></div>
                                       </div>
-                                      <div className="flex gap-2">
-                                          <button onClick={() => startEdit(item)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg">✏️</button>
-                                          <button onClick={() => { setEditId(item.id); handleDelete(); }} className="p-2 bg-red-500/10 text-red-400 rounded-lg"><TrashIcon className="w-5 h-5" /></button>
+                                      <div className="flex gap-2 flex-shrink-0">
+                                          <button onClick={() => startEdit(item)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/20">✏️</button>
+                                          {item.isCustom && <button onClick={() => { setEditId(item.id); handleDelete(); }} className="p-2 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20"><TrashIcon className="w-5 h-5" /></button>}
                                       </div>
                                   </div>
                               ))}
@@ -265,7 +292,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       )}
                   </div>
               ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-4 pb-10">
                       <div className="flex items-center justify-between mb-2">
                           <h3 className="text-white font-bold text-lg">{editId ? 'Редактирование' : 'Новый товар'}</h3>
                           <button onClick={() => setEditorMode('list')} className="text-sm text-brand-muted">Назад</button>
@@ -319,7 +346,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       </div>
 
                       <div className="pt-4 flex gap-2">
-                          {editId && <button onClick={handleDelete} className="flex-1 py-3 bg-red-500/10 text-red-400 rounded-xl font-bold border border-red-500/20">Удалить</button>}
+                          {editId && products.find(i => i.id === editId && i.isCustom) && <button onClick={handleDelete} className="flex-1 py-3 bg-red-500/10 text-red-400 rounded-xl font-bold border border-red-500/20">Удалить</button>}
                           <button onClick={handleEditorSubmit} disabled={isLoading} className="flex-[2] py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Сохранить</button>
                       </div>
                   </div>
