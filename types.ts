@@ -1,4 +1,4 @@
-export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'sweets' | 'soda' | 'salads' | 'food';
+export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'soda' | 'salads' | 'soups' | 'hot_dishes' | 'side_dishes' | 'combo' | 'fast_food';
 
 export interface ProductVariant {
   size: string;
@@ -34,7 +34,7 @@ export interface CartItemOption {
   honey?: boolean;                     // Для облепихи
   filter?: boolean;                    // Для облепихи (профильтровать)
   cutlery?: boolean;                   // Приборы
-  heating?: 'grill' | 'microwave' | 'none'; // Подогрев
+  heating?: 'grill' | 'microwave' | 'none' | 'yes'; // Подогрев (yes для супов/горячего)
   matchaColor?: 'green' | 'blue';      // Цвет матчи
 }
 
@@ -44,15 +44,6 @@ export interface CartItem {
   variantIndex: number;
   quantity: number;
   options: CartItemOption;
-}
-
-export interface Review {
-  id: string;
-  productId: string;
-  author: string;
-  text: string;
-  rating: number;
-  date: string;
 }
 
 // Data sent to Bot for an Order
@@ -95,6 +86,17 @@ export interface AddProductPayload {
   }
 }
 
+export interface EditProductPayload {
+  action: 'edit_product';
+  id: string;
+  product: {
+    name: string;
+    category: Category;
+    price: number;
+    image: string;
+  }
+}
+
 export interface DeleteProductPayload {
   action: 'delete_product';
   id: string;
@@ -110,16 +112,12 @@ export interface DeletePromoPayload {
   code: string;
 }
 
-export interface RefreshMenuPayload {
-  action: 'refresh_menu';
-}
-
 export type WebAppPayload = 
   | OrderActionPayload 
   | MenuUpdateActionPayload 
-  | RefreshMenuPayload 
   | ToggleShiftPayload 
   | AddProductPayload 
+  | EditProductPayload
   | DeleteProductPayload
   | AddPromoPayload
   | DeletePromoPayload;
