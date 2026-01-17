@@ -1,3 +1,4 @@
+
 export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'soda' | 'salads' | 'soups' | 'hot_dishes' | 'side_dishes' | 'combo' | 'fast_food';
 
 export interface ProductVariant {
@@ -10,12 +11,14 @@ export interface ProductModifiers {
   hasSyrup?: boolean;     // Сиропы
   hasSugar?: boolean;     // Сахар
   hasCinnamon?: boolean;  // Корица
+  hasSauce?: boolean;     // Соусы (Сырный, Кетчуп и т.д.)
+  hasTemp?: boolean;      // Температура (Холодный/Теплый) - принудительно
   heatingType?: 'none' | 'simple' | 'advanced'; // simple = Да/Нет, advanced = Гриль/СВЧ
   needsCutlery?: boolean; // Приборы
   isBumble?: boolean;     // Спец. опция для бамбла (выбор сока)
   isMatcha?: boolean;     // Спец. опция для матчи (цвет)
   isBuckthorn?: boolean;  // Спец. опция для облепихи (мед/фильтр)
-  isSoda?: boolean;       // Газ/Негаз, Температура
+  isSoda?: boolean;       // Газ/Негаз, Температура (legacy flag)
 }
 
 export interface Product {
@@ -42,6 +45,7 @@ export interface CartItemOption {
   cinnamon?: boolean;
   milk?: string;
   syrup?: string;
+  sauce?: 'cheese' | 'ketchup' | 'mustard' | 'bbq';
   juice?: 'orange' | 'cherry';         
   gas?: boolean;                       
   honey?: boolean;                     
@@ -102,7 +106,8 @@ export interface EditProductPayload {
 
 export interface DeleteProductPayload {
   action: 'delete_product';
-  id: string;
+  id?: string;    // Single delete (optional now)
+  ids?: string[]; // Bulk delete
 }
 
 export interface AddPromoPayload {
