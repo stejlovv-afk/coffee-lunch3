@@ -3,6 +3,7 @@ import { Product } from './types';
 // Используем пути относительно корня сайта. 
 // Vite соберет файлы из public/img и положит их в корень/img.
 const IMG_PATH = "./img";
+const COMBO_IMG = "./img/combo.jpg"; // Placeholder for combos
 
 export const MENU_ITEMS: Product[] = [
   // --- COFFEE ---
@@ -466,4 +467,51 @@ export const MENU_ITEMS: Product[] = [
     image: `${IMG_PATH}/lipton.jpg`,
     variants: [{ size: 'шт', price: 130 }],
   },
+
+  // --- COMBOS ---
+  { id: 'combo_1', name: 'Гречка с мясом по-французски', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 270 }] },
+  { id: 'combo_2', name: 'Рис курица с грибами', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 270 }] },
+  { id: 'combo_3', name: 'Пюре с котлетой "Пикантной"', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_4', name: 'Рагу с ленивым голубцом', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 240 }] },
+  { id: 'combo_5', name: 'Пюре с куриной ватрушкой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_6', name: 'Гречка с котлетой по-домашнему', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_7', name: 'Пюре с печенью тушеной', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_8', name: 'Гречка с ватрушкой куриной', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_9', name: 'Пюре с тефтелей из индейки', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_10', name: 'Рис с куриной котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_11', name: 'Гречка с азу', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_12', name: 'Гречка с куриной котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_13', name: 'Пюре с котлетой по-киевски', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 240 }] },
+  { id: 'combo_14', name: 'Рис с тефтелей из свинины', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_15', name: 'Рис с ленивым голубцом', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_16', name: 'Рис с бефстроганов', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 320 }] },
+  { id: 'combo_17', name: 'Пюре с бефстроганов', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 320 }] },
+  { id: 'combo_18', name: 'Пюре с гуляшом', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_19', name: 'Пюре с котлетой и яйцом Coffee\'Lunch', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_20', name: 'Рис с ветчиной под сыром Coffee\'Lunch', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_21', name: 'Гречка с ветчиной под сыром', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_22', name: 'Булгур с постной котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 300 }] },
+  { id: 'combo_23', name: 'Гречка с постной котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_24', name: 'Гречка с печенью', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_25', name: 'Гречка с ленивым голубцом', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_26', name: 'Филе су-вид с рисом', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 380 }] },
+  { id: 'combo_27', name: 'Пюре с ветчиной под сыром', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_28', name: 'Картофельное пюре с тефтелей', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_29', name: 'Гречка с тефтелей', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_30', name: 'Рис со свино-говяжьей котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_31', name: 'Рис с печенью тушеной', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_32', name: 'Гречка с свино-говяжьей котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_33', name: 'Пюре с куриной котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_34', name: 'Пюре со свино-говяжьей котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_35', name: 'Рис с куриной ватрушкой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_36', name: 'Пюре с рубленной куриной котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_37', name: 'Пюре с котлетой по-домашнему', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_38', name: 'Макароны с куриной ватрушкой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 240 }] },
+  { id: 'combo_39', name: 'Рис с куриной рубленной котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_40', name: 'Макароны со свино-говяжьей котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 240 }] },
+  { id: 'combo_41', name: 'Макароны с ленивым голубцом', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 240 }] },
+  { id: 'combo_42', name: 'Рис с котлетой по-домашнему', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_43', name: 'Гречка с рубленной куриной котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_44', name: 'Рис с гуляшом', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+  { id: 'combo_45', name: 'Гречка с тефтелей из индейки', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] }
 ];
