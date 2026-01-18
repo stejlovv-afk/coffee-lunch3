@@ -190,6 +190,33 @@ const RAW_MENU_ITEMS: Product[] = [
     variants: [{ size: 'порция', price: 200 }],
   },
 
+  // --- SIDE DISHES (GARNISHES) ---
+  { id: 'soba_veg', name: 'Соба с овощами Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=1', variants: [{ size: 'порция', price: 150 }] },
+  { id: 'buckwheat', name: 'Гречка отварная Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=2', variants: [{ size: 'порция', price: 70 }] },
+  { id: 'bulgur_veg', name: 'Булгур с овощами Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=3', variants: [{ size: 'порция', price: 110 }] },
+  { id: 'ragout_veg', name: 'Рагу овощное Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=4', variants: [{ size: 'порция', price: 120 }] },
+  { id: 'zucchini_saute', name: 'Соте из кабачков Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=5', variants: [{ size: 'порция', price: 180 }] },
+  { id: 'cabbage_stew', name: 'Капуста тушеная Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=6', variants: [{ size: 'порция', price: 100 }] },
+  { id: 'draniki', name: 'Драники с чесночным соусом', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=7', variants: [{ size: 'порция', price: 180 }] },
+  { id: 'veg_steamed', name: 'Овощи припущенные', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=8', variants: [{ size: 'порция', price: 130 }] },
+  { id: 'funchoza_veg', name: 'Овощи с фунчозой Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=9', variants: [{ size: 'порция', price: 150 }] },
+  { id: 'lobio', name: 'Лобио Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=10', variants: [{ size: 'порция', price: 150 }] },
+  { id: 'beans_mix', name: 'Микс бобовых с овощами', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=11', variants: [{ size: 'порция', price: 140 }] },
+  { id: 'oatmeal', name: 'Каша "Овсянная" с маслом', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=12', variants: [{ size: 'порция', price: 90 }] },
+  { id: 'spaghetti', name: 'Спагетти Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=13', variants: [{ size: 'порция', price: 110 }] },
+  { id: 'mashed_potatoes', name: 'Пюре картофельное Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=14', variants: [{ size: 'порция', price: 90 }] },
+  { id: 'rice_veg', name: 'Рис с овощами Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=15', variants: [{ size: 'порция', price: 120 }] },
+  { id: 'fried_zucchini', name: 'Кабачки жареные со сметанным соусом', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=16', variants: [{ size: 'порция', price: 190 }] },
+  { id: 'ptitim', name: 'Паста "Птитим" с овощами', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=17', variants: [{ size: 'порция', price: 180 }] },
+  { id: 'cauliflower_batter', name: 'Капуста цветная в кляре Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=18', variants: [{ size: 'порция', price: 150 }] },
+  { id: 'green_beans', name: 'Фасоль стручковая тушеная', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=19', variants: [{ size: 'порция', price: 140 }] },
+  { id: 'rice_basmati', name: 'Рис Басмати Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=20', variants: [{ size: 'порция', price: 100 }] },
+  { id: 'potato_slices', name: 'Картофель по-деревенски', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=21', variants: [{ size: 'порция', price: 150 }] },
+  { id: 'eggplant_breaded', name: 'Баклажаны в панировке', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=22', variants: [{ size: 'порция', price: 200 }] },
+  { id: 'veg_grill', name: 'Овощи гриль Coffee\'Lunch', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=23', variants: [{ size: 'порция', price: 200 }] },
+  { id: 'rice_porridge', name: 'Каша рисовая молочная', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=24', variants: [{ size: 'порция', price: 90 }] },
+  { id: 'ajapsandali', name: 'Аджапсандал', category: 'side_dishes', isDrink: false, image: 'https://picsum.photos/300/300?random=25', variants: [{ size: 'порция', price: 200 }] },
+
   // --- TEA ---
   {
     id: 'tea_black',
