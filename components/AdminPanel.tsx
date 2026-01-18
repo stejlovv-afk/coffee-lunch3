@@ -34,7 +34,10 @@ const CATEGORIES: {id: Category, label: string}[] = [
     { id: 'soups', label: 'Супы' },
     { id: 'side_dishes', label: 'Гарниры' },
     { id: 'salads', label: 'Салаты' },
+    { id: 'bakery', label: 'Выпечка' },
+    { id: 'desserts', label: 'Десерты' },
     { id: 'sweets', label: 'Сладости' },
+    { id: 'ice_cream', label: 'Мороженое' },
 ];
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ 
@@ -348,6 +351,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                           <div className="flex items-center justify-between">
                               <span className="text-sm text-white">Нужны приборы</span>
                               <input type="checkbox" checked={modifiers.needsCutlery || false} onChange={e => toggleModifier('needsCutlery', e.target.checked)} className="accent-brand-yellow w-5 h-5" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                              <span className="text-sm text-white">Хот-Дог Опции</span>
+                              <input type="checkbox" checked={modifiers.isHotDog || false} onChange={e => toggleModifier('isHotDog', e.target.checked)} className="accent-brand-yellow w-5 h-5" />
                           </div>
                           
                           <div>
