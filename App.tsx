@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
 import { Category, Product, CartItem, WebAppPayload, PromoCode } from './types';
@@ -545,6 +546,7 @@ const App: React.FC = () => {
     { id: 'soups', label: 'Супы' },
     { id: 'side_dishes', label: 'Гарниры' },
     { id: 'salads', label: 'Салаты' },
+    { id: 'sweets', label: 'Сладости' },
   ];
 
   return (
@@ -789,5 +791,6 @@ const App: React.FC = () => {
     </div>
   );
 };
+
 
 export default App;
