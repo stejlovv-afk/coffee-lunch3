@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Category, Product, PromoCode, ProductModifiers } from '../types';
 import { SearchIcon, PlusIcon, TrashIcon } from './ui/Icons';
@@ -33,6 +34,7 @@ const CATEGORIES: {id: Category, label: string}[] = [
     { id: 'soups', label: 'Супы' },
     { id: 'side_dishes', label: 'Гарниры' },
     { id: 'salads', label: 'Салаты' },
+    { id: 'sweets', label: 'Сладости' },
 ];
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ 
