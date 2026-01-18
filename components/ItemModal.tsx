@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
 
@@ -86,6 +87,11 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const [heating, setHeating] = useState<'grill' | 'microwave' | 'none' | 'yes'>('none');
   const [matchaColor, setMatchaColor] = useState<'green' | 'blue'>('green');
 
+  // Hot Dog specific
+  const [hotDogSausage, setHotDogSausage] = useState<'pork' | 'beef'>('pork');
+  const [hotDogOnion, setHotDogOnion] = useState<boolean>(true);
+  const [hotDogSauces, setHotDogSauces] = useState<string[]>([]);
+
   // UI State for Tooltips
   const [showFilterTooltip, setShowFilterTooltip] = useState(false);
   const [showMatchaTooltip, setShowMatchaTooltip] = useState(false);
@@ -110,7 +116,11 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
     return getAddonPrice('sauce', currentVariant.size);
   }, [selectedSauce, currentVariant.size]);
 
-  const totalPrice = (basePrice + milkPrice + syrupPrice + saucePrice) * quantity;
+  // Hot dog sauces are free as per assumption of standard inclusion, or can be priced. 
+  // User asked for choice, didn't specify price. Assuming free for Hot Dog.
+  const hotDogSaucePrice = 0; 
+
+  const totalPrice = (basePrice + milkPrice + syrupPrice + saucePrice + hotDogSaucePrice) * quantity;
 
   // Flags from Modifiers
   const canHaveMilk = mods.hasMilk;
@@ -120,6 +130,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const canHaveCutlery = mods.needsCutlery;
   const canHaveSauce = mods.hasSauce;
   const canHaveTemp = mods.isSoda || mods.hasTemp;
+  const isHotDog = mods.isHotDog;
   
   const heatingType = mods.heatingType; // 'simple', 'advanced', or undefined/'none'
   const isSoda = mods.isSoda; // Controls temp and gas default
@@ -140,8 +151,16 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
       cutlery: canHaveCutlery ? cutlery : undefined,
       heating: heatingType && heatingType !== 'none' ? heating : undefined,
       matchaColor: mods.isMatcha ? matchaColor : undefined,
+      // Hot Dog
+      hotDogSausage: isHotDog ? hotDogSausage : undefined,
+      hotDogOnion: isHotDog ? hotDogOnion : undefined,
+      hotDogSauces: isHotDog ? hotDogSauces : undefined,
     });
     onClose();
+  };
+
+  const toggleHotDogSauce = (id: string) => {
+      setHotDogSauces(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
   };
 
   const displayMilkPrice = getAddonPrice('milk', currentVariant.size);
@@ -196,7 +215,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
           </div>
         )}
 
-        {/* Sauce */}
+        {/* Sauce (Standard) */}
         {canHaveSauce && (
           <div className="mb-6">
              <div className="flex justify-between mb-3">
@@ -219,6 +238,48 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
                 ))}
              </div>
           </div>
+        )}
+
+        {/* --- HOT DOG SPECIALS --- */}
+        {isHotDog && (
+            <div className="mb-6 space-y-4 border-t border-white/10 pt-4">
+                {/* Sausage */}
+                <div>
+                    <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Сосиска</label>
+                    <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+                        <button onClick={() => setHotDogSausage('pork')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${hotDogSausage === 'pork' ? 'bg-white/10 text-white shadow-sm border border-white/10' : 'text-brand-muted'}`}>Свиная</button>
+                        <button onClick={() => setHotDogSausage('beef')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${hotDogSausage === 'beef' ? 'bg-white/10 text-white shadow-sm border border-white/10' : 'text-brand-muted'}`}>Говяжья</button>
+                    </div>
+                </div>
+
+                {/* Onion */}
+                <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
+                    <span className="text-sm font-bold text-white">Жареный лук</span>
+                    <div onClick={() => setHotDogOnion(!hotDogOnion)} className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors border border-white/10 ${hotDogOnion ? 'bg-brand-yellow/80' : 'bg-black/40'}`}>
+                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${hotDogOnion ? 'left-7' : 'left-1'}`} />
+                    </div>
+                </div>
+
+                {/* Sauces (Multi Select) */}
+                <div>
+                    <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Соусы (можно несколько)</label>
+                    <div className="flex flex-wrap gap-2">
+                        {SAUCE_OPTIONS.map(s => (
+                        <button
+                            key={s.id}
+                            onClick={() => toggleHotDogSauce(s.id)}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                                hotDogSauces.includes(s.id) 
+                                ? 'bg-brand-yellow text-black border-brand-yellow shadow-sm' 
+                                : 'bg-white/5 text-brand-muted border-white/5 hover:bg-white/10'
+                            }`}
+                        >
+                            {s.label}
+                        </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
         )}
 
         {/* 1. Bumble Juice */}
