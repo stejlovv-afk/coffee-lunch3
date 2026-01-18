@@ -325,6 +325,14 @@ const App: React.FC = () => {
             if (item.options.heating === 'yes') details += `, Подогреть`;
             else details += `, Греть: ${item.options.heating === 'grill' ? 'Гриль' : 'СВЧ'}`;
         }
+        
+        // Hot Dog Details
+        if (item.options.hotDogSausage) details += `, Сосиска: ${item.options.hotDogSausage === 'pork' ? 'Свиная' : 'Говяжья'}`;
+        if (item.options.hotDogOnion !== undefined) details += `, ${item.options.hotDogOnion ? 'С луком' : 'Без лука'}`;
+        if (item.options.hotDogSauces && item.options.hotDogSauces.length > 0) {
+            const sauceNames = item.options.hotDogSauces.map(s => SAUCE_LABELS[s]).join(', ');
+            details += `, Соусы: ${sauceNames}`;
+        }
 
         if (index === 0) {
             details += `\n[Инфо: ${pickupTime}, ${comment || 'без коммент'}, ${username}]`;
@@ -546,7 +554,10 @@ const App: React.FC = () => {
     { id: 'soups', label: 'Супы' },
     { id: 'side_dishes', label: 'Гарниры' },
     { id: 'salads', label: 'Салаты' },
+    { id: 'bakery', label: 'Выпечка' },
+    { id: 'desserts', label: 'Десерты' },
     { id: 'sweets', label: 'Сладости' },
+    { id: 'ice_cream', label: 'Мороженое' },
   ];
 
   return (
