@@ -1,3 +1,4 @@
+
 import { Product } from './types';
 
 const IMG_PATH = "./img";
@@ -510,7 +511,21 @@ const RAW_MENU_ITEMS: Product[] = [
   { id: 'combo_42', name: 'Рис с котлетой по-домашнему', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
   { id: 'combo_43', name: 'Гречка с рубленной куриной котлетой', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
   { id: 'combo_44', name: 'Рис с гуляшом', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
-  { id: 'combo_45', name: 'Гречка с тефтелей из индейки', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] }
+  { id: 'combo_45', name: 'Гречка с тефтелей из индейки', category: 'combo', isDrink: false, image: COMBO_IMG, variants: [{ size: 'порция', price: 280 }] },
+
+  // --- SWEETS ---
+  { id: 'bombbar_hazelnut', name: 'BOMBBAR Фундучное Пралине', category: 'sweets', isDrink: false, image: `${IMG_PATH}/bombbarfunduk.jpg`, variants: [{ size: 'шт', price: 130 }] },
+  { id: 'bombbar_coconut', name: 'BOMBBAR Кокосовый Торт', category: 'sweets', isDrink: false, image: `${IMG_PATH}/bombbarcocos.jpg`, variants: [{ size: 'шт', price: 130 }] },
+  { id: 'snaq_fabriq_hazelnut', name: 'SNAQ FABRIQ Фундук-Карамель', category: 'sweets', isDrink: false, image: `${IMG_PATH}/snaqerfunduk.jpg`, variants: [{ size: 'шт', price: 130 }] },
+  { id: 'eclipse', name: 'Eclipse Coffee\'Lunch', category: 'sweets', isDrink: false, image: `${IMG_PATH}/eclipce.jpg`, variants: [{ size: 'шт', price: 80 }] },
+  { id: 'chikalab_blackcurrant', name: 'CHIKALAB Черная Смородина печ.', category: 'sweets', isDrink: false, image: `${IMG_PATH}/chikabicuitblackcurrant.jpg`, variants: [{ size: 'шт', price: 170 }] },
+  { id: 'bombbar_raspberry', name: 'BOMBBAR Малиновый Сорбет', category: 'sweets', isDrink: false, image: `${IMG_PATH}/bombbarmalina.jpg`, variants: [{ size: 'шт', price: 130 }] },
+  { id: 'rioba_milk', name: 'Rioba Молочный Шоколад 20г', category: 'sweets', isDrink: false, image: `${IMG_PATH}/chokolatmoloko.jpg`, variants: [{ size: 'шт', price: 80 }] },
+  { id: 'rioba_dark', name: 'Rioba Горький Шоколад 20г', category: 'sweets', isDrink: false, image: `${IMG_PATH}/chokolatgorkiy.jpg`, variants: [{ size: 'шт', price: 80 }] },
+  { id: 'chocopie', name: 'Чоко Пай', category: 'sweets', isDrink: false, image: `${IMG_PATH}/chokopie.jpg`, variants: [{ size: 'шт', price: 30 }] },
+  { id: 'miracle', name: 'Обыкновенное чудо', category: 'sweets', isDrink: false, image: `${IMG_PATH}/chudo.jpg`, variants: [{ size: 'шт', price: 60 }] },
+  { id: 'babaevsky', name: 'Бабаевский Батончик', category: 'sweets', isDrink: false, image: `${IMG_PATH}/babka.jpg`, variants: [{ size: 'шт', price: 100 }] },
+  { id: 'chikalab_banana', name: 'CHIKALAB Бисквит Банан', category: 'sweets', isDrink: false, image: `${IMG_PATH}/chikabiscuitbanan.jpg`, variants: [{ size: 'шт', price: 170 }] },
 ];
 
 export const MENU_ITEMS = RAW_MENU_ITEMS.map(withDefaults);
