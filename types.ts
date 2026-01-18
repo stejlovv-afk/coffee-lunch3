@@ -1,5 +1,5 @@
 
-export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'soda' | 'salads' | 'soups' | 'hot_dishes' | 'side_dishes' | 'combo' | 'fast_food' | 'sweets';
+export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'soda' | 'salads' | 'soups' | 'hot_dishes' | 'side_dishes' | 'combo' | 'fast_food' | 'sweets' | 'ice_cream' | 'desserts' | 'bakery';
 
 export interface ProductVariant {
   size: string;
@@ -19,6 +19,7 @@ export interface ProductModifiers {
   isMatcha?: boolean;     // Спец. опция для матчи (цвет)
   isBuckthorn?: boolean;  // Спец. опция для облепихи (мед/фильтр)
   isSoda?: boolean;       // Газ/Негаз, Температура (legacy flag)
+  isHotDog?: boolean;     // Спец. опция для хот-дога
 }
 
 export interface Product {
@@ -52,7 +53,10 @@ export interface CartItemOption {
   filter?: boolean;                    
   cutlery?: boolean;                   
   heating?: 'grill' | 'microwave' | 'none' | 'yes'; 
-  matchaColor?: 'green' | 'blue';      
+  matchaColor?: 'green' | 'blue';
+  hotDogSausage?: 'pork' | 'beef';
+  hotDogOnion?: boolean;
+  hotDogSauces?: string[]; // Array of sauce IDs for hot dog      
 }
 
 export interface CartItem {
