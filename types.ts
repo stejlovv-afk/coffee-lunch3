@@ -1,5 +1,5 @@
 
-export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'soda' | 'salads' | 'soups' | 'hot_dishes' | 'side_dishes' | 'combo' | 'fast_food';
+export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'soda' | 'salads' | 'soups' | 'hot_dishes' | 'side_dishes' | 'combo' | 'fast_food' | 'sweets';
 
 export interface ProductVariant {
   size: string;
