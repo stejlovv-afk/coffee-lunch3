@@ -79,6 +79,8 @@ const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [hiddenItems, setHiddenItems] = useState<string[]>([]);
+  const [inventory, setInventory] = useState<Record<string, number>>({}); // Inventory State
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminAuth, setShowAdminAuth] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
@@ -128,6 +130,20 @@ const App: React.FC = () => {
     } else {
        const savedHidden = localStorage.getItem('hiddenItems');
        if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
+    }
+
+    // Parse Inventory (param 'inv')
+    // Format: id:qty~id:qty
+    const invParam = params.get('inv');
+    if (invParam) {
+        try {
+            const invMap: Record<string, number> = {};
+            invParam.split('~').forEach(pair => {
+                const [id, qty] = pair.split(':');
+                if (id && qty !== undefined) invMap[id] = Number(qty);
+            });
+            setInventory(invMap);
+        } catch (e) { console.error("Error parsing inventory", e); }
     }
 
     // Parse Params
@@ -398,9 +414,20 @@ const App: React.FC = () => {
   };
 
   const addToCart = (productId: string, variantIdx: number, quantity: number, options: any) => {
-    if (isShiftClosed) return; // Block adding to cart if closed
+    if (isShiftClosed) return; 
     const product = allProducts.find(p => p.id === productId);
     if (!product) return;
+
+    // Check Inventory
+    const stock = inventory[productId];
+    if (stock !== undefined) {
+         const currentInCart = cart.filter(i => i.productId === productId).reduce((acc, i) => acc + i.quantity, 0);
+         if (currentInCart + quantity > stock) {
+             alert(`Доступно всего ${stock} шт.`);
+             return;
+         }
+    }
+
     const uniqueId = `${productId}-${variantIdx}-${JSON.stringify(options)}`;
     setCart(prev => {
       const existing = prev.find(item => item.uniqueId === uniqueId);
@@ -418,9 +445,13 @@ const App: React.FC = () => {
 
   const handleSaveMenuToBot = () => {
     setIsSending(true);
-    const payload: WebAppPayload = { action: 'update_menu', hiddenItems: hiddenItems };
+    // Include Inventory in payload
+    const payload: WebAppPayload = { action: 'update_menu', hiddenItems: hiddenItems, inventory: inventory };
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
-    else setIsSending(false);
+    else {
+        console.log('Sending menu update:', payload);
+        setIsSending(false);
+    }
   };
 
   const handleToggleShift = (closed: boolean) => {
@@ -435,7 +466,6 @@ const App: React.FC = () => {
 
   const handleAddProduct = (payload: any) => {
       setIsSending(true);
-      // Construct full payload
       const actionPayload: WebAppPayload = { 
           action: 'add_product', 
           product: {
@@ -443,7 +473,7 @@ const App: React.FC = () => {
               category: payload.category,
               price: payload.price,
               image: payload.image,
-              modifiers: payload.modifiers // PASSING MODIFIERS
+              modifiers: payload.modifiers 
           } as unknown as Product
       };
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload));
@@ -463,7 +493,7 @@ const App: React.FC = () => {
               category: payload.category,
               price: payload.price,
               image: payload.image,
-              modifiers: payload.modifiers // PASSING MODIFIERS
+              modifiers: payload.modifiers 
           } as unknown as Product
       };
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload));
@@ -515,29 +545,48 @@ const App: React.FC = () => {
 
   const renderProductGrid = (items: Product[]) => (
     <div className="p-4 grid grid-cols-2 gap-4 pb-32">
-        {items.map(item => (
-          <div key={item.id} className={`glass-panel rounded-3xl p-3 flex flex-col justify-between relative transition-all active:scale-[0.98] ${hiddenItems.includes(item.id) ? 'opacity-50 grayscale' : ''}`}>
-            {/* Glossy Overlay */}
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none opacity-50"></div>
+        {items.map(item => {
+            const stock = inventory[item.id];
+            const isSoldOut = stock !== undefined && stock <= 0;
+            const isHidden = hiddenItems.includes(item.id);
+            const isDisabled = isSoldOut || isHidden || isShiftClosed;
             
-            <div className="relative mb-3 group z-10">
-              <img src={item.image} alt={item.name} className="w-full aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all" onClick={() => !isShiftClosed && setSelectedProduct(item)} />
-              <button onClick={(e) => toggleFavorite(e, item.id)} className="absolute top-2 right-2 p-2 bg-black/40 backdrop-blur-md rounded-full text-brand-yellow transition-transform active:scale-125 hover:bg-black/60 border border-white/10">
-                <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
-              </button>
-              {hiddenItems.includes(item.id) && <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm"><EyeSlashIcon className="w-8 h-8 text-white" /></div>}
-            </div>
-            
-            <div onClick={() => !isShiftClosed && setSelectedProduct(item)} className="z-10 relative">
-              <h3 className="font-bold text-white leading-tight mb-1 text-sm sm:text-base line-clamp-2 min-h-[2.5em] drop-shadow-sm">{item.name}</h3>
-              <p className="text-brand-yellow font-black text-lg drop-shadow-md">{item.variants[0].price}₽</p>
-            </div>
-            
-            <button onClick={() => !isShiftClosed && setSelectedProduct(item)} className="z-10 mt-3 w-full py-3 bg-white/10 hover:bg-brand-yellow hover:text-black border border-white/10 text-white rounded-2xl flex items-center justify-center transition-all active:scale-95 group backdrop-blur-sm shadow-inner">
-              <PlusIcon className="w-6 h-6 group-active:rotate-90 transition-transform" />
-            </button>
-          </div>
-        ))}
+            return (
+              <div key={item.id} className={`glass-panel rounded-3xl p-3 flex flex-col justify-between relative transition-all active:scale-[0.98] ${isDisabled ? 'opacity-60 grayscale' : ''}`}>
+                {/* Glossy Overlay */}
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none opacity-50"></div>
+                
+                <div className="relative mb-3 group z-10">
+                  <img src={item.image} alt={item.name} className="w-full aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all" onClick={() => !isDisabled && setSelectedProduct(item)} />
+                  <button onClick={(e) => toggleFavorite(e, item.id)} className="absolute top-2 right-2 p-2 bg-black/40 backdrop-blur-md rounded-full text-brand-yellow transition-transform active:scale-125 hover:bg-black/60 border border-white/10">
+                    <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
+                  </button>
+                  {isHidden && <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm"><EyeSlashIcon className="w-8 h-8 text-white" /></div>}
+                  {isSoldOut && !isHidden && <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm"><span className="text-white font-bold border border-white/20 bg-red-500/50 px-3 py-1 rounded-lg">Закончилось</span></div>}
+                  
+                  {/* Stock Badge */}
+                  {stock !== undefined && stock > 0 && (
+                      <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-lg border border-white/10">
+                          <span className="text-[10px] font-bold text-white">Ост: {stock}</span>
+                      </div>
+                  )}
+                </div>
+                
+                <div onClick={() => !isDisabled && setSelectedProduct(item)} className="z-10 relative">
+                  <h3 className="font-bold text-white leading-tight mb-1 text-sm sm:text-base line-clamp-2 min-h-[2.5em] drop-shadow-sm">{item.name}</h3>
+                  <p className="text-brand-yellow font-black text-lg drop-shadow-md">{item.variants[0].price}₽</p>
+                </div>
+                
+                <button 
+                  onClick={() => !isDisabled && setSelectedProduct(item)} 
+                  disabled={isDisabled}
+                  className={`z-10 mt-3 w-full py-3 border border-white/10 rounded-2xl flex items-center justify-center transition-all active:scale-95 group backdrop-blur-sm shadow-inner ${isDisabled ? 'bg-white/5 cursor-not-allowed' : 'bg-white/10 hover:bg-brand-yellow hover:text-black text-white'}`}
+                >
+                  <PlusIcon className="w-6 h-6 group-active:rotate-90 transition-transform" />
+                </button>
+              </div>
+            );
+        })}
         {items.length === 0 && <div className="col-span-2 text-center text-brand-muted py-10">Товары не найдены</div>}
     </div>
   );
@@ -580,7 +629,6 @@ const App: React.FC = () => {
       {/* --- HEADER --- */}
       <header className="sticky top-0 z-20 bg-brand-dark/70 backdrop-blur-xl border-b border-white/5 px-4 py-3 flex justify-between items-center transition-colors">
         <div>
-          {/* Long press works on header text even if overlay is not there (but overlay blocks clicks, so we added invisible area above) */}
           <h1 {...handleLongPress} className="text-2xl font-black text-brand-yellow tracking-tighter select-none cursor-pointer italic drop-shadow-glow">COFFEE LUNCH</h1>
           <p className="text-[10px] text-brand-muted font-bold tracking-widest uppercase opacity-80">Best Coffee In Town</p>
         </div>
@@ -764,26 +812,14 @@ const App: React.FC = () => {
          </button>
       </div>
 
-      {selectedProduct && <ItemModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)} />}
-      
-      {showAdminAuth && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl">
-              <div className="glass-panel p-6 rounded-3xl w-80 shadow-2xl animate-slide-up">
-                  <h3 className="text-xl font-bold mb-4 text-center text-white">Вход для админа</h3>
-                  <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Пароль" className="w-full p-3 glass-input text-white rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-brand-yellow/50" />
-                  <div className="flex gap-2">
-                      <button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button>
-                      <button onClick={verifyAdmin} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Войти</button>
-                  </div>
-              </div>
-          </div>
-      )}
+      {selectedProduct && <ItemModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)} inventory={inventory} />}
       
       {showAdminPanel && (
           <AdminPanel 
             products={allProducts}
             promoCodes={promoCodes}
             hiddenItems={hiddenItems} 
+            inventory={inventory}
             onToggleHidden={(id) => setHiddenItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} 
             onSaveToBot={handleSaveMenuToBot} 
             onClose={() => setShowAdminPanel(false)} 
@@ -797,7 +833,21 @@ const App: React.FC = () => {
             onDeleteProduct={handleDeleteProduct}
             onAddPromo={handleAddPromo}
             onDeletePromo={handleDeletePromo}
+            onUpdateInventory={setInventory}
           />
+      )}
+      
+      {showAdminAuth && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl">
+              <div className="glass-panel p-6 rounded-3xl w-80 shadow-2xl animate-slide-up">
+                  <h3 className="text-xl font-bold mb-4 text-center text-white">Вход для админа</h3>
+                  <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Пароль" className="w-full p-3 glass-input text-white rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-brand-yellow/50" />
+                  <div className="flex gap-2">
+                      <button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button>
+                      <button onClick={verifyAdmin} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Войти</button>
+                  </div>
+              </div>
+          </div>
       )}
     </div>
   );
