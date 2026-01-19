@@ -90,6 +90,7 @@ export interface OrderActionPayload {
 export interface MenuUpdateActionPayload {
   action: 'update_menu';
   hiddenItems: string[];
+  inventory: Record<string, number>; // Added inventory data
 }
 
 export interface ToggleShiftPayload {
