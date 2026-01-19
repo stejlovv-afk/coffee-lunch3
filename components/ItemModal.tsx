@@ -7,6 +7,7 @@ interface ItemModalProps {
   onClose: () => void;
   onAddToCart: (variantIdx: number, quantity: number, options: any) => void;
   initialVariantIdx?: number;
+  inventory?: Record<string, number>; // New prop
 }
 
 // --- DATA ---
@@ -66,7 +67,7 @@ const getAddonPrice = (type: 'milk' | 'syrup' | 'sauce', size: string) => {
   return 0;
 };
 
-const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, initialVariantIdx = 0 }) => {
+const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, initialVariantIdx = 0, inventory = {} }) => {
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(initialVariantIdx);
   const [quantity, setQuantity] = useState(1);
   
@@ -99,6 +100,11 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const currentVariant = product.variants[selectedVariantIdx];
   const basePrice = currentVariant.price;
   const mods = product.modifiers || {};
+  
+  // Stock Check
+  const stock = inventory[product.id];
+  const maxStock = stock !== undefined ? stock : 999;
+  const isOutOfStock = stock !== undefined && stock <= 0;
 
   // --- LOGIC ---
   const milkPrice = useMemo(() => {
@@ -116,8 +122,6 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
     return getAddonPrice('sauce', currentVariant.size);
   }, [selectedSauce, currentVariant.size]);
 
-  // Hot dog sauces are free as per assumption of standard inclusion, or can be priced. 
-  // User asked for choice, didn't specify price. Assuming free for Hot Dog.
   const hotDogSaucePrice = 0; 
 
   const totalPrice = (basePrice + milkPrice + syrupPrice + saucePrice + hotDogSaucePrice) * quantity;
@@ -132,10 +136,14 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const canHaveTemp = mods.isSoda || mods.hasTemp;
   const isHotDog = mods.isHotDog;
   
-  const heatingType = mods.heatingType; // 'simple', 'advanced', or undefined/'none'
-  const isSoda = mods.isSoda; // Controls temp and gas default
+  const heatingType = mods.heatingType; 
+  const isSoda = mods.isSoda;
 
   const handleAdd = () => {
+    if (quantity > maxStock) {
+        alert(`Доступно только ${maxStock} шт.`);
+        return;
+    }
     onAddToCart(selectedVariantIdx, quantity, {
       temperature: canHaveTemp ? temp : undefined,
       sugar: canHaveSugar ? sugar : undefined,
@@ -145,7 +153,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
       sauce: canHaveSauce ? selectedSauce : undefined,
       // Specifics
       juice: mods.isBumble ? bumbleJuice : undefined,
-      gas: isSoda && product.id === 'chern_water' ? waterGas : undefined, // specific hack for water brand
+      gas: isSoda && product.id === 'chern_water' ? waterGas : undefined,
       honey: mods.isBuckthorn ? buckthornHoney : undefined,
       filter: mods.isBuckthorn ? buckthornFilter : undefined,
       cutlery: canHaveCutlery ? cutlery : undefined,
@@ -179,6 +187,11 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
             <p className="text-brand-yellow font-black text-2xl drop-shadow-sm">
               {totalPrice}₽
             </p>
+            {stock !== undefined && (
+                <span className={`text-xs font-bold mt-1 ${isOutOfStock ? 'text-red-400' : 'text-green-400'}`}>
+                    {isOutOfStock ? 'Закончилось' : `В наличии: ${stock}`}
+                </span>
+            )}
           </div>
         </div>
 
@@ -495,16 +508,18 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
             >-</button>
             <span className="w-8 text-center font-bold text-white text-lg">{quantity}</span>
             <button 
-              onClick={() => setQuantity(quantity + 1)}
-              className="w-10 h-full text-2xl font-bold text-white flex items-center justify-center active:text-brand-yellow"
+              onClick={() => setQuantity(Math.min(maxStock, quantity + 1))}
+              disabled={quantity >= maxStock}
+              className={`w-10 h-full text-2xl font-bold flex items-center justify-center transition-colors ${quantity >= maxStock ? 'text-white/20' : 'text-white active:text-brand-yellow'}`}
             >+</button>
           </div>
           
           <button 
             onClick={handleAdd}
-            className="flex-1 bg-brand-yellow text-black h-14 rounded-2xl font-black text-lg shadow-[0_0_20px_rgba(250,204,21,0.4)] active:scale-95 transition-transform uppercase tracking-wide"
+            disabled={isOutOfStock}
+            className={`flex-1 h-14 rounded-2xl font-black text-lg shadow-[0_0_20px_rgba(250,204,21,0.4)] transition-all uppercase tracking-wide ${isOutOfStock ? 'bg-white/10 text-white/50 cursor-not-allowed shadow-none' : 'bg-brand-yellow text-black active:scale-95'}`}
           >
-            Добавить {totalPrice}₽
+            {isOutOfStock ? 'Нет в наличии' : `Добавить ${totalPrice}₽`}
           </button>
         </div>
       </div>
