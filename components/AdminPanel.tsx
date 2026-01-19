@@ -7,6 +7,7 @@ interface AdminPanelProps {
   products: Product[]; 
   promoCodes: PromoCode[];
   hiddenItems: string[];
+  inventory: Record<string, number>;
   onToggleHidden: (id: string) => void;
   onSaveToBot: () => void;
   onClose: () => void;
@@ -20,6 +21,7 @@ interface AdminPanelProps {
   onDeleteProduct: (ids: string[]) => void;
   onAddPromo: (promo: PromoCode) => void;
   onDeletePromo: (code: string) => void;
+  onUpdateInventory: (inv: Record<string, number>) => void;
 }
 
 const CATEGORIES: {id: Category, label: string}[] = [
@@ -41,9 +43,9 @@ const CATEGORIES: {id: Category, label: string}[] = [
 ];
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ 
-  products, promoCodes, hiddenItems, onToggleHidden, onSaveToBot, onClose, isLoading,
+  products, promoCodes, hiddenItems, inventory, onToggleHidden, onSaveToBot, onClose, isLoading,
   dailyRevenue, monthlyRevenue, isShiftClosed, onToggleShift, onAddProduct, onEditProduct, onDeleteProduct,
-  onAddPromo, onDeletePromo
+  onAddPromo, onDeletePromo, onUpdateInventory
 }) => {
   const [activeTab, setActiveTab] = useState<'menu' | 'editor' | 'revenue' | 'promo'>('menu');
   const [searchTerm, setSearchTerm] = useState('');
@@ -179,6 +181,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       setModifiers(prev => ({...prev, [key]: value}));
   };
 
+  // Inventory Handler
+  const updateStock = (id: string, value: string) => {
+      const newInventory = { ...inventory };
+      if (value === '') {
+          delete newInventory[id]; // Unlimited
+      } else {
+          newInventory[id] = parseInt(value, 10);
+      }
+      onUpdateInventory(newInventory);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex flex-col animate-slide-up">
       {/* Header */}
@@ -234,13 +247,29 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {filteredMenuItems.map((item) => {
                 const isHidden = hiddenItems.includes(item.id);
+                const stock = inventory[item.id];
                 return (
                     <div key={item.id} onClick={() => !isLoading && onToggleHidden(item.id)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-colors backdrop-blur-sm ${isHidden ? 'bg-red-900/10 border-red-500/20' : 'bg-white/5 border-white/5 hover:bg-white/10'} ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="flex items-center gap-3">
                         <img src={item.image} className={`w-10 h-10 rounded-full object-cover border border-white/10 ${isHidden ? 'opacity-50 grayscale' : ''}`} />
-                        <span className={`font-bold text-sm ${isHidden ? 'text-red-400 line-through' : 'text-brand-text'}`}>{item.name}</span>
+                        <div className="flex flex-col">
+                            <span className={`font-bold text-sm ${isHidden ? 'text-red-400 line-through' : 'text-brand-text'}`}>{item.name}</span>
+                            <span className="text-[10px] text-brand-muted">{item.variants[0].price}₽</span>
+                        </div>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded border ${isHidden ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>{isHidden ? 'СКРЫТО' : 'АКТИВНО'}</span>
+                    <div className="flex items-center gap-2">
+                         <div className="flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
+                             <span className="text-[10px] font-bold text-brand-muted uppercase">Наличие</span>
+                             <input 
+                                type="number" 
+                                placeholder="∞" 
+                                className="w-12 py-1 px-1 text-center bg-black/40 border border-white/10 rounded-lg text-xs text-white focus:border-brand-yellow outline-none"
+                                value={stock !== undefined ? stock : ''}
+                                onChange={(e) => updateStock(item.id, e.target.value)}
+                             />
+                         </div>
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded border h-fit self-center ml-1 ${isHidden ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>{isHidden ? 'СКРЫТО' : 'АКТИВНО'}</span>
+                    </div>
                     </div>
                 );
                 })}
