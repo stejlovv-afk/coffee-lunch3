@@ -1,4 +1,3 @@
-
 import { Product } from './types';
 
 const IMG_PATH = "./img";
@@ -58,6 +57,267 @@ const RAW_MENU_ITEMS: Product[] = [
   { id: 'matcha', name: 'Матча', category: 'coffee', isDrink: true, image: `${IMG_PATH}/matcha.jpg`, variants: [{ size: '250мл', price: 180 }, { size: '350мл', price: 220 }, { size: '450мл', price: 260 }] },
   { id: 'ice_matcha', name: 'Айс Матча', category: 'coffee', isDrink: true, image: `${IMG_PATH}/matcha.jpg`, variants: [{ size: '250мл', price: 230 }, { size: '350мл', price: 270 }] },
   { id: 'cacao', name: 'Какао', category: 'coffee', isDrink: true, image: `${IMG_PATH}/kakao.jpg`, variants: [{ size: '250мл', price: 180 }, { size: '350мл', price: 220 }, { size: '450мл', price: 260 }] },
+
+  // --- TEA ---
+  {
+    id: 'tea_black',
+    name: 'Чай Черный',
+    category: 'tea',
+    isDrink: true,
+    image: `${IMG_PATH}/teablack.jpg`,
+    variants: [
+        { size: '250мл', price: 120 },
+        { size: '350мл', price: 150 },
+        { size: '450мл', price: 180 },
+    ]
+  },
+  {
+    id: 'tea_green',
+    name: 'Чай Зеленый',
+    category: 'tea',
+    isDrink: true,
+    image: `${IMG_PATH}/greentea.jpg`,
+    variants: [
+        { size: '250мл', price: 120 },
+        { size: '350мл', price: 150 },
+        { size: '450мл', price: 180 },
+    ]
+  },
+  {
+    id: 'tea_karkade',
+    name: 'Чай Каркаде',
+    category: 'tea',
+    isDrink: true,
+    image: `${IMG_PATH}/karkadetea.jpg`,
+    variants: [
+        { size: '250мл', price: 120 },
+        { size: '350мл', price: 150 },
+        { size: '450мл', price: 180 },
+    ]
+  },
+  {
+    id: 'tea_jasmine',
+    name: 'Чай Жасмин',
+    category: 'tea',
+    isDrink: true,
+    image: `${IMG_PATH}/greenjasmin.jpg`,
+    variants: [
+        { size: '250мл', price: 120 },
+        { size: '350мл', price: 150 },
+        { size: '450мл', price: 180 },
+    ]
+  },
+  {
+    id: 'spiced_tea',
+    name: 'Пряный Чай',
+    category: 'tea',
+    isDrink: true,
+    image: `${IMG_PATH}/pryanytea.jpg`,
+    variants: [
+      { size: '250мл', price: 240 },
+      { size: '350мл', price: 280 },
+      { size: '450мл', price: 320 },
+    ],
+  },
+  {
+    id: 'gluhwein',
+    name: 'Глинтвейн',
+    category: 'tea',
+    isDrink: true,
+    image: `${IMG_PATH}/glintveinpunch.jpg`,
+    variants: [
+      { size: '350мл', price: 230 },
+      { size: '450мл', price: 270 },
+    ],
+  },
+
+  // --- SEASONAL ---
+  {
+    id: 'latte_halva',
+    name: 'Латте Халва',
+    category: 'seasonal',
+    isDrink: true,
+    image: `${IMG_PATH}/lattehalva.jpg`,
+    variants: [
+      { size: '350мл', price: 290 },
+      { size: '450мл', price: 350 },
+    ],
+  },
+  {
+    id: 'latte_pumpkin',
+    name: 'Латте Тыква',
+    category: 'seasonal',
+    isDrink: true,
+    image: `${IMG_PATH}/lattetikva.jpg`,
+    variants: [
+      { size: '350мл', price: 290 },
+      { size: '450мл', price: 350 },
+    ],
+  },
+  {
+    id: 'raf_snickers',
+    name: 'Раф Сникерс',
+    category: 'seasonal',
+    isDrink: true,
+    image: `${IMG_PATH}/rafsnikers.jpg`,
+    variants: [
+      { size: '350мл', price: 320 },
+      { size: '450мл', price: 380 },
+    ],
+  },
+  {
+    id: 'latte_orange',
+    name: 'Латте Orange Christmas',
+    category: 'seasonal',
+    isDrink: true,
+    image: `${IMG_PATH}/latteorangecristmas.jpg`,
+    variants: [
+      { size: '350мл', price: 320 },
+      { size: '450мл', price: 380 },
+    ],
+  },
+
+  // --- PUNCH ---
+  {
+    id: 'punch_buckthorn',
+    name: 'Облепиховый Пунш',
+    category: 'punch',
+    isDrink: true,
+    image: `${IMG_PATH}/oblepihapunch.jpg`,
+    variants: [
+      { size: '350мл', price: 230 },
+      { size: '450мл', price: 270 },
+    ],
+  },
+  {
+    id: 'punch_raspberry',
+    name: 'Малиновый Пунш',
+    category: 'punch',
+    isDrink: true,
+    image: `${IMG_PATH}/malinapunch.jpg`,
+    variants: [
+      { size: '350мл', price: 230 },
+      { size: '450мл', price: 270 },
+    ],
+  },
+
+  // --- SODA/DRINKS ---
+  {
+    id: 'chern_cola',
+    name: 'Черноголовка Cola',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/colachernogo.jpg`,
+    variants: [{ size: '0.5', price: 140 }],
+  },
+  {
+    id: 'chern_baikal',
+    name: 'Черноголовка Байкал',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/baikalchernogo.jpg`,
+    variants: [{ size: '0.5', price: 140 }],
+  },
+  {
+    id: 'chern_water',
+    name: 'Черноголовка Газ/Негаз',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/negazcernogo.jpg`,
+    variants: [{ size: '0.5', price: 70 }],
+  },
+  {
+    id: 'chern_lemonade',
+    name: 'Черноголовка Лимонад',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/lemonchernogo.jpg`,
+    variants: [{ size: '0.5', price: 140 }],
+  },
+  {
+    id: 'chern_orange',
+    name: 'Черноголовка Апельсин-Юдзу',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/chernogolovkaorange.jpg`,
+    variants: [{ size: 'шт', price: 110 }],
+  },
+  {
+    id: 'lemonade',
+    name: 'Лимонад Авторский',
+    category: 'soda',
+    isDrink: true,
+    image: `${IMG_PATH}/lemonchernogo.jpg`,
+    description: 'Скиви-Фейхоа, Манго-Маракуйя, Смородина-Мята',
+    variants: [
+      { size: '250мл', price: 260 },
+      { size: '350мл', price: 290 },
+    ],
+  },
+  {
+    id: 'energy_cosmos_tropic',
+    name: 'Cosmos Тропический',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/cosmos.jpg`,
+    variants: [{ size: 'шт', price: 130 }],
+  },
+  {
+    id: 'energy_cosmos_orig',
+    name: 'Cosmos Оригинальный',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/cosmosorig.jpg`,
+    variants: [{ size: 'шт', price: 130 }],
+  },
+  {
+    id: 'energy_adr_sugarfree',
+    name: 'Adrenaline Без сахара',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/adrenalinnosugar.jpg`,
+    variants: [{ size: 'шт', price: 200 }],
+  },
+  {
+    id: 'energy_adr_orig',
+    name: 'Adrenaline Оригинальный',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/adrenalin.jpg`,
+    variants: [{ size: 'шт', price: 200 }],
+  },
+  {
+    id: 'juice_tomat',
+    name: 'Il Primo Томат',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/iltomato.jpg`,
+    variants: [{ size: 'шт', price: 120 }],
+  },
+  {
+    id: 'juice_apple',
+    name: 'Il Primo Яблоко',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/ilapple.jpg`,
+    variants: [{ size: 'шт', price: 120 }],
+  },
+  {
+    id: 'juice_orange',
+    name: 'Il Primo Апельсин',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/ilorange.jpg`,
+    variants: [{ size: 'шт', price: 120 }],
+  },
+  {
+    id: 'lipton_peach',
+    name: 'Lipton Персик',
+    category: 'soda',
+    isDrink: false,
+    image: `${IMG_PATH}/lipton.jpg`,
+    variants: [{ size: 'шт', price: 130 }],
+  },
 
   // --- FAST FOOD ---
   { id: 'croissant_salmon', name: 'Круассан с лососем', category: 'fast_food', isDrink: false, image: `${IMG_PATH}/unnamed (1).jpg`, variants: [{ size: 'шт', price: 390 }] },
