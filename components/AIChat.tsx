@@ -18,9 +18,11 @@ const DEFAULT_KEY = '';
 // Используем ваш Cloudflare Worker как прокси по умолчанию для обхода блокировок в РФ
 const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
 
+// Обновленный список моделей согласно вашему скриншоту
 const AVAILABLE_MODELS = [
-  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Молния ⚡️)' },
-  { id: 'google/gemini-3-flash', name: 'Gemini 3 Flash (Умная)' },
+  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Самая быстрая 🚀)' },
+  { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash (Баланс)' },
+  { id: 'google/gemini-3-flash', name: 'Gemini 3 Flash (Самая умная 🧠)' },
 ];
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
@@ -76,10 +78,16 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   };
 
   const getGoogleModelId = (orId: string) => {
-      // 2.5 Flash Lite - это технически gemini-2.0-flash-lite-preview-02-05, самая быстрая сейчас
-      if (orId.includes('gemini-2.5-flash-lite')) return 'gemini-2.0-flash-lite-preview-02-05';
-      if (orId.includes('gemini-3-flash')) return 'gemini-3-flash-preview';
-      return 'gemini-2.0-flash-lite-preview-02-05'; // Fallback to fastest
+      // Убираем префикс google/, если выбран OpenRouter ID, но используется прямой ключ
+      const cleanId = orId.replace('google/', '');
+      
+      // Используем прямые ID из вашего списка
+      if (cleanId === 'gemini-2.5-flash-lite') return 'gemini-2.5-flash-lite';
+      if (cleanId === 'gemini-2.5-flash') return 'gemini-2.5-flash';
+      if (cleanId === 'gemini-3-flash') return 'gemini-3-flash';
+      
+      // Fallback
+      return 'gemini-2.5-flash-lite';
   };
 
   // Helper function to read streaming response
@@ -152,7 +160,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         Ты - бариста в "Coffee Lunch".
         МЕНЮ:
         ${menuContext}
-        Правила: Рекомендуй из меню. Кратко (макс 20 слов). Весело. Русский язык.
+        Правила: Рекомендуй из меню. Очень кратко (макс 15 слов). Весело. Эмодзи. Русский язык.
       `;
 
       const isGoogleKey = apiKey.startsWith('AIza');
@@ -176,7 +184,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
               contents: contents,
               systemInstruction: { parts: [{ text: systemPromptText }] },
               generationConfig: {
-                  maxOutputTokens: 250, // Limit length for speed
+                  maxOutputTokens: 150, // Ограничиваем длину для скорости
                   temperature: 0.7
               }
           };
@@ -196,7 +204,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                 ...messages.map(m => ({ role: m.role, content: m.content })),
                 { role: "user", content: userMessage }
               ],
-              max_tokens: 250
+              max_tokens: 150
           };
       }
 
@@ -205,7 +213,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       if (!response.ok) {
           const errorText = await response.text();
           if (response.status === 401 || response.status === 403) throw new Error("Ошибка доступа (403). Проверьте ключ.");
-          if (response.status === 404) throw new Error("Модель не найдена (404).");
+          if (response.status === 404) throw new Error("Модель не найдена (404). Выберите другую.");
           if (response.status === 429) throw new Error("Лимит исчерпан (429).");
           throw new Error(`Ошибка сети (${response.status})`);
       }
