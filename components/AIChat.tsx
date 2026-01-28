@@ -10,7 +10,7 @@ interface AIChatProps {
 }
 
 interface Message {
-  role: 'user' | 'model'; // Google API использует 'model' вместо 'assistant'
+  role: 'user' | 'model'; // Google использует 'model' вместо 'assistant'
   content: string;
 }
 
@@ -20,12 +20,11 @@ const DEFAULT_KEY = 'AIzaSyCgAd7WzVgafJSYguKsch0JACo1MEPXauE';
 // 2. ТВОЙ CLOUDFLARE ПРОКСИ
 const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
 
-// 3. ДОСТУПНЫЕ МОДЕЛИ (ID должны соответствовать тем, что принимает API)
-// Обычно 'gemini-2.5' в API это 'gemini-2.0-flash-lite-preview-02-05' или просто 'gemini-1.5-flash'
+// 3. ДОСТУПНЫЕ МОДЕЛИ (ID как на вашем скриншоте из AI Studio)
 const AVAILABLE_MODELS = [
-  { id: 'gemini-2.0-flash-lite-preview-02-05', name: 'Gemini 2.5 Flash Lite (Быстрая ⚡️)' },
-  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Стабильная 🔥)' },
-  { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash Exp (Мощная 🧠)' },
+  { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Супер-быстрая ⚡️)' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Умная 🔥)' },
+  { id: 'gemini-3-flash', name: 'Gemini 3.0 Flash (Новейшая 🧠)' },
 ];
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
@@ -54,7 +53,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     scrollToBottom();
   }, [messages, showSettings]);
 
-  // Sync settings helper
   useEffect(() => {
     if (showSettings) {
         setTempKey(apiKey);
@@ -65,7 +63,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
   const handleSaveSettings = () => {
       const cleanedKey = tempKey.trim();
-      const cleanedUrl = tempUrl.trim().replace(/\/$/, ''); // убираем слеш в конце
+      const cleanedUrl = tempUrl.trim().replace(/\/$/, '');
       
       setApiKey(cleanedKey);
       setBaseUrl(cleanedUrl);
@@ -98,7 +96,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     const timeoutId = setTimeout(() => abortController.abort(), 60000); 
 
     try {
-      // 1. Формируем контекст меню
+      // 1. Контекст меню
       const menuContext = products.map(p => 
         `- ${p.name} (${p.category}) ID:${p.id} : ${p.variants[0].price}₽`
       ).join('\n');
@@ -117,17 +115,16 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         5. Отвечай на русском языке.
       `;
 
-      // 2. Формируем историю чата для Google API (формат: contents: [{role, parts: [{text}]}])
-      // Google требует чередования user/model и не любит пустые сообщения
+      // 2. Формируем историю чата для Google API (contents: [{role, parts: [{text}]}])
       const apiContents = newHistory
-        .filter(msg => msg.content && !msg.content.includes('Настройки обновлены')) // Фильтруем системные сообщения UI
+        .filter(msg => msg.content && !msg.content.includes('Настройки обновлены'))
         .map(msg => ({
             role: msg.role === 'user' ? 'user' : 'model',
             parts: [{ text: msg.content }]
         }));
 
-      // 3. Собираем URL и тело запроса
-      // Используем generateContent (не stream) чтобы прокси точно отдал ответ
+      // 3. Формируем URL (через прокси Cloudflare)
+      // Добавляем /v1beta/models/...
       const endpoint = `${baseUrl}/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
       
       const payload = {
@@ -155,12 +152,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
       if (!response.ok) {
           const errorText = await response.text();
-          console.error("Google API Error:", errorText);
+          console.error("Google API Proxy Error:", errorText);
           
-          if (response.status === 403 || response.status === 400) throw new Error("Ошибка ключа или модели (400/403). Проверьте настройки.");
-          if (response.status === 404) throw new Error("Модель не найдена (404) или неверный путь.");
-          if (response.status === 500) throw new Error("Ошибка сервера Google (500).");
-          
+          if (response.status === 404) throw new Error("Модель не найдена (404). Cloudflare не видит этот путь.");
+          if (response.status === 403) throw new Error("Ошибка доступа (403). Проверьте ключ.");
           throw new Error(`Ошибка сети (${response.status})`);
       }
 
@@ -170,6 +165,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
       
       if (!aiText) {
+          console.log("Full Response:", data);
           throw new Error("Пришел пустой ответ от нейросети.");
       }
 
@@ -181,7 +177,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       setMessages(prev => [...prev, { role: 'model', content: errorMsg }]);
       
       if (error.message.includes("403") || error.message.includes("404")) {
-          setTimeout(() => setShowSettings(true), 1500);
+          setTimeout(() => setShowSettings(true), 2000);
       }
     } finally {
       setIsLoading(false);
@@ -233,7 +229,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
             </div>
             <div>
                <h3 className="font-bold text-white leading-tight">Зернышко AI</h3>
-               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Online • Google Cloud</p>
+               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Online • Gemini 2.5</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
