@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { SparklesIcon, SendIcon, XMarkIcon, PlusIcon, MicrophoneIcon } from './ui/Icons';
-import { Product, Category } from '../types';
+import { Product } from '../types';
 
 interface AIChatProps {
   products: Product[];
@@ -14,9 +14,10 @@ interface Message {
   content: string;
 }
 
-// --- НАСТРОЙКИ TIMEWEB AI ---
-const TIMEWEB_API_URL = 'https://agent.timeweb.cloud/api/v1/cloud-ai/agents/aabb17cb-c1df-4ccb-b419-f438bb89fec1/v1';
-const TIMEWEB_API_KEY = 'eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCIsImtpZCI6IjFrYnhacFJNQGJSI0tSbE1xS1lqIn0.eyJ1c2VyIjoicW40ODM4MjAiLCJ0eXBlIjoiYXBpX2tleSIsImFwaV9rZXlfaWQiOiI1ZDA5MjAzYS03OTg0LTRjMTQtYmVkYS1jNjJlNTBkMDFlODgiLCJpYXQiOjE3Njk2MzY5MDJ9.BKZO8nPYf7ueqwQEr6gRxB_nqsO91ChQPq7Jh1FZff6WVWACQ0KmQdpTCIFH2jXzilW14mNqx856gRNp-xlyTJkmyB6EAWdVPnjreSk3ENaMEEzz1Jc8AyREP7q_qkzJHzsvoql1OXYFGD1aok7iBpNNEZqgPEmi-qLp8cv9T8zDNG5l6vBJjJctfzpN29vrUcyeDqLKEny05K6vYALXx-l0QFMM082rwJcW2y2DVZsnbS4_BA8wYSGUz1TciBAJJAVgxNJXZ87-xK_PmR-oMzNND2TeXl_Miez_HdOuit6kC6kQipbw-anCLFdaTxc3UXOWF_zuskPqeb3s9RmtyYLnDMIfPHSwl0K-IvDmShQVKIEdRM7QUq52xLfqLjPjjTaOdPcWAjaRLW_PKrFleARmyoHoSRN2g9UWY-EeuJVUBj-7SBRygyjp_O4BRtlUcTi51WGGE5RNx_n5JMcn_DfzvZEjkh3vthztn4S1X35LW8Go7AGEmS_JlDX_VU_z';
+// --- НАСТРОЙКИ ---
+// Берем URL и Ключ из переменных окружения (GitHub Secrets)
+const API_URL = import.meta.env.VITE_TIMEWEB_API_URL;
+const API_KEY = import.meta.env.VITE_TIMEWEB_API_KEY;
 
 // --- СПИСКИ ДОБАВОК ---
 const ADDONS = "Сиропы (Фисташка, Лесной орех, Кокос, Апельсин, Клубника, Вишня, Пряник, Попкорн, Мята, Карамель). Молоко (Банановое, Кокосовое, Миндальное, Безлактозное).";
@@ -54,7 +55,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   }, [messages]);
 
   // СУПЕР-СЖАТЫЙ КОНТЕКСТ: Только Название (Цена)
-  // ID удалены для экономии токенов
   const getSuperCompactMenu = (): string => {
       const grouped: Record<string, string[]> = {};
 
@@ -74,6 +74,11 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const handleSend = async (textOverride?: string) => {
     const textToSend = textOverride || input.trim();
     if (!textToSend || isLoading) return;
+
+    if (!API_KEY || !API_URL) {
+        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Ошибка: API ключи не настроены в GitHub Secrets.' }]);
+        return;
+    }
 
     setInput('');
     const newHistory: Message[] = [...messages, { role: 'user', content: textToSend }];
@@ -103,31 +108,35 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         4. Не придумывай цены, бери из меню.
       `;
 
-      // Берем последние 6 сообщений (3 пары вопрос-ответ) для контекста
+      // Берем последние 6 сообщений для контекста
       const recentHistory = newHistory.slice(-6); 
       const apiMessages = [
           { role: 'system', content: systemPromptText },
           ...recentHistory
       ];
 
-      const response = await fetch(`${TIMEWEB_API_URL}/chat/completions`, { 
+      // Запрос к Timeweb API (OpenAI compatible endpoint)
+      const response = await fetch(`${API_URL}/chat/completions`, { 
           method: 'POST', 
           headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${TIMEWEB_API_KEY}`,
+              'Authorization': `Bearer ${API_KEY}`,
           },
           body: JSON.stringify({
-              model: 'gemini-3-flash-preview', 
+              model: 'gemini-pro', // Или модель которая указана в Timeweb
               messages: apiMessages,
-              temperature: 0.7, // Возвращаем креативность
-              max_tokens: 1000 // Даем место для описания
+              temperature: 0.7,
+              max_tokens: 1000
           }),
           signal: abortController.signal
       });
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) throw new Error(`Ошибка сервера (${response.status})`);
+      if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Ошибка сервера (${response.status}): ${errText}`);
+      }
 
       const data = await response.json();
       const aiText = data.choices?.[0]?.message?.content;
@@ -138,7 +147,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
     } catch (error: any) {
       console.error("AI Error:", error);
-      const errorMsg = error.name === 'AbortError' ? '⏳ Думаю над ответом...' : `⚠️ Ошибка связи, попробуй еще раз.`;
+      const errorMsg = error.name === 'AbortError' ? '⏳ Думаю над ответом...' : `⚠️ Ошибка связи: ${error.message}`;
       setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
     } finally {
       setIsLoading(false);
@@ -182,15 +191,11 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   };
 
   const renderMessageContent = (text: string) => {
-    // Разбиваем текст по шаблону {{Название}}
     const parts = text.split(/(\{\{.*?\}\})/g);
     
     return parts.map((part, index) => {
         if (part.startsWith('{{') && part.endsWith('}}')) {
-            // Извлекаем название: {{Капучино}} -> Капучино
             const rawName = part.slice(2, -2).trim();
-            
-            // Ищем товар по названию (нечувствительно к регистру)
             const product = products.find(p => p.name.toLowerCase() === rawName.toLowerCase());
 
             if (!product) return <span key={index} className="font-bold text-brand-yellow">{rawName}</span>;
@@ -202,9 +207,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                         <div className="font-bold text-white text-sm truncate">{product.name}</div>
                         <div className="text-brand-yellow font-black text-xs">{product.variants[0].price}₽</div>
                     </div>
-                    <button 
-                        className="bg-brand-yellow text-black p-2 rounded-lg font-bold text-xs shadow-md active:scale-95 transition-transform flex items-center gap-1"
-                    >
+                    <button className="bg-brand-yellow text-black p-2 rounded-lg font-bold text-xs shadow-md active:scale-95 transition-transform flex items-center gap-1">
                         <PlusIcon className="w-4 h-4" />
                         Хочу
                     </button>
