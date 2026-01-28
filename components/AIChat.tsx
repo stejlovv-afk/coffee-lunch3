@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { SparklesIcon, SendIcon, XMarkIcon } from './ui/Icons';
+import { SparklesIcon, SendIcon, XMarkIcon, KeyIcon } from './ui/Icons';
 import { Product } from '../types';
 
 interface AIChatProps {
@@ -14,9 +14,7 @@ interface Message {
   content: string;
 }
 
-// NOTE: In production, it is recommended to use a Proxy Server to hide the API Key.
-// For this mini-app demo, we are using the client-side call directly.
-const API_KEY = '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';
+const DEFAULT_KEY = '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';
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [messages, setMessages] = useState<Message[]>([
@@ -25,6 +23,11 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Settings State
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('openrouter_api_key') || DEFAULT_KEY);
+  const [showSettings, setShowSettings] = useState(false);
+  const [tempKey, setTempKey] = useState(apiKey);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -32,7 +35,15 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, showSettings]);
+
+  const handleSaveKey = () => {
+      const cleaned = tempKey.trim();
+      setApiKey(cleaned);
+      localStorage.setItem('openrouter_api_key', cleaned);
+      setShowSettings(false);
+      setMessages(prev => [...prev, { role: 'assistant', content: '✅ API ключ обновлен. Попробуйте отправить запрос.' }]);
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -43,8 +54,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     setIsLoading(true);
 
     try {
-      // Create context from products
-      // We limit the context size slightly to ensure speed
       const menuContext = products.map(p => 
         `- ${p.name} (${p.category}): ${p.variants[0].price}₽`
       ).join('\n');
@@ -67,15 +76,13 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${API_KEY}`,
+          "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          // OpenRouter requires a valid URL for the Referer. 
-          // Using a hardcoded valid URL bypasses issues with 'localhost' or 'file://' in WebViews.
           "HTTP-Referer": "https://coffee-lunch-app.github.io", 
           "X-Title": "Coffee Lunch App",        
         },
         body: JSON.stringify({
-          "model": "google/gemini-flash-1.5-8b", // Changed to Flash 1.5 8B - usually more available
+          "model": "google/gemini-flash-1.5-8b",
           "messages": [
             { "role": "system", "content": systemPrompt },
             ...messages.map(m => ({ role: m.role, content: m.content })),
@@ -84,9 +91,11 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         })
       });
 
-      // Check for HTTP errors first
       if (!response.ok) {
           const errorText = await response.text();
+          if (response.status === 401) {
+              throw new Error("401"); // Special handle for auth
+          }
           throw new Error(`Ошибка API (${response.status}): ${errorText}`);
       }
 
@@ -105,8 +114,12 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
     } catch (error: any) {
       console.error("AI Chat Error:", error);
-      // Display the ACTUAL error to the user for debugging purposes
-      setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${error.message || 'Неизвестная ошибка сети'}` }]);
+      if (error.message === '401') {
+          setMessages(prev => [...prev, { role: 'assistant', content: `🔒 Ошибка ключа (401). Пожалуйста, обновите API ключ в настройках.` }]);
+          setShowSettings(true);
+      } else {
+          setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${error.message || 'Неизвестная ошибка сети'}` }]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -129,52 +142,85 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Powered by Gemini</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-brand-muted hover:text-white transition-colors">
-            <XMarkIcon className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-2">
+              <button onClick={() => setShowSettings(!showSettings)} className="p-2 rounded-full hover:bg-white/10 text-brand-muted hover:text-white transition-colors">
+                <KeyIcon className="w-5 h-5" />
+              </button>
+              <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-brand-muted hover:text-white transition-colors">
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+          </div>
         </div>
 
-        {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-black/20 to-transparent">
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div 
-                className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                  msg.role === 'user' 
-                    ? 'bg-brand-yellow text-black rounded-tr-none font-medium' 
-                    : 'bg-white/10 text-white border border-white/5 rounded-tl-none'
-                }`}
-              >
-                {msg.content}
-              </div>
+        {/* Content Area (Chat or Settings) */}
+        <div className="flex-1 overflow-hidden relative">
+            
+            {/* Settings Overlay */}
+            {showSettings && (
+                <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-xl p-6 flex flex-col items-center justify-center animate-fade-in">
+                    <div className="w-full max-w-xs space-y-4">
+                        <div className="text-center">
+                            <h3 className="text-xl font-bold text-white mb-1">Настройки API</h3>
+                            <p className="text-sm text-brand-muted">Введите OpenRouter API ключ</p>
+                        </div>
+                        <input 
+                            type="password" 
+                            value={tempKey}
+                            onChange={(e) => setTempKey(e.target.value)}
+                            placeholder="sk-or-v1-..."
+                            className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 text-center font-mono text-sm"
+                        />
+                        <div className="flex gap-2">
+                            <button onClick={() => setShowSettings(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button>
+                            <button onClick={handleSaveKey} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Сохранить</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Chat Area */}
+            <div className="absolute inset-0 z-10 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-black/20 to-transparent">
+            {messages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div 
+                    className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                    msg.role === 'user' 
+                        ? 'bg-brand-yellow text-black rounded-tr-none font-medium' 
+                        : 'bg-white/10 text-white border border-white/5 rounded-tl-none'
+                    }`}
+                >
+                    {msg.content}
+                </div>
+                </div>
+            ))}
+            {isLoading && (
+                <div className="flex justify-start">
+                <div className="bg-white/10 p-3 rounded-2xl rounded-tl-none flex gap-1">
+                    <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce delay-100"></div>
+                    <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce delay-200"></div>
+                </div>
+                </div>
+            )}
+            <div ref={messagesEndRef} />
             </div>
-          ))}
-          {isLoading && (
-             <div className="flex justify-start">
-               <div className="bg-white/10 p-3 rounded-2xl rounded-tl-none flex gap-1">
-                 <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce"></div>
-                 <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce delay-100"></div>
-                 <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce delay-200"></div>
-               </div>
-             </div>
-          )}
-          <div ref={messagesEndRef} />
         </div>
 
         {/* Input Area */}
-        <div className="p-4 bg-black/40 border-t border-white/10 backdrop-blur-xl safe-area-bottom">
+        <div className="p-4 bg-black/40 border-t border-white/10 backdrop-blur-xl safe-area-bottom z-30">
            <div className="flex gap-2">
              <input 
                type="text" 
                value={input}
                onChange={(e) => setInput(e.target.value)}
                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+               disabled={showSettings}
                placeholder="Посоветуй что-нибудь к кофе..." 
                className="flex-1 glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 transition-all placeholder:text-brand-muted/50"
              />
              <button 
                onClick={handleSend}
-               disabled={isLoading || !input.trim()}
+               disabled={isLoading || !input.trim() || showSettings}
                className={`p-3 rounded-xl transition-all flex items-center justify-center aspect-square ${
                  !input.trim() 
                    ? 'bg-white/5 text-brand-muted' 
