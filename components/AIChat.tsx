@@ -14,15 +14,18 @@ interface Message {
   content: string;
 }
 
-// Ключ и Прокси
+// Ключ Google API (для работы через прокси Google)
+// ВАЖНО: Ключ OpenRouter (sk-or-...) здесь НЕ СРАБОТАЕТ. Нужен ключ начинающийся на AIza.
 const DEFAULT_KEY = 'AIzaSyCgAd7WzVgafJSYguKsch0JACo1MEPXauE';
+
+// Ваш Cloudflare прокси
 const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
 
-// Модели
+// Актуальные модели Google
 const AVAILABLE_MODELS = [
-  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.0 Flash Lite (Быстрая ⚡️)' },
-  { id: 'google/gemini-2.5-flash', name: 'Gemini 1.5 Flash (Стабильная 🔥)' },
-  { id: 'google/gemini-3-flash', name: 'Gemini 2.0 Pro (Умная 🧠)' },
+  { id: 'gemini-2.0-flash-lite-preview-02-05', name: 'Gemini 2.0 Flash Lite (Быстрая ⚡️)' },
+  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (Стабильная 🔥)' },
+  { id: 'gemini-2.0-pro-exp-02-05', name: 'Gemini 2.0 Pro (Умная 🧠)' },
 ];
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
@@ -76,20 +79,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       setMessages(prev => [...prev, { role: 'assistant', content: '✅ Настройки сохранены. Попробуйте отправить сообщение.' }]);
   };
 
-  // Точный маппинг моделей Google
-  const getGoogleModelId = (orId: string) => {
-      // Flash Lite Preview (Самая новая и быстрая)
-      if (orId.includes('gemini-2.5-flash-lite')) return 'gemini-2.0-flash-lite-preview-02-05';
-      
-      // 1.5 Flash (Самая стабильная на данный момент)
-      if (orId.includes('gemini-2.5-flash')) return 'gemini-1.5-flash';
-      
-      // 2.0 Pro Experimental (Самая умная)
-      if (orId.includes('gemini-3-flash')) return 'gemini-2.0-pro-exp-02-05'; 
-      
-      return 'gemini-1.5-flash';
-  };
-
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -99,13 +88,18 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         return;
     }
 
+    // Проверка на неправильный тип ключа
+    if (apiKey.startsWith('sk-or-')) {
+        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Вы ввели ключ OpenRouter (sk-or...), но используете прокси для Google API. \nПожалуйста, введите ключ Google (начинается на AIza) или смените URL прокси.' }]);
+        setShowSettings(true);
+        return;
+    }
+
     const userMessage = input.trim();
     setInput('');
     const newHistory: Message[] = [...messages, { role: 'user', content: userMessage }];
     setMessages(newHistory);
     setIsLoading(true);
-
-    // Placeholder не добавляем заранее, так как стриминга нет, добавим сразу с ответом
 
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), 60000); // 60 сек таймаут
@@ -128,89 +122,51 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         4. Язык: Русский.
       `;
 
-      const isGoogleKey = apiKey.startsWith('AIza');
-      let url = '';
-      let body: any = {};
-      let headers: any = { 'Content-Type': 'application/json' };
+      // --- GOOGLE API via PROXY (NON-STREAMING) ---
+      // Используем generateContent (без stream), чтобы избежать зависаний прокси
+      const url = `${baseUrl}/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+      
+      const validHistory = newHistory.filter(m => m.content.trim() !== '' && !m.content.includes('✅ Настройки'));
+      const contents = validHistory.map(m => ({
+          role: m.role === 'user' ? 'user' : 'model',
+          parts: [{ text: m.content }]
+      }));
+
+      const body = {
+          contents: contents,
+          systemInstruction: { parts: [{ text: systemPromptText }] },
+          generationConfig: { 
+              temperature: 0.7,
+              maxOutputTokens: 800
+          }
+      };
+
+      const response = await fetch(url, { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify(body),
+          signal: abortController.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+          const errorText = await response.text();
+          console.error("API Error Response:", errorText);
+          if (response.status === 401 || response.status === 403) throw new Error("Ошибка ключа (403). Проверьте ключ Google API.");
+          if (response.status === 404) throw new Error("Модель не найдена (404).");
+          if (response.status === 429) throw new Error("Лимит исчерпан (429).");
+          if (response.status === 500) throw new Error("Ошибка сервера AI (500).");
+          throw new Error(`Ошибка сети (${response.status})`);
+      }
+
+      const data = await response.json();
       let responseText = '';
 
-      if (isGoogleKey) {
-          // --- GOOGLE API (NON-STREAMING) ---
-          // Используем обычный generateContent вместо streamGenerateContent
-          // Это решает 99% проблем с прокси и таймаутами
-          const googleModel = getGoogleModelId(selectedModel);
-          url = `${baseUrl}/v1beta/models/${googleModel}:generateContent?key=${apiKey}`;
-          
-          const validHistory = newHistory.filter(m => m.content.trim() !== '' && !m.content.includes('✅ Настройки'));
-          const contents = validHistory.map(m => ({
-              role: m.role === 'user' ? 'user' : 'model',
-              parts: [{ text: m.content }]
-          }));
-
-          body = {
-              contents: contents,
-              systemInstruction: { parts: [{ text: systemPromptText }] },
-              generationConfig: { 
-                  temperature: 0.7,
-                  maxOutputTokens: 1000 
-              }
-          };
-
-          const response = await fetch(url, { 
-              method: 'POST', 
-              headers, 
-              body: JSON.stringify(body),
-              signal: abortController.signal
-          });
-
-          clearTimeout(timeoutId);
-
-          if (!response.ok) {
-              const errorText = await response.text();
-              console.error("API Error Response:", errorText);
-              if (response.status === 401 || response.status === 403) throw new Error("Ошибка ключа (403).");
-              if (response.status === 404) throw new Error("Модель не найдена (404).");
-              if (response.status === 429) throw new Error("Лимит исчерпан (429).");
-              throw new Error(`Ошибка сервера (${response.status})`);
-          }
-
-          const data = await response.json();
-          if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-              responseText = data.candidates[0].content.parts[0].text;
-          } else {
-              throw new Error("Пустой ответ от модели");
-          }
-
+      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+          responseText = data.candidates[0].content.parts[0].text;
       } else {
-          // --- OPENROUTER (Fallback) ---
-          // Для OpenRouter можно оставить или тоже выключить стрим
-          url = "https://openrouter.ai/api/v1/chat/completions";
-          headers['Authorization'] = `Bearer ${apiKey}`;
-          headers['HTTP-Referer'] = "https://coffee-lunch-app.github.io";
-          headers['X-Title'] = "Coffee Lunch App";
-          
-          body = {
-              model: selectedModel,
-              stream: false, // Тоже выключаем стрим для надежности
-              messages: [
-                { role: "system", content: systemPromptText },
-                ...newHistory.map(m => ({ role: m.role, content: m.content }))
-              ]
-          };
-
-          const response = await fetch(url, { 
-              method: 'POST', 
-              headers, 
-              body: JSON.stringify(body),
-              signal: abortController.signal
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) throw new Error(`Ошибка OpenRouter (${response.status})`);
-          
-          const data = await response.json();
-          responseText = data.choices?.[0]?.message?.content || "";
+          throw new Error("Пустой ответ от модели.");
       }
 
       // Добавляем ответ в чат
@@ -315,7 +271,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                         </div>
 
                         <div className="space-y-1 text-left">
-                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">API Ключ</label>
+                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">API Ключ (AIza...)</label>
                             <input 
                                 type="password" 
                                 value={tempKey}
