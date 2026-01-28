@@ -14,16 +14,15 @@ interface Message {
   content: string;
 }
 
-// Новый ключ API
+// Ключ и Прокси
 const DEFAULT_KEY = 'AIzaSyCgAd7WzVgafJSYguKsch0JACo1MEPXauE';
-// Ваш прокси
 const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
 
-// Вернул 3 версии для теста стабильности
+// Модели
 const AVAILABLE_MODELS = [
-  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Быстрая ⚡️)' },
-  { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash (Баланс 🔥)' },
-  { id: 'google/gemini-3-flash', name: 'Gemini 3 / Pro (Умная 🧠)' },
+  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.0 Flash Lite (Быстрая ⚡️)' },
+  { id: 'google/gemini-2.5-flash', name: 'Gemini 1.5 Flash (Стабильная 🔥)' },
+  { id: 'google/gemini-3-flash', name: 'Gemini 2.0 Pro (Умная 🧠)' },
 ];
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
@@ -41,7 +40,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   
   const [showSettings, setShowSettings] = useState(false);
   
-  // Temp state for settings
   const [tempKey, setTempKey] = useState(apiKey);
   const [tempModel, setTempModel] = useState(selectedModel);
   const [tempBaseUrl, setTempBaseUrl] = useState(baseUrl);
@@ -78,50 +76,18 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       setMessages(prev => [...prev, { role: 'assistant', content: '✅ Настройки сохранены. Попробуйте отправить сообщение.' }]);
   };
 
-  // Маппинг названий моделей
+  // Точный маппинг моделей Google
   const getGoogleModelId = (orId: string) => {
+      // Flash Lite Preview (Самая новая и быстрая)
       if (orId.includes('gemini-2.5-flash-lite')) return 'gemini-2.0-flash-lite-preview-02-05';
-      if (orId.includes('gemini-2.5-flash')) return 'gemini-2.0-flash';
-      if (orId.includes('gemini-3-flash')) return 'gemini-2.0-pro-exp-02-05'; 
-      return 'gemini-2.0-flash-lite-preview-02-05';
-  };
-
-  const readStream = async (response: Response, onChunk: (text: string) => void) => {
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) return;
-
-      let buffer = '';
       
-      while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value, { stream: true });
-          buffer += chunk;
-          
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed.startsWith('data: ')) continue;
-              
-              const dataStr = trimmed.slice(6);
-              if (dataStr === '[DONE]') continue;
-
-              try {
-                  const data = JSON.parse(dataStr);
-                  if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                      onChunk(data.candidates[0].content.parts[0].text);
-                  } else if (data.choices?.[0]?.delta?.content) {
-                      onChunk(data.choices[0].delta.content);
-                  }
-              } catch (e) { 
-                  // Игнорируем ошибки парсинга неполных JSON
-              }
-          }
-      }
+      // 1.5 Flash (Самая стабильная на данный момент)
+      if (orId.includes('gemini-2.5-flash')) return 'gemini-1.5-flash';
+      
+      // 2.0 Pro Experimental (Самая умная)
+      if (orId.includes('gemini-3-flash')) return 'gemini-2.0-pro-exp-02-05'; 
+      
+      return 'gemini-1.5-flash';
   };
 
   const handleSend = async () => {
@@ -139,11 +105,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     setMessages(newHistory);
     setIsLoading(true);
 
-    // Placeholder для ответа
-    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+    // Placeholder не добавляем заранее, так как стриминга нет, добавим сразу с ответом
 
     const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), 40000); // 40 сек таймаут
+    const timeoutId = setTimeout(() => abortController.abort(), 60000); // 60 сек таймаут
 
     try {
       const menuContext = products.map(p => 
@@ -167,11 +132,14 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       let url = '';
       let body: any = {};
       let headers: any = { 'Content-Type': 'application/json' };
+      let responseText = '';
 
       if (isGoogleKey) {
+          // --- GOOGLE API (NON-STREAMING) ---
+          // Используем обычный generateContent вместо streamGenerateContent
+          // Это решает 99% проблем с прокси и таймаутами
           const googleModel = getGoogleModelId(selectedModel);
-          // Добавляем streamGenerateContent
-          url = `${baseUrl}/v1beta/models/${googleModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
+          url = `${baseUrl}/v1beta/models/${googleModel}:generateContent?key=${apiKey}`;
           
           const validHistory = newHistory.filter(m => m.content.trim() !== '' && !m.content.includes('✅ Настройки'));
           const contents = validHistory.map(m => ({
@@ -182,11 +150,40 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           body = {
               contents: contents,
               systemInstruction: { parts: [{ text: systemPromptText }] },
-              generationConfig: { temperature: 0.7 }
+              generationConfig: { 
+                  temperature: 0.7,
+                  maxOutputTokens: 1000 
+              }
           };
 
+          const response = await fetch(url, { 
+              method: 'POST', 
+              headers, 
+              body: JSON.stringify(body),
+              signal: abortController.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+              const errorText = await response.text();
+              console.error("API Error Response:", errorText);
+              if (response.status === 401 || response.status === 403) throw new Error("Ошибка ключа (403).");
+              if (response.status === 404) throw new Error("Модель не найдена (404).");
+              if (response.status === 429) throw new Error("Лимит исчерпан (429).");
+              throw new Error(`Ошибка сервера (${response.status})`);
+          }
+
+          const data = await response.json();
+          if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+              responseText = data.candidates[0].content.parts[0].text;
+          } else {
+              throw new Error("Пустой ответ от модели");
+          }
+
       } else {
-          // Fallback для OpenRouter
+          // --- OPENROUTER (Fallback) ---
+          // Для OpenRouter можно оставить или тоже выключить стрим
           url = "https://openrouter.ai/api/v1/chat/completions";
           headers['Authorization'] = `Bearer ${apiKey}`;
           headers['HTTP-Referer'] = "https://coffee-lunch-app.github.io";
@@ -194,73 +191,36 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           
           body = {
               model: selectedModel,
-              stream: true,
+              stream: false, // Тоже выключаем стрим для надежности
               messages: [
                 { role: "system", content: systemPromptText },
                 ...newHistory.map(m => ({ role: m.role, content: m.content }))
               ]
           };
-      }
 
-      const response = await fetch(url, { 
-          method: 'POST', 
-          headers, 
-          body: JSON.stringify(body),
-          signal: abortController.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-          const errorText = await response.text();
-          console.error("API Error Response:", errorText);
-          if (response.status === 401 || response.status === 403) throw new Error("Ошибка ключа (403). Проверьте настройки.");
-          if (response.status === 404) throw new Error("Модель не найдена (404). Выберите другую версию.");
-          if (response.status === 429) throw new Error("Лимит исчерпан (429).");
-          if (response.status === 500) throw new Error("Ошибка сервера AI (500). Попробуйте позже.");
-          throw new Error(`Ошибка сети (${response.status})`);
-      }
-
-      let fullText = '';
-      await readStream(response, (chunk) => {
-          fullText += chunk;
-          setMessages(prev => {
-              const newMsgs = [...prev];
-              const lastIdx = newMsgs.length - 1;
-              if (lastIdx >= 0 && newMsgs[lastIdx].role === 'assistant') {
-                  newMsgs[lastIdx] = { ...newMsgs[lastIdx], content: fullText };
-              }
-              return newMsgs;
+          const response = await fetch(url, { 
+              method: 'POST', 
+              headers, 
+              body: JSON.stringify(body),
+              signal: abortController.signal
           });
-      });
-
-      // Если после стрима текст пустой (иногда бывает при ошибках прокси, которые отдают 200 OK но без данных)
-      if (!fullText) {
-           throw new Error("Пустой ответ от сервера.");
+          
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) throw new Error(`Ошибка OpenRouter (${response.status})`);
+          
+          const data = await response.json();
+          responseText = data.choices?.[0]?.message?.content || "";
       }
+
+      // Добавляем ответ в чат
+      setMessages(prev => [...prev, { role: 'assistant', content: responseText }]);
 
     } catch (error: any) {
       console.error("AI Chat Error:", error);
-      setMessages(prev => {
-          const newMsgs = [...prev];
-          const lastIdx = newMsgs.length - 1;
-          if (lastIdx >= 0 && newMsgs[lastIdx].role === 'assistant') {
-               const currentContent = newMsgs[lastIdx].content;
-               // Если есть контент, не затираем его ошибкой, а добавляем
-               const errorMsg = error.name === 'AbortError' ? '⏳ Слишком долгое ожидание.' : `⚠️ ${error.message}`;
-               
-               // Если контента еще не было, показываем ошибку
-               if (!currentContent) {
-                   newMsgs[lastIdx] = { ...newMsgs[lastIdx], content: errorMsg };
-               } else {
-                   // Если контент был (обрыв стрима), добавляем пометку
-                   newMsgs[lastIdx] = { ...newMsgs[lastIdx], content: currentContent + `\n\n[${errorMsg}]` };
-               }
-          }
-          return newMsgs;
-      });
+      const errorMsg = error.name === 'AbortError' ? '⏳ Превышено время ожидания.' : `⚠️ ${error.message}`;
+      setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
       
-      // Показываем настройки при критических ошибках
       if (error.message.includes("403") || error.message.includes("429") || error.message.includes("404")) {
           setTimeout(() => setShowSettings(true), 1500);
       }
@@ -397,7 +357,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                 </div>
                 </div>
             ))}
-            {isLoading && !messages[messages.length - 1]?.content && (
+            {isLoading && (
                 <div className="flex justify-start">
                 <div className="bg-white/10 p-4 rounded-2xl rounded-tl-none flex gap-1.5 items-center">
                     <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce"></div>
