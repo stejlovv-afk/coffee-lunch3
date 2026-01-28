@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { SparklesIcon, SendIcon, XMarkIcon, KeyIcon } from './ui/Icons';
+import { SparklesIcon, SendIcon, XMarkIcon, KeyIcon, PlusIcon } from './ui/Icons';
 import { Product } from '../types';
 
 interface AIChatProps {
@@ -14,20 +14,20 @@ interface Message {
   content: string;
 }
 
-const DEFAULT_KEY = '';
-// Используем ваш Cloudflare Worker как прокси по умолчанию для обхода блокировок в РФ
+// Ключ и настройки по умолчанию
+const DEFAULT_KEY = 'AIzaSyCgAd7WzVgafJSYguKsch0JACo1MEPXauE';
+// Используем ваш Cloudflare Worker как прокси для обхода блокировок в РФ (если пользователь в РФ)
+// Если пользователь не в РФ, Google API работает напрямую.
 const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
 
-// Обновленный список моделей согласно вашему скриншоту
+// Только одна модель, как просили
 const AVAILABLE_MODELS = [
-  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Самая быстрая 🚀)' },
-  { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash (Баланс)' },
-  { id: 'google/gemini-3-flash', name: 'Gemini 3 Flash (Самая умная 🧠)' },
+  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Зернышко)' },
 ];
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Привет! Я ваш AI-бариста. ☕️\nЧто хотите попробовать?' }
+    { role: 'assistant', content: 'Привет! Я Зернышко ☕️\nСпроси меня, что сегодня вкусного, и я помогу выбрать!' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +63,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
   const handleSaveSettings = () => {
       const cleanedKey = tempKey.trim();
-      const cleanedUrl = tempBaseUrl.trim().replace(/\/$/, ''); // remove trailing slash
+      const cleanedUrl = tempBaseUrl.trim().replace(/\/$/, '');
       
       setApiKey(cleanedKey);
       setSelectedModel(tempModel);
@@ -75,19 +75,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       
       setShowSettings(false);
       setMessages(prev => [...prev, { role: 'assistant', content: '✅ Настройки сохранены.' }]);
-  };
-
-  const getGoogleModelId = (orId: string) => {
-      // Убираем префикс google/, если выбран OpenRouter ID, но используется прямой ключ
-      const cleanId = orId.replace('google/', '');
-      
-      // Используем прямые ID из вашего списка
-      if (cleanId === 'gemini-2.5-flash-lite') return 'gemini-2.5-flash-lite';
-      if (cleanId === 'gemini-2.5-flash') return 'gemini-2.5-flash';
-      if (cleanId === 'gemini-3-flash') return 'gemini-3-flash';
-      
-      // Fallback
-      return 'gemini-2.5-flash-lite';
   };
 
   // Helper function to read streaming response
@@ -106,7 +93,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           buffer += chunk;
           
           const lines = buffer.split('\n');
-          // Keep the last line in buffer if it's incomplete
           buffer = lines.pop() || '';
 
           for (const line of lines) {
@@ -122,13 +108,11 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                   if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
                       onChunk(data.candidates[0].content.parts[0].text);
                   }
-                  // OpenRouter / OpenAI Format
+                  // OpenRouter Format
                   else if (data.choices?.[0]?.delta?.content) {
                       onChunk(data.choices[0].delta.content);
                   }
-              } catch (e) {
-                  // Ignore parse errors for partial chunks
-              }
+              } catch (e) { }
           }
       }
   };
@@ -144,23 +128,32 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
     const userMessage = input.trim();
     setInput('');
-    // Add user message immediately
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    // Добавляем сообщение пользователя
+    const newHistory: Message[] = [...messages, { role: 'user', content: userMessage }];
+    setMessages(newHistory);
     setIsLoading(true);
 
-    // Create a placeholder for assistant message
+    // Placeholder для ответа ассистента
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     try {
       const menuContext = products.map(p => 
-        `- ${p.name} (${p.category}): ${p.variants[0].price}₽`
+        `- ${p.name} (${p.category}) ID:${p.id} : ${p.variants[0].price}₽`
       ).join('\n');
 
       const systemPromptText = `
-        Ты - бариста в "Coffee Lunch".
+        Ты - "Зернышко", веселый бариста в кофейне "Coffee Lunch".
+        
         МЕНЮ:
         ${menuContext}
-        Правила: Рекомендуй из меню. Очень кратко (макс 15 слов). Весело. Эмодзи. Русский язык.
+
+        ПРАВИЛА:
+        1. Твоя цель - вкусно описать и ПРОДАТЬ товар.
+        2. Если ты советуешь конкретный продукт, ОБЯЗАТЕЛЬНО добавь его ID в конце предложения в формате: {{ID_ТОВАРА}}. 
+           Например: "Возьмите капучино, он бодрит! {{cappuccino}}".
+           Можно советовать несколько товаров: "К кофе {{latte}} отлично подойдет круассан {{croissant_chocolate}}".
+        3. Будь дружелюбным, используй эмодзи.
+        4. Отвечай на русском языке.
       `;
 
       const isGoogleKey = apiKey.startsWith('AIza');
@@ -170,27 +163,28 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
       if (isGoogleKey) {
           // --- DIRECT GOOGLE API (STREAMING) ---
-          const googleModel = getGoogleModelId(selectedModel);
-          // alt=sse is crucial for standard stream parsing
+          const googleModel = 'gemini-2.0-flash-lite-preview-02-05';
           url = `${baseUrl}/v1beta/models/${googleModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
           
-          const contents = messages.map(m => ({
+          // Формируем историю для Google (строго user -> model -> user)
+          const validHistory = newHistory.filter(m => m.content.trim() !== '' && !m.content.includes('✅ Настройки'));
+          
+          const contents = validHistory.map(m => ({
               role: m.role === 'user' ? 'user' : 'model',
               parts: [{ text: m.content }]
           }));
-          contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
           body = {
               contents: contents,
               systemInstruction: { parts: [{ text: systemPromptText }] },
               generationConfig: {
-                  maxOutputTokens: 150, // Ограничиваем длину для скорости
                   temperature: 0.7
+                  // Убрали ограничение maxOutputTokens, чтобы ответы были полными
               }
           };
 
       } else {
-          // --- OPENROUTER API (STREAMING) ---
+          // --- OPENROUTER (Fallback) ---
           url = "https://openrouter.ai/api/v1/chat/completions";
           headers['Authorization'] = `Bearer ${apiKey}`;
           headers['HTTP-Referer'] = "https://coffee-lunch-app.github.io";
@@ -198,13 +192,11 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           
           body = {
               model: selectedModel,
-              stream: true, // Enable streaming
+              stream: true,
               messages: [
                 { role: "system", content: systemPromptText },
-                ...messages.map(m => ({ role: m.role, content: m.content })),
-                { role: "user", content: userMessage }
-              ],
-              max_tokens: 150
+                ...newHistory.map(m => ({ role: m.role, content: m.content }))
+              ]
           };
       }
 
@@ -212,19 +204,16 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
       if (!response.ok) {
           const errorText = await response.text();
-          if (response.status === 401 || response.status === 403) throw new Error("Ошибка доступа (403). Проверьте ключ.");
-          if (response.status === 404) throw new Error("Модель не найдена (404). Выберите другую.");
-          if (response.status === 429) throw new Error("Лимит исчерпан (429).");
+          if (response.status === 401 || response.status === 403) throw new Error("Ошибка ключа. Проверьте настройки.");
+          if (response.status === 429) throw new Error("Слишком много запросов.");
           throw new Error(`Ошибка сети (${response.status})`);
       }
 
-      // Handle Streaming Response
       let fullText = '';
       await readStream(response, (chunk) => {
           fullText += chunk;
           setMessages(prev => {
               const newMsgs = [...prev];
-              // Update the last message (which is the assistant placeholder)
               const lastIdx = newMsgs.length - 1;
               if (lastIdx >= 0 && newMsgs[lastIdx].role === 'assistant') {
                   newMsgs[lastIdx] = { ...newMsgs[lastIdx], content: fullText };
@@ -235,7 +224,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
     } catch (error: any) {
       console.error("AI Chat Error:", error);
-      // Remove the empty placeholder if error occurred at start, or append error
       setMessages(prev => {
           const newMsgs = [...prev];
           const lastIdx = newMsgs.length - 1;
@@ -255,6 +243,41 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     }
   };
 
+  // --- Рендеринг сообщения с карточками товаров ---
+  const renderMessageContent = (text: string) => {
+    // Разбиваем текст по тегу {{ID}}
+    const parts = text.split(/(\{\{.*?\}\})/g);
+
+    return parts.map((part, index) => {
+        // Если это тег товара
+        if (part.startsWith('{{') && part.endsWith('}}')) {
+            const productId = part.slice(2, -2).trim();
+            const product = products.find(p => p.id === productId);
+
+            if (!product) return null; // Если товар не найден, скрываем тег
+
+            return (
+                <div key={index} className="my-2 p-2 bg-black/40 rounded-xl border border-brand-yellow/30 flex items-center gap-3 shadow-lg transform transition-all hover:scale-[1.02]">
+                    <img src={product.image} alt={product.name} className="w-12 h-12 rounded-lg object-cover" />
+                    <div className="flex-1 min-w-0">
+                        <div className="font-bold text-white text-sm truncate">{product.name}</div>
+                        <div className="text-brand-yellow font-black text-xs">{product.variants[0].price}₽</div>
+                    </div>
+                    <button 
+                        onClick={() => onAddToCart(product)}
+                        className="bg-brand-yellow text-black p-2 rounded-lg font-bold text-xs shadow-md active:scale-95 transition-transform flex items-center gap-1"
+                    >
+                        <PlusIcon className="w-4 h-4" />
+                        Выбрать
+                    </button>
+                </div>
+            );
+        }
+        // Обычный текст
+        return <span key={index}>{part}</span>;
+    });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md pointer-events-auto transition-opacity" onClick={onClose} />
@@ -264,13 +287,13 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10 bg-brand-dark/90 backdrop-blur-xl">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-brand-yellow/20 flex items-center justify-center border border-brand-yellow/30">
+            <div className="w-10 h-10 rounded-full bg-brand-yellow/20 flex items-center justify-center border border-brand-yellow/30 animate-pulse">
                <SparklesIcon className="w-5 h-5 text-brand-yellow" />
             </div>
             <div>
-               <h3 className="font-bold text-white leading-tight">AI Бариста</h3>
+               <h3 className="font-bold text-white leading-tight">Зернышко AI</h3>
                <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">
-                   {apiKey.startsWith('AIza') ? 'Google API (Proxy)' : 'OpenRouter'}
+                   Online
                </p>
             </div>
           </div>
@@ -287,73 +310,26 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         {/* Content Area */}
         <div className="flex-1 overflow-hidden relative">
             
-            {/* Settings Overlay */}
+            {/* Settings Overlay (Скрыт по умолчанию) */}
             {showSettings && (
                 <div className="absolute inset-0 z-20 bg-black/95 backdrop-blur-xl p-6 flex flex-col items-center justify-center animate-fade-in text-center">
-                    <div className="w-full max-w-xs space-y-4 overflow-y-auto max-h-full py-2 no-scrollbar">
-                        <div>
-                            <h3 className="text-xl font-bold text-white mb-1">Настройки</h3>
-                            <p className="text-[10px] text-brand-muted">
-                                Используйте ключ Google.
-                                <br/>Прокси для РФ настроен автоматически.
-                            </p>
-                            <a 
-                                href="https://aistudio.google.com/app/apikey" 
-                                target="_blank" 
-                                rel="noreferrer"
-                                className="text-[10px] text-blue-400 underline block mt-1"
-                            >
-                                Получить ключ Google (бесплатно)
-                            </a>
-                        </div>
-                        
+                    <div className="w-full max-w-xs space-y-4">
+                        <h3 className="text-xl font-bold text-white">Настройки</h3>
                         <div className="space-y-1 text-left">
                             <label className="text-xs font-bold text-brand-muted uppercase ml-1">Модель</label>
-                            <div className="space-y-1">
-                                {AVAILABLE_MODELS.map(m => (
-                                    <button
-                                        key={m.id}
-                                        onClick={() => setTempModel(m.id)}
-                                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
-                                            tempModel === m.id 
-                                            ? 'bg-brand-yellow text-black border-brand-yellow' 
-                                            : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
-                                        }`}
-                                    >
-                                        {m.name}
-                                    </button>
-                                ))}
+                            <div className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold border bg-brand-yellow text-black border-brand-yellow">
+                                {AVAILABLE_MODELS[0].name}
                             </div>
                         </div>
-
                         <div className="space-y-1 text-left">
-                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">API Ключ (Google)</label>
+                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">API Ключ</label>
                             <input 
                                 type="password" 
                                 value={tempKey}
                                 onChange={(e) => setTempKey(e.target.value)}
-                                placeholder="AIza..."
                                 className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 font-mono text-xs"
                             />
                         </div>
-
-                        <div className="space-y-1 text-left">
-                            <label className="text-xs font-bold text-brand-muted uppercase ml-1 flex items-center justify-between">
-                                <span>Прокси URL</span>
-                                <span className="text-[9px] opacity-50 text-white">Cloudflare</span>
-                            </label>
-                            <input 
-                                type="text" 
-                                value={tempBaseUrl}
-                                onChange={(e) => setTempBaseUrl(e.target.value)}
-                                placeholder="https://..."
-                                className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 font-mono text-xs"
-                            />
-                            <p className="text-[9px] text-brand-muted pl-1 leading-tight">
-                                URL вашего воркера. Уже вставлен по умолчанию.
-                            </p>
-                        </div>
-
                         <div className="flex gap-2 pt-2">
                             <button onClick={() => setShowSettings(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button>
                             <button onClick={handleSaveSettings} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Сохранить</button>
@@ -373,7 +349,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                         : 'bg-white/10 text-white border border-white/5 rounded-tl-none'
                     }`}
                 >
-                    {msg.content}
+                    {renderMessageContent(msg.content)}
                 </div>
                 </div>
             ))}
@@ -399,7 +375,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                onChange={(e) => setInput(e.target.value)}
                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                disabled={showSettings}
-               placeholder="Посоветуй десерт..." 
+               placeholder="Что посоветуешь?" 
                className="flex-1 glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 transition-all placeholder:text-brand-muted/50"
              />
              <button 
