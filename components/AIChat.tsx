@@ -18,9 +18,8 @@ interface Message {
 const TIMEWEB_API_URL = 'https://agent.timeweb.cloud/api/v1/cloud-ai/agents/aabb17cb-c1df-4ccb-b419-f438bb89fec1/v1';
 const TIMEWEB_API_KEY = 'eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCIsImtpZCI6IjFrYnhacFJNQGJSI0tSbE1xS1lqIn0.eyJ1c2VyIjoicW40ODM4MjAiLCJ0eXBlIjoiYXBpX2tleSIsImFwaV9rZXlfaWQiOiI1ZDA5MjAzYS03OTg0LTRjMTQtYmVkYS1jNjJlNTBkMDFlODgiLCJpYXQiOjE3Njk2MzY5MDJ9.BKZO8nPYf7ueqwQEr6gRxB_nqsO91ChQPq7Jh1FZff6WVWACQ0KmQdpTCIFH2jXzilW14mNqx856gRNp-xlyTJkmyB6EAWdVPnjreSk3ENaMEEzz1Jc8AyREP7q_qkzJHzsvoql1OXYFGD1aok7iBpNNEZqgPEmi-qLp8cv9T8zDNG5l6vBJjJctfzpN29vrUcyeDqLKEny05K6vYALXx-l0QFMM082rwJcW2y2DVZsnbS4_BA8wYSGUz1TciBAJJAVgxNJXZ87-xK_PmR-oMzNND2TeXl_Miez_HdOuit6kC6kQipbw-anCLFdaTxc3UXOWF_zuskPqeb3s9RmtyYLnDMIfPHSwl0K-IvDmShQVKIEdRM7QUq52xLfqLjPjjTaOdPcWAjaRLW_PKrFleARmyoHoSRN2g9UWY-EeuJVUBj-7SBRygyjp_O4BRtlUcTi51WGGE5RNx_n5JMcn_DfzvZEjkh3vthztn4S1X35LW8Go7AGEmS_JlDX_VU_z';
 
-// --- СПИСКИ ДОБАВОК ---
-const AVAILABLE_MILK = "Банановое, Кокосовое, Миндальное, Безлактозное, Обычное";
-const AVAILABLE_SYRUPS = "Фисташка, Лесной орех, Кокос, Миндаль, Кр. апельсин, Клубника, Персик, Дыня, Слива, Яблоко, Малина, Вишня, Лаванда, Пряник, Лемонграсс, Попкорн, Мята, Баблгам, Сол. карамель";
+// --- СПИСКИ ДОБАВОК (Сжато) ---
+const ADDONS = "Сиропы: Фисташка, Лесной орех, Кокос, Миндаль, Апельсин, Клубника, Персик, Дыня, Слива, Яблоко, Малина, Вишня, Лаванда, Пряник, Попкорн, Мята, Карамель. Молоко: Банановое, Кокосовое, Миндальное, Безлактозное.";
 
 // --- БЫСТРЫЕ ВОПРОСЫ ---
 const SUGGESTIONS = [
@@ -29,15 +28,15 @@ const SUGGESTIONS = [
 
 // Русские названия категорий для красивого вывода
 const CATEGORY_NAMES: Record<string, string> = {
-    coffee: 'КОФЕ', tea: 'ЧАЙ', seasonal: 'СЕЗОННОЕ', punch: 'ПУНШИ', soda: 'НАПИТКИ',
-    fast_food: 'ФАСТФУД', combo: 'КОМБО ОБЕДЫ', hot_dishes: 'ГОРЯЧЕЕ', soups: 'СУПЫ',
-    side_dishes: 'ГАРНИРЫ', salads: 'САЛАТЫ', bakery: 'ВЫПЕЧКА', desserts: 'ДЕСЕРТЫ',
+    coffee: 'КОФЕ', tea: 'ЧАЙ', seasonal: 'СЕЗОН', punch: 'ПУНШ', soda: 'НАПИТКИ',
+    fast_food: 'ЕДА', combo: 'КОМБО', hot_dishes: 'ГОРЯЧЕЕ', soups: 'СУПЫ',
+    side_dishes: 'ГАРНИР', salads: 'САЛАТ', bakery: 'ВЫПЕЧКА', desserts: 'ДЕСЕРТ',
     sweets: 'СЛАДОСТИ', ice_cream: 'МОРОЖЕНОЕ'
 };
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Привет! Я Зернышко ☕️\nПодсказать что-то из еды или напитков?' }
+    { role: 'assistant', content: 'Привет! Я Зернышко ☕️\nПодсказать что-то из меню?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -56,22 +55,22 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     scrollToBottom();
   }, [messages]);
 
-  // Генерация полного контекста меню
-  // Мы берем ВСЕ продукты, которые пришли в props (они уже отфильтрованы в App.tsx)
-  const getFullMenuContext = (): string => {
+  // Генерация СЖАТОГО контекста меню для экономии токенов
+  // Формат: КАТЕГОРИЯ: Товар|Цена|id; Товар|Цена|id;
+  const getCompactMenuContext = (): string => {
       const grouped: Record<string, string[]> = {};
 
       products.forEach(p => {
           if (!grouped[p.category]) grouped[p.category] = [];
-          // Формат: Название (Цена) {{ID}}
-          grouped[p.category].push(`${p.name} (${p.variants[0].price}₽) {{${p.id}}}`);
+          // Максимально короткий формат: Название|Цена|id
+          grouped[p.category].push(`${p.name}|${p.variants[0].price}|${p.id}`);
       });
 
-      let contextString = "АКТУАЛЬНОЕ МЕНЮ (Только то, что есть в наличии):\n";
+      let contextString = "МЕНЮ (Категория: Название|Цена|ID):\n";
       
       for (const [cat, items] of Object.entries(grouped)) {
           const catName = CATEGORY_NAMES[cat] || cat.toUpperCase();
-          contextString += `\n--- ${catName} ---\n${items.join(', ')}\n`;
+          contextString += `${catName}: ${items.join('; ')}\n`;
       }
 
       return contextString;
@@ -90,32 +89,24 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     const timeoutId = setTimeout(() => abortController.abort(), 60000); 
 
     try {
-      // 1. Получаем ПОЛНЫЙ список доступных товаров
-      const menuContext = getFullMenuContext();
+      // 1. Получаем СЖАТЫЙ список
+      const menuContext = getCompactMenuContext();
 
-      // 2. Строгий системный промпт
+      // 2. Системный промпт (оптимизированный)
       const systemPromptText = `
-        Ты бариста "Зернышко".
-        
-        Твоя задача — продавать товары ИСКЛЮЧИТЕЛЬНО из списка ниже.
-        
-        СПИСОК ДОСТУПНЫХ ТОВАРОВ:
+        Ты бариста "Зернышко". Продавай ТОЛЬКО из списка:
         ${menuContext}
+        ${ADDONS}
 
-        ДОБАВКИ (можно предлагать к кофе/чаю):
-        Сиропы: ${AVAILABLE_SYRUPS}
-        Молоко: ${AVAILABLE_MILK}
-
-        СТРОГИЕ ПРАВИЛА:
-        1. Если пользователь просит товар, которого НЕТ в списке (например, Латте, если он скрыт) — ты ОБЯЗАН сказать: "К сожалению, [Товар] сейчас закончился или выведен из меню". НЕ предлагай его.
-        2. Если товар есть в списке — расскажи о нем вкусно и предложи добавить его в корзину, указав ID в формате {{ID}}.
-        3. Если просят "что-нибудь поесть" — посмотри разделы ФАСТФУД, ВЫПЕЧКА, ГОРЯЧЕЕ, СУПЫ в списке. Там есть Сосиски, Самса, Супы и т.д.
-        4. Не придумывай цены. Бери их из списка.
-        5. Будь краток и вежлив.
+        ПРАВИЛА:
+        1. Формат данных в списке: "Название|Цена|ID".
+        2. Если товара НЕТ в списке (даже если это Капучино, но он скрыт) — скажи "Сейчас нет в наличии".
+        3. Предлагай товар, указывая ID так: {{ID}}. Пример: "Возьмите Латте {{latte}}".
+        4. Будь краток.
       `;
 
-      // 3. Формируем историю
-      const recentHistory = newHistory.slice(-6); 
+      // 3. Формируем историю (Берем только последние 4 сообщения для экономии)
+      const recentHistory = newHistory.slice(-4); 
       const apiMessages = [
           { role: 'system', content: systemPromptText },
           ...recentHistory
@@ -130,8 +121,8 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           body: JSON.stringify({
               model: 'gemini-3-flash-preview', 
               messages: apiMessages,
-              temperature: 0.4, // Понижаем температуру, чтобы он меньше фантазировал
-              max_tokens: 800 
+              temperature: 0.3, // Еще ниже для строгости
+              max_tokens: 400 // Ограничиваем длину ответа
           }),
           signal: abortController.signal
       });
