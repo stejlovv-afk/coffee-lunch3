@@ -18,32 +18,30 @@ interface Message {
 const TIMEWEB_API_URL = 'https://agent.timeweb.cloud/api/v1/cloud-ai/agents/aabb17cb-c1df-4ccb-b419-f438bb89fec1/v1';
 const TIMEWEB_API_KEY = 'eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCIsImtpZCI6IjFrYnhacFJNQGJSI0tSbE1xS1lqIn0.eyJ1c2VyIjoicW40ODM4MjAiLCJ0eXBlIjoiYXBpX2tleSIsImFwaV9rZXlfaWQiOiI1ZDA5MjAzYS03OTg0LTRjMTQtYmVkYS1jNjJlNTBkMDFlODgiLCJpYXQiOjE3Njk2MzY5MDJ9.BKZO8nPYf7ueqwQEr6gRxB_nqsO91ChQPq7Jh1FZff6WVWACQ0KmQdpTCIFH2jXzilW14mNqx856gRNp-xlyTJkmyB6EAWdVPnjreSk3ENaMEEzz1Jc8AyREP7q_qkzJHzsvoql1OXYFGD1aok7iBpNNEZqgPEmi-qLp8cv9T8zDNG5l6vBJjJctfzpN29vrUcyeDqLKEny05K6vYALXx-l0QFMM082rwJcW2y2DVZsnbS4_BA8wYSGUz1TciBAJJAVgxNJXZ87-xK_PmR-oMzNND2TeXl_Miez_HdOuit6kC6kQipbw-anCLFdaTxc3UXOWF_zuskPqeb3s9RmtyYLnDMIfPHSwl0K-IvDmShQVKIEdRM7QUq52xLfqLjPjjTaOdPcWAjaRLW_PKrFleARmyoHoSRN2g9UWY-EeuJVUBj-7SBRygyjp_O4BRtlUcTi51WGGE5RNx_n5JMcn_DfzvZEjkh3vthztn4S1X35LW8Go7AGEmS_JlDX_VU_z';
 
-// --- СПИСКИ ДОБАВОК (Сжато) ---
-const ADDONS = "Сиропы: Фисташка, Лесной орех, Кокос, Миндаль, Апельсин, Клубника, Персик, Дыня, Слива, Яблоко, Малина, Вишня, Лаванда, Пряник, Попкорн, Мята, Карамель. Молоко: Банановое, Кокосовое, Миндальное, Безлактозное.";
+// --- СПИСКИ ДОБАВОК ---
+const ADDONS = "Сиропы (Фисташка, Лесной орех, Кокос, Апельсин, Клубника, Вишня, Пряник, Попкорн, Мята, Карамель). Молоко (Банановое, Кокосовое, Миндальное, Безлактозное).";
 
 // --- БЫСТРЫЕ ВОПРОСЫ ---
 const SUGGESTIONS = [
     "Хочу кофе", "Что поесть?", "Авторский чай", "Сладкое к кофе"
 ];
 
-// Русские названия категорий для красивого вывода
 const CATEGORY_NAMES: Record<string, string> = {
-    coffee: 'КОФЕ', tea: 'ЧАЙ', seasonal: 'СЕЗОН', punch: 'ПУНШ', soda: 'НАПИТКИ',
+    coffee: 'КОФЕ', tea: 'ЧАЙ', seasonal: 'СЕЗОННОЕ', punch: 'ПУНШИ', soda: 'НАПИТКИ',
     fast_food: 'ЕДА', combo: 'КОМБО', hot_dishes: 'ГОРЯЧЕЕ', soups: 'СУПЫ',
-    side_dishes: 'ГАРНИР', salads: 'САЛАТ', bakery: 'ВЫПЕЧКА', desserts: 'ДЕСЕРТ',
+    side_dishes: 'ГАРНИРЫ', salads: 'САЛАТЫ', bakery: 'ВЫПЕЧКА', desserts: 'ДЕСЕРТЫ',
     sweets: 'СЛАДОСТИ', ice_cream: 'МОРОЖЕНОЕ'
 };
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Привет! Я Зернышко ☕️\nПодсказать что-то из меню?' }
+    { role: 'assistant', content: 'Привет! Я Зернышко ☕️\nРассказать про наши вкусные новинки?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Refs for voice input
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef('');
 
@@ -55,24 +53,21 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     scrollToBottom();
   }, [messages]);
 
-  // Генерация СЖАТОГО контекста меню для экономии токенов
-  // Формат: КАТЕГОРИЯ: Товар|Цена|id; Товар|Цена|id;
-  const getCompactMenuContext = (): string => {
+  // СУПЕР-СЖАТЫЙ КОНТЕКСТ: Только Название (Цена)
+  // ID удалены для экономии токенов
+  const getSuperCompactMenu = (): string => {
       const grouped: Record<string, string[]> = {};
 
       products.forEach(p => {
           if (!grouped[p.category]) grouped[p.category] = [];
-          // Максимально короткий формат: Название|Цена|id
-          grouped[p.category].push(`${p.name}|${p.variants[0].price}|${p.id}`);
+          grouped[p.category].push(`${p.name} (${p.variants[0].price}₽)`);
       });
 
-      let contextString = "МЕНЮ (Категория: Название|Цена|ID):\n";
-      
+      let contextString = "МЕНЮ:\n";
       for (const [cat, items] of Object.entries(grouped)) {
           const catName = CATEGORY_NAMES[cat] || cat.toUpperCase();
           contextString += `${catName}: ${items.join('; ')}\n`;
       }
-
       return contextString;
   };
 
@@ -89,24 +84,27 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     const timeoutId = setTimeout(() => abortController.abort(), 60000); 
 
     try {
-      // 1. Получаем СЖАТЫЙ список
-      const menuContext = getCompactMenuContext();
+      const menuContext = getSuperCompactMenu();
 
-      // 2. Системный промпт (оптимизированный)
       const systemPromptText = `
-        Ты бариста "Зернышко". Продавай ТОЛЬКО из списка:
+        Ты бариста кофейни "Зернышко". 
+        Твоя цель: Вкусно описывать еду и напитки, предлагать сочетания и продавать.
+
+        ВОТ МЕНЮ (Только это есть в наличии):
         ${menuContext}
         ${ADDONS}
 
         ПРАВИЛА:
-        1. Формат данных в списке: "Название|Цена|ID".
-        2. Если товара НЕТ в списке (даже если это Капучино, но он скрыт) — скажи "Сейчас нет в наличии".
-        3. Предлагай товар, указывая ID так: {{ID}}. Пример: "Возьмите Латте {{latte}}".
-        4. Будь краток.
+        1. Если товара нет в списке — вежливо скажи, что он закончился.
+        2. Описывай товары аппетитно, используй эмодзи. Не будь роботом.
+        3. Если предлагаешь конкретный товар из меню, выдели его название в двойные фигурные скобки: {{Название товара}}.
+           Пример: "Попробуйте наш нежный {{Капучино}} или сытную {{Самса с курицей}}".
+           Пиши название В ТОЧНОСТИ как в меню.
+        4. Не придумывай цены, бери из меню.
       `;
 
-      // 3. Формируем историю (Берем только последние 4 сообщения для экономии)
-      const recentHistory = newHistory.slice(-4); 
+      // Берем последние 6 сообщений (3 пары вопрос-ответ) для контекста
+      const recentHistory = newHistory.slice(-6); 
       const apiMessages = [
           { role: 'system', content: systemPromptText },
           ...recentHistory
@@ -121,8 +119,8 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           body: JSON.stringify({
               model: 'gemini-3-flash-preview', 
               messages: apiMessages,
-              temperature: 0.3, // Еще ниже для строгости
-              max_tokens: 400 // Ограничиваем длину ответа
+              temperature: 0.7, // Возвращаем креативность
+              max_tokens: 1000 // Даем место для описания
           }),
           signal: abortController.signal
       });
@@ -140,7 +138,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
     } catch (error: any) {
       console.error("AI Error:", error);
-      const errorMsg = error.name === 'AbortError' ? '⏳ Долго думал...' : `⚠️ Ошибка связи`;
+      const errorMsg = error.name === 'AbortError' ? '⏳ Думаю над ответом...' : `⚠️ Ошибка связи, попробуй еще раз.`;
       setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
     } finally {
       setIsLoading(false);
@@ -153,12 +151,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           recognitionRef.current?.stop();
           return;
       }
-
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
           alert("Ваш браузер не поддерживает голосовой ввод.");
           return;
       }
-
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.lang = 'ru-RU';
@@ -169,53 +165,48 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       transcriptRef.current = '';
 
       recognition.onstart = () => setIsListening(true);
-      
       recognition.onend = () => {
           setIsListening(false);
           const finalText = transcriptRef.current.trim();
-          if (finalText) {
-              handleSend(finalText);
-          }
+          if (finalText) handleSend(finalText);
       };
-
       recognition.onerror = (event: any) => {
-          console.error("Speech error", event.error);
           setIsListening(false);
       };
-
       recognition.onresult = (event: any) => {
-          const transcript = Array.from(event.results)
-              .map((result: any) => result[0].transcript)
-              .join('');
-          
+          const transcript = Array.from(event.results).map((result: any) => result[0].transcript).join('');
           transcriptRef.current = transcript;
           setInput(transcript);
       };
-
       recognition.start();
   };
 
   const renderMessageContent = (text: string) => {
+    // Разбиваем текст по шаблону {{Название}}
     const parts = text.split(/(\{\{.*?\}\})/g);
+    
     return parts.map((part, index) => {
         if (part.startsWith('{{') && part.endsWith('}}')) {
-            const productId = part.slice(2, -2).trim();
-            const product = products.find(p => p.id === productId);
-            if (!product) return null;
+            // Извлекаем название: {{Капучино}} -> Капучино
+            const rawName = part.slice(2, -2).trim();
+            
+            // Ищем товар по названию (нечувствительно к регистру)
+            const product = products.find(p => p.name.toLowerCase() === rawName.toLowerCase());
+
+            if (!product) return <span key={index} className="font-bold text-brand-yellow">{rawName}</span>;
 
             return (
-                <div key={index} className="my-2 p-2 bg-black/40 rounded-xl border border-brand-yellow/30 flex items-center gap-3 shadow-lg transform transition-all hover:scale-[1.02]">
+                <div key={index} className="my-2 p-2 bg-black/40 rounded-xl border border-brand-yellow/30 flex items-center gap-3 shadow-lg transform transition-all hover:scale-[1.02] cursor-pointer" onClick={() => onAddToCart(product)}>
                     <img src={product.image} alt={product.name} className="w-12 h-12 rounded-lg object-cover" />
                     <div className="flex-1 min-w-0">
                         <div className="font-bold text-white text-sm truncate">{product.name}</div>
                         <div className="text-brand-yellow font-black text-xs">{product.variants[0].price}₽</div>
                     </div>
                     <button 
-                        onClick={() => onAddToCart(product)}
                         className="bg-brand-yellow text-black p-2 rounded-lg font-bold text-xs shadow-md active:scale-95 transition-transform flex items-center gap-1"
                     >
                         <PlusIcon className="w-4 h-4" />
-                        Выбрать
+                        Хочу
                     </button>
                 </div>
             );
@@ -271,7 +262,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
         {/* Suggestions & Input */}
         <div className="bg-black/40 border-t border-white/10 backdrop-blur-xl safe-area-bottom z-30 flex flex-col">
-           {/* Quick Suggestions */}
            <div className="px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar">
               {SUGGESTIONS.map((s, i) => (
                   <button key={i} onClick={() => handleSend(s)} className="whitespace-nowrap px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs font-bold text-brand-muted hover:bg-white/10 hover:text-white transition-colors">
@@ -280,7 +270,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
               ))}
            </div>
 
-           {/* Input Bar */}
            <div className="px-4 pb-4 flex gap-2 items-center">
              <button 
                 onClick={toggleListening} 
