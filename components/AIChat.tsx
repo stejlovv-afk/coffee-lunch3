@@ -75,7 +75,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           "X-Title": "Coffee Lunch App",        
         },
         body: JSON.stringify({
-          "model": "google/gemini-flash-1.5", 
+          "model": "google/gemini-flash-1.5-8b", // Changed to Flash 1.5 8B - usually more available
           "messages": [
             { "role": "system", "content": systemPrompt },
             ...messages.map(m => ({ role: m.role, content: m.content })),
