@@ -19,15 +19,13 @@ const DEFAULT_KEY = '';
 const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
 
 const AVAILABLE_MODELS = [
-  { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', name: 'Gemini 2.0 Flash Lite (Fastest)' },
-  { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Fast)' },
-  { id: 'google/gemini-3-flash', name: 'Gemini 3 Flash (Newest)' },
-  { id: 'google/gemini-2.0-pro-exp-02-05:free', name: 'Gemini 2.0 Pro (Smart)' },
+  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Молния ⚡️)' },
+  { id: 'google/gemini-3-flash', name: 'Gemini 3 Flash (Умная)' },
 ];
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Привет! Я ваш AI-бариста. ☕️\nНе знаете, что выбрать? Расскажите свои предпочтения, и я помогу!' }
+    { role: 'assistant', content: 'Привет! Я ваш AI-бариста. ☕️\nЧто хотите попробовать?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -78,11 +76,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   };
 
   const getGoogleModelId = (orId: string) => {
-      if (orId.includes('lite')) return 'gemini-2.0-flash-lite-preview-02-05';
+      // 2.5 Flash Lite - это технически gemini-2.0-flash-lite-preview-02-05, самая быстрая сейчас
+      if (orId.includes('gemini-2.5-flash-lite')) return 'gemini-2.0-flash-lite-preview-02-05';
       if (orId.includes('gemini-3-flash')) return 'gemini-3-flash-preview';
-      if (orId.includes('gemini-2.0-pro')) return 'gemini-2.0-pro-exp-02-05';
-      if (orId.includes('gemini-2.0-flash')) return 'gemini-2.0-flash-exp';
-      return 'gemini-1.5-flash';
+      return 'gemini-2.0-flash-lite-preview-02-05'; // Fallback to fastest
   };
 
   // Helper function to read streaming response
@@ -152,21 +149,13 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       ).join('\n');
 
       const systemPromptText = `
-        Ты - бариста в кофейне "Coffee Lunch". 
-        Твоя цель - помочь клиенту выбрать из меню.
-        
+        Ты - бариста в "Coffee Lunch".
         МЕНЮ:
         ${menuContext}
-
-        ПРАВИЛА:
-        1. Рекомендуй ТОЛЬКО позиции из меню.
-        2. Будь кратким (максимум 3 предложения).
-        3. Используй эмодзи.
-        4. Не придумывай того, чего нет в меню.
+        Правила: Рекомендуй из меню. Кратко (макс 20 слов). Весело. Русский язык.
       `;
 
       const isGoogleKey = apiKey.startsWith('AIza');
-      let response;
       let url = '';
       let body: any = {};
       let headers: any = { 'Content-Type': 'application/json' };
@@ -185,7 +174,11 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
           body = {
               contents: contents,
-              systemInstruction: { parts: [{ text: systemPromptText }] }
+              systemInstruction: { parts: [{ text: systemPromptText }] },
+              generationConfig: {
+                  maxOutputTokens: 250, // Limit length for speed
+                  temperature: 0.7
+              }
           };
 
       } else {
@@ -202,16 +195,18 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                 { role: "system", content: systemPromptText },
                 ...messages.map(m => ({ role: m.role, content: m.content })),
                 { role: "user", content: userMessage }
-              ]
+              ],
+              max_tokens: 250
           };
       }
 
-      response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
 
       if (!response.ok) {
           const errorText = await response.text();
-          if (response.status === 401 || response.status === 403) throw new Error("Ошибка доступа. Проверьте ключ.");
-          if (response.status === 429) throw new Error("Лимит исчерпан.");
+          if (response.status === 401 || response.status === 403) throw new Error("Ошибка доступа (403). Проверьте ключ.");
+          if (response.status === 404) throw new Error("Модель не найдена (404).");
+          if (response.status === 429) throw new Error("Лимит исчерпан (429).");
           throw new Error(`Ошибка сети (${response.status})`);
       }
 
