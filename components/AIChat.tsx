@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { SparklesIcon, SendIcon, XMarkIcon, KeyIcon, PlusIcon } from './ui/Icons';
+import { SparklesIcon, SendIcon, XMarkIcon, PlusIcon } from './ui/Icons';
 import { Product } from '../types';
 
 interface AIChatProps {
@@ -10,40 +10,24 @@ interface AIChatProps {
 }
 
 interface Message {
-  role: 'user' | 'model'; // Google использует 'model' вместо 'assistant'
+  role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
-// 1. ТВОЙ GOOGLE КЛЮЧ
-const DEFAULT_KEY = 'AIzaSyCgAd7WzVgafJSYguKsch0JACo1MEPXauE';
+// --- НАСТРОЙКИ TIMEWEB AI ---
+// Адрес вашего агента
+const TIMEWEB_API_URL = 'https://agent.timeweb.cloud/api/v1/cloud-ai/agents/aabb17cb-c1df-4ccb-b419-f438bb89fec1/v1';
 
-// 2. ТВОЙ CLOUDFLARE ПРОКСИ
-const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
-
-// 3. ДОСТУПНЫЕ МОДЕЛИ (ID как на вашем скриншоте из AI Studio)
-const AVAILABLE_MODELS = [
-  { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Супер-быстрая ⚡️)' },
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Умная 🔥)' },
-  { id: 'gemini-3-flash', name: 'Gemini 3.0 Flash (Новейшая 🧠)' },
-];
+// Ваш токен доступа
+const TIMEWEB_API_KEY = 'eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCIsImtpZCI6IjFrYnhacFJNQGJSI0tSbE1xS1lqIn0.eyJ1c2VyIjoicW40ODM4MjAiLCJ0eXBlIjoiYXBpX2tleSIsImFwaV9rZXlfaWQiOiI1ZDA5MjAzYS03OTg0LTRjMTQtYmVkYS1jNjJlNTBkMDFlODgiLCJpYXQiOjE3Njk2MzY5MDJ9.BKZO8nPYf7ueqwQEr6gRxB_nqsO91ChQPq7Jh1FZff6WVWACQ0KmQdpTCIFH2jXzilW14mNqx856gRNp-xlyTJkmyB6EAWdVPnjreSk3ENaMEEzz1Jc8AyREP7q_qkzJHzsvoql1OXYFGD1aok7iBpNNEZqgPEmi-qLp8cv9T8zDNG5l6vBJjJctfzpN29vrUcyeDqLKEny05K6vYALXx-l0QFMM082rwJcW2y2DVZsnbS4_BA8wYSGUz1TciBAJJAVgxNJXZ87-xK_PmR-oMzNND2TeXl_Miez_HdOuit6kC6kQipbw-anCLFdaTxc3UXOWF_zuskPqeb3s9RmtyYLnDMIfPHSwl0K-IvDmShQVKIEdRM7QUq52xLfqLjPjjTaOdPcWAjaRLW_PKrFleARmyoHoSRN2g9UWY-EeuJVUBj-7SBRygyjp_O4BRtlUcTi51WGGE5RNx_n5JMcn_DfzvZEjkh3vthztn4S1X35LW8Go7AGEmS_JlDX_VU_z';
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', content: 'Привет! Я Зернышко ☕️\nЯ знаю всё о нашем меню. Что ты хочешь попробовать?' }
+    { role: 'assistant', content: 'Привет! Я Зернышко ☕️\nЯ знаю всё о нашем меню. Что ты хочешь попробовать?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Settings State
-  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('google_api_key') || DEFAULT_KEY);
-  const [baseUrl, setBaseUrl] = useState<string>(() => localStorage.getItem('google_proxy_url') || DEFAULT_BASE_URL);
-  const [selectedModel, setSelectedModel] = useState<string>(() => localStorage.getItem('google_model') || AVAILABLE_MODELS[0].id);
-  
-  const [showSettings, setShowSettings] = useState(false);
-  const [tempKey, setTempKey] = useState(apiKey);
-  const [tempUrl, setTempUrl] = useState(baseUrl);
-  const [tempModel, setTempModel] = useState(selectedModel);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -51,40 +35,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, showSettings]);
-
-  useEffect(() => {
-    if (showSettings) {
-        setTempKey(apiKey);
-        setTempUrl(baseUrl);
-        setTempModel(selectedModel);
-    }
-  }, [showSettings, apiKey, baseUrl, selectedModel]);
-
-  const handleSaveSettings = () => {
-      const cleanedKey = tempKey.trim();
-      const cleanedUrl = tempUrl.trim().replace(/\/$/, '');
-      
-      setApiKey(cleanedKey);
-      setBaseUrl(cleanedUrl);
-      setSelectedModel(tempModel);
-      
-      localStorage.setItem('google_api_key', cleanedKey);
-      localStorage.setItem('google_proxy_url', cleanedUrl);
-      localStorage.setItem('google_model', tempModel);
-      
-      setShowSettings(false);
-      setMessages(prev => [...prev, { role: 'model', content: '✅ Настройки обновлены.' }]);
-  };
+  }, [messages]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
-
-    if (!apiKey) {
-        setShowSettings(true);
-        setMessages(prev => [...prev, { role: 'model', content: '🔑 Пожалуйста, проверьте API ключ.' }]);
-        return;
-    }
 
     const userMessage = input.trim();
     setInput('');
@@ -96,7 +50,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     const timeoutId = setTimeout(() => abortController.abort(), 60000); 
 
     try {
-      // 1. Контекст меню
+      // 1. Формируем контекст меню для бота
       const menuContext = products.map(p => 
         `- ${p.name} (${p.category}) ID:${p.id} : ${p.variants[0].price}₽`
       ).join('\n');
@@ -107,44 +61,35 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         ${menuContext}
 
         ПРАВИЛА:
-        1. Твоя цель - помочь выбрать и продать. Предлагай вкусные сочетания.
+        1. Твоя цель - помочь выбрать и продать. Предлагай вкусные сочетания (кофе + десерт).
         2. ВАЖНО: Когда советуешь конкретный товар, пиши его ID в формате {{ID}}. 
            Пример: "Возьми капучино! {{cappuccino}}"
-        3. Не выдумывай цены.
-        4. Будь краток и позитивен.
+        3. Не выдумывай цены, бери их из меню.
+        4. Будь краток, дружелюбен и используй эмодзи.
         5. Отвечай на русском языке.
       `;
 
-      // 2. Формируем историю чата для Google API (contents: [{role, parts: [{text}]}])
-      const apiContents = newHistory
-        .filter(msg => msg.content && !msg.content.includes('Настройки обновлены'))
-        .map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.content }]
-        }));
+      // 2. Формируем сообщения для API
+      // Timeweb AI работает по стандарту OpenAI, поэтому формат messages такой же
+      const apiMessages = [
+          { role: 'system', content: systemPromptText },
+          ...newHistory
+      ];
 
-      // 3. Формируем URL (через прокси Cloudflare)
-      // Добавляем /v1beta/models/...
-      const endpoint = `${baseUrl}/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
-      
-      const payload = {
-          contents: apiContents,
-          systemInstruction: {
-            parts: [{ text: systemPromptText }]
-          },
-          generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 800
-          }
-      };
-
-      // 4. Отправляем запрос
-      const response = await fetch(endpoint, { 
+      // 3. Отправляем запрос на Timeweb
+      const response = await fetch(`${TIMEWEB_API_URL}/chat/completions`, { 
           method: 'POST', 
           headers: {
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${TIMEWEB_API_KEY}`,
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+              // Модель указываем, хотя агент Timeweb часто использует свою настройку по умолчанию
+              model: 'gemini-3-flash-preview', 
+              messages: apiMessages,
+              temperature: 0.7,
+              max_tokens: 800
+          }),
           signal: abortController.signal
       });
 
@@ -152,33 +97,25 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
       if (!response.ok) {
           const errorText = await response.text();
-          console.error("Google API Proxy Error:", errorText);
-          
-          if (response.status === 404) throw new Error("Модель не найдена (404). Cloudflare не видит этот путь.");
-          if (response.status === 403) throw new Error("Ошибка доступа (403). Проверьте ключ.");
-          throw new Error(`Ошибка сети (${response.status})`);
+          console.error("Timeweb API Error:", errorText);
+          throw new Error(`Ошибка сервера (${response.status})`);
       }
 
       const data = await response.json();
       
-      // Парсим ответ Google
-      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const aiText = data.choices?.[0]?.message?.content;
       
       if (!aiText) {
           console.log("Full Response:", data);
           throw new Error("Пришел пустой ответ от нейросети.");
       }
 
-      setMessages(prev => [...prev, { role: 'model', content: aiText }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: aiText }]);
 
     } catch (error: any) {
       console.error("AI Chat Error:", error);
       const errorMsg = error.name === 'AbortError' ? '⏳ Время ожидания истекло.' : `⚠️ ${error.message}`;
-      setMessages(prev => [...prev, { role: 'model', content: errorMsg }]);
-      
-      if (error.message.includes("403") || error.message.includes("404")) {
-          setTimeout(() => setShowSettings(true), 2000);
-      }
+      setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
     } finally {
       setIsLoading(false);
       clearTimeout(timeoutId);
@@ -229,13 +166,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
             </div>
             <div>
                <h3 className="font-bold text-white leading-tight">Зернышко AI</h3>
-               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Online • Gemini 2.5</p>
+               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Timeweb Power</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-              <button onClick={() => setShowSettings(!showSettings)} className={`p-2 rounded-full hover:bg-white/10 transition-colors ${!apiKey ? 'text-red-400 animate-pulse' : 'text-brand-muted hover:text-white'}`}>
-                <KeyIcon className="w-5 h-5" />
-              </button>
               <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-brand-muted hover:text-white transition-colors">
                 <XMarkIcon className="w-6 h-6" />
               </button>
@@ -244,62 +178,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
         {/* Content Area */}
         <div className="flex-1 overflow-hidden relative">
-            
-            {/* Settings Overlay */}
-            {showSettings && (
-                <div className="absolute inset-0 z-20 bg-black/95 backdrop-blur-xl p-6 flex flex-col items-center justify-center animate-fade-in text-center">
-                    <div className="w-full max-w-xs space-y-4 overflow-y-auto max-h-full py-2 no-scrollbar">
-                        <h3 className="text-xl font-bold text-white">Настройки API</h3>
-                        
-                        <div className="space-y-1 text-left">
-                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">Модель</label>
-                            <div className="space-y-1">
-                                {AVAILABLE_MODELS.map(m => (
-                                    <button
-                                        key={m.id}
-                                        onClick={() => setTempModel(m.id)}
-                                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
-                                            tempModel === m.id 
-                                            ? 'bg-brand-yellow text-black border-brand-yellow' 
-                                            : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
-                                        }`}
-                                    >
-                                        {m.name}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="space-y-1 text-left">
-                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">Google API Key</label>
-                            <input 
-                                type="password" 
-                                value={tempKey}
-                                onChange={(e) => setTempKey(e.target.value)}
-                                className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 font-mono text-xs"
-                                placeholder="AIza..."
-                            />
-                        </div>
-
-                         <div className="space-y-1 text-left">
-                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">Proxy URL</label>
-                            <input 
-                                type="text" 
-                                value={tempUrl}
-                                onChange={(e) => setTempUrl(e.target.value)}
-                                className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 font-mono text-xs"
-                                placeholder="https://..."
-                            />
-                        </div>
-
-                        <div className="flex gap-2 pt-2">
-                            <button onClick={() => setShowSettings(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button>
-                            <button onClick={handleSaveSettings} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Сохранить</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Chat Messages */}
             <div className="absolute inset-0 z-10 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-black/20 to-transparent">
             {messages.map((msg, idx) => (
@@ -336,13 +214,12 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                value={input}
                onChange={(e) => setInput(e.target.value)}
                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-               disabled={showSettings}
                placeholder="Что посоветуешь?" 
                className="flex-1 glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 transition-all placeholder:text-brand-muted/50"
              />
              <button 
                onClick={handleSend}
-               disabled={isLoading || !input.trim() || showSettings}
+               disabled={isLoading || !input.trim()}
                className={`p-3 rounded-xl transition-all flex items-center justify-center aspect-square ${
                  !input.trim() 
                    ? 'bg-white/5 text-brand-muted' 
