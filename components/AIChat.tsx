@@ -14,38 +14,29 @@ interface Message {
   content: string;
 }
 
-// Updated with the user provided key
-const DEFAULT_KEY = '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';
+// Default is empty to force user input, as shared keys hit limits quickly
+const DEFAULT_KEY = '';
 
 const AVAILABLE_MODELS = [
-  { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash Exp (Free)' },
-  { id: 'google/gemini-2.0-pro-exp-02-05:free', name: 'Gemini 2.0 Pro Exp (Free)' },
-  { id: 'google/gemini-flash-1.5-8b', name: 'Gemini 1.5 Flash 8B' },
-  { id: 'google/gemini-flash-1.5', name: 'Gemini 1.5 Flash' },
+  { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Fast)' },
+  { id: 'google/gemini-2.0-pro-exp-02-05:free', name: 'Gemini 2.0 Pro (Smart)' },
+  { id: 'google/gemini-flash-1.5', name: 'Gemini 1.5 Flash (Stable)' },
 ];
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Привет! Я ваш AI-бариста. ☕️\nНе знаете, что выбрать? Расскажите, что вы любите (сладкое, с кислинкой, сытное), и я посоветую идеальный вариант!' }
+    { role: 'assistant', content: 'Привет! Я ваш AI-бариста. ☕️\nНе знаете, что выбрать? Расскажите свои предпочтения, и я помогу!' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Settings State
-  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('openrouter_api_key') || DEFAULT_KEY);
-  
-  // Model State with validation
-  const [selectedModel, setSelectedModel] = useState<string>(() => {
-    const stored = localStorage.getItem('openrouter_model');
-    // Ensure the stored model is valid, otherwise default to the first available one
-    const isValid = AVAILABLE_MODELS.some(m => m.id === stored);
-    return isValid && stored ? stored : AVAILABLE_MODELS[0].id;
-  });
-
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('ai_api_key') || DEFAULT_KEY);
+  const [selectedModel, setSelectedModel] = useState<string>(() => localStorage.getItem('ai_model') || AVAILABLE_MODELS[0].id);
   const [showSettings, setShowSettings] = useState(false);
   
-  // Temp state for settings form
+  // Temp state
   const [tempKey, setTempKey] = useState(apiKey);
   const [tempModel, setTempModel] = useState(selectedModel);
 
@@ -57,7 +48,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     scrollToBottom();
   }, [messages, showSettings]);
 
-  // Sync temp state when opening settings
   useEffect(() => {
     if (showSettings) {
         setTempKey(apiKey);
@@ -70,15 +60,29 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       setApiKey(cleanedKey);
       setSelectedModel(tempModel);
       
-      localStorage.setItem('openrouter_api_key', cleanedKey);
-      localStorage.setItem('openrouter_model', tempModel);
+      localStorage.setItem('ai_api_key', cleanedKey);
+      localStorage.setItem('ai_model', tempModel);
       
       setShowSettings(false);
-      setMessages(prev => [...prev, { role: 'assistant', content: '✅ Настройки обновлены. Попробуйте отправить запрос.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: '✅ Настройки сохранены. Можно общаться!' }]);
+  };
+
+  // Helper to map OpenRouter ID to Google Model ID
+  const getGoogleModelId = (orId: string) => {
+      if (orId.includes('gemini-2.0-pro')) return 'gemini-2.0-pro-exp-02-05';
+      if (orId.includes('gemini-2.0-flash')) return 'gemini-2.0-flash-exp';
+      return 'gemini-1.5-flash';
   };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
+
+    // Check if key is present
+    if (!apiKey) {
+        setShowSettings(true);
+        setMessages(prev => [...prev, { role: 'assistant', content: '🔑 Пожалуйста, введите API ключ в настройках.' }]);
+        return;
+    }
 
     const userMessage = input.trim();
     setInput('');
@@ -90,73 +94,113 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         `- ${p.name} (${p.category}): ${p.variants[0].price}₽`
       ).join('\n');
 
-      const systemPrompt = `
-        Ты - дружелюбный и харизматичный бариста в кофейне "Coffee Lunch". 
-        Твоя цель - помочь клиенту выбрать еду и напитки из меню.
+      const systemPromptText = `
+        Ты - бариста в кофейне "Coffee Lunch". 
+        Твоя цель - помочь клиенту выбрать из меню.
         
         МЕНЮ:
         ${menuContext}
 
         ПРАВИЛА:
-        1. Рекомендуй ТОЛЬКО позиции из списка выше. Если товара нет, скажи, что его нет, и предложи альтернативу.
-        2. Всегда старайся вежливо предложить дополнение (Upsell). Например: "К этому кофе отлично подойдет наш круассан" или "Добавим сироп?".
-        3. Отвечай кратко, с эмодзи, дружелюбно.
-        4. Если клиент спрашивает цену, бери её из меню.
-        5. Язык общения: Русский.
+        1. Рекомендуй ТОЛЬКО позиции из меню.
+        2. Будь кратким, используй эмодзи.
+        3. Предлагай дополнения (сироп, десерт).
+        4. Язык: Русский.
       `;
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://coffee-lunch-app.github.io", 
-          "X-Title": "Coffee Lunch App",        
-        },
-        body: JSON.stringify({
-          "model": selectedModel,
-          "messages": [
-            { "role": "system", "content": systemPrompt },
-            ...messages.map(m => ({ role: m.role, content: m.content })),
-            { "role": "user", "content": userMessage }
-          ]
-        })
-      });
+      const isGoogleKey = apiKey.startsWith('AIza');
+
+      let response;
+
+      if (isGoogleKey) {
+          // --- DIRECT GOOGLE API (Better limits) ---
+          const googleModel = getGoogleModelId(selectedModel);
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${googleModel}:generateContent?key=${apiKey}`;
+          
+          // Map messages to Google format
+          // History should exclude system prompt, system prompt goes to systemInstruction or first part
+          const contents = messages.map(m => ({
+              role: m.role === 'user' ? 'user' : 'model',
+              parts: [{ text: m.content }]
+          }));
+          contents.push({ role: 'user', parts: [{ text: userMessage }] });
+
+          response = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  contents: contents,
+                  systemInstruction: { parts: [{ text: systemPromptText }] }
+              })
+          });
+
+      } else {
+          // --- OPENROUTER API ---
+          response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "https://coffee-lunch-app.github.io", 
+              "X-Title": "Coffee Lunch App",        
+            },
+            body: JSON.stringify({
+              "model": selectedModel,
+              "messages": [
+                { "role": "system", "content": systemPromptText },
+                ...messages.map(m => ({ role: m.role, content: m.content })),
+                { "role": "user", "content": userMessage }
+              ]
+            })
+          });
+      }
 
       if (!response.ok) {
           const errorText = await response.text();
-          if (response.status === 401) {
-              throw new Error("401"); 
+          console.error("API Error Body:", errorText);
+          
+          if (response.status === 401 || response.status === 403) {
+              throw new Error("Неверный API ключ (401/403)."); 
           }
           if (response.status === 429) {
-              throw new Error("429");
+              throw new Error("Лимит запросов исчерпан (429). Попробуйте Google ключ.");
           }
-          throw new Error(`Ошибка API (${response.status}): ${errorText}`);
+          if (response.status === 404) {
+               throw new Error("Модель недоступна (404). Смените модель.");
+          }
+          throw new Error(`Ошибка сервера (${response.status})`);
       }
 
       const data = await response.json();
       
-      if (data.error) {
-          throw new Error(data.error.message || "API вернул ошибку");
+      let aiResponse = "";
+
+      if (isGoogleKey) {
+          // Parse Google Response
+          if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+              aiResponse = data.candidates[0].content.parts[0].text;
+          } else {
+              aiResponse = "Не удалось получить ответ от Google.";
+          }
+      } else {
+          // Parse OpenRouter Response
+          if (data.choices && data.choices.length > 0) {
+            aiResponse = data.choices[0].message.content;
+          } else if (data.error) {
+             throw new Error(data.error.message);
+          } else {
+             aiResponse = "Пустой ответ.";
+          }
       }
 
-      if (data.choices && data.choices.length > 0) {
-        const aiResponse = data.choices[0].message.content;
-        setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
-      } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'Пустой ответ от нейросети.' }]);
-      }
+      setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
 
     } catch (error: any) {
       console.error("AI Chat Error:", error);
-      if (error.message === '401') {
-          setMessages(prev => [...prev, { role: 'assistant', content: `🔒 Ошибка ключа. Проверьте API ключ в настройках.` }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${error.message || 'Ошибка сети'}` }]);
+      
+      if (error.message.includes("401") || error.message.includes("429")) {
           setShowSettings(true);
-      } else if (error.message === '429') {
-          setMessages(prev => [...prev, { role: 'assistant', content: `⏳ Модель перегружена (ошибка 429). Попробуйте выбрать другую модель в настройках.` }]);
-          setShowSettings(true);
-      } else {
-          setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${error.message || 'Неизвестная ошибка сети'}` }]);
       }
     } finally {
       setIsLoading(false);
@@ -177,11 +221,13 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
             </div>
             <div>
                <h3 className="font-bold text-white leading-tight">AI Бариста</h3>
-               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Powered by Gemini</p>
+               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">
+                   {apiKey.startsWith('AIza') ? 'Google Direct' : 'OpenRouter'}
+               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-              <button onClick={() => setShowSettings(!showSettings)} className="p-2 rounded-full hover:bg-white/10 text-brand-muted hover:text-white transition-colors">
+              <button onClick={() => setShowSettings(!showSettings)} className={`p-2 rounded-full hover:bg-white/10 transition-colors ${!apiKey ? 'text-red-400 animate-pulse' : 'text-brand-muted hover:text-white'}`}>
                 <KeyIcon className="w-5 h-5" />
               </button>
               <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-brand-muted hover:text-white transition-colors">
@@ -190,26 +236,37 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           </div>
         </div>
 
-        {/* Content Area (Chat or Settings) */}
+        {/* Content Area */}
         <div className="flex-1 overflow-hidden relative">
             
             {/* Settings Overlay */}
             {showSettings && (
-                <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-xl p-6 flex flex-col items-center justify-center animate-fade-in">
-                    <div className="w-full max-w-xs space-y-4">
-                        <div className="text-center">
-                            <h3 className="text-xl font-bold text-white mb-1">Настройки AI</h3>
-                            <p className="text-sm text-brand-muted">API Ключ и Модель</p>
+                <div className="absolute inset-0 z-20 bg-black/90 backdrop-blur-xl p-6 flex flex-col items-center justify-center animate-fade-in text-center">
+                    <div className="w-full max-w-xs space-y-5">
+                        <div>
+                            <h3 className="text-xl font-bold text-white mb-1">Настройки доступа</h3>
+                            <p className="text-xs text-brand-muted mb-2">
+                                Для стабильной работы без ошибок (429) рекомендуем использовать 
+                                <span className="text-brand-yellow font-bold"> Google AI Studio Key</span>.
+                            </p>
+                            <a 
+                                href="https://aistudio.google.com/app/apikey" 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="text-[10px] text-blue-400 underline"
+                            >
+                                Получить ключ Google (бесплатно)
+                            </a>
                         </div>
                         
-                        <div className="space-y-1">
+                        <div className="space-y-1 text-left">
                             <label className="text-xs font-bold text-brand-muted uppercase ml-1">Модель</label>
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 {AVAILABLE_MODELS.map(m => (
                                     <button
                                         key={m.id}
                                         onClick={() => setTempModel(m.id)}
-                                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                                        className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold border transition-all ${
                                             tempModel === m.id 
                                             ? 'bg-brand-yellow text-black border-brand-yellow' 
                                             : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
@@ -221,14 +278,14 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                             </div>
                         </div>
 
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">API Ключ (OpenRouter)</label>
+                        <div className="space-y-1 text-left">
+                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">API Ключ</label>
                             <input 
                                 type="password" 
                                 value={tempKey}
                                 onChange={(e) => setTempKey(e.target.value)}
-                                placeholder="sk-or-v1-..."
-                                className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 text-center font-mono text-sm"
+                                placeholder="AIza... (Google) или sk-or... (OpenRouter)"
+                                className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 text-center font-mono text-xs"
                             />
                         </div>
 
@@ -240,12 +297,12 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                 </div>
             )}
 
-            {/* Chat Area */}
+            {/* Chat Messages */}
             <div className="absolute inset-0 z-10 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-black/20 to-transparent">
             {messages.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div 
-                    className={`max-w-[80%] p-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                    className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${
                     msg.role === 'user' 
                         ? 'bg-brand-yellow text-black rounded-tr-none font-medium' 
                         : 'bg-white/10 text-white border border-white/5 rounded-tl-none'
@@ -257,7 +314,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
             ))}
             {isLoading && (
                 <div className="flex justify-start">
-                <div className="bg-white/10 p-3 rounded-2xl rounded-tl-none flex gap-1">
+                <div className="bg-white/10 p-4 rounded-2xl rounded-tl-none flex gap-1.5 items-center">
                     <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce"></div>
                     <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce delay-100"></div>
                     <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce delay-200"></div>
@@ -277,7 +334,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                onChange={(e) => setInput(e.target.value)}
                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                disabled={showSettings}
-               placeholder="Посоветуй что-нибудь к кофе..." 
+               placeholder="Посоветуй десерт..." 
                className="flex-1 glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 transition-all placeholder:text-brand-muted/50"
              />
              <button 
