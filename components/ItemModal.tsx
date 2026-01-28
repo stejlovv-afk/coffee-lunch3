@@ -174,7 +174,7 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const displayMilkPrice = getAddonPrice('milk', currentVariant.size);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md pointer-events-auto transition-opacity" onClick={onClose} />
       
       <div className="glass-modal w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 relative z-10 animate-slide-up pointer-events-auto max-h-[90vh] overflow-y-auto no-scrollbar shadow-2xl">
