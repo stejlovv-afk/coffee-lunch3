@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
 import { Category, Product, CartItem, WebAppPayload, PromoCode } from './types';
@@ -352,6 +353,9 @@ const App: React.FC = () => {
             const sauceNames = item.options.hotDogSauces.map(s => SAUCE_LABELS[s]).join(', ');
             details += `, Соусы: ${sauceNames}`;
         }
+        
+        // Espresso Tonic
+        if (item.options.tonicType) details += `, Тоник: ${item.options.tonicType === 'classic' ? 'Классический' : 'Гранатовый'}`;
 
         if (index === 0) {
             details += `\n[Инфо: ${pickupTime}, ${comment || 'без коммент'}, ${username}]`;
