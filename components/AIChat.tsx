@@ -14,8 +14,9 @@ interface Message {
   content: string;
 }
 
-// Default is empty to force user input, as shared keys hit limits quickly
 const DEFAULT_KEY = '';
+// Используем ваш Cloudflare Worker как прокси по умолчанию для обхода блокировок в РФ
+const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
 
 const AVAILABLE_MODELS = [
   { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Fast)' },
@@ -34,11 +35,14 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   // Settings State
   const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('ai_api_key') || DEFAULT_KEY);
   const [selectedModel, setSelectedModel] = useState<string>(() => localStorage.getItem('ai_model') || AVAILABLE_MODELS[0].id);
+  const [baseUrl, setBaseUrl] = useState<string>(() => localStorage.getItem('ai_base_url') || DEFAULT_BASE_URL);
+  
   const [showSettings, setShowSettings] = useState(false);
   
   // Temp state
   const [tempKey, setTempKey] = useState(apiKey);
   const [tempModel, setTempModel] = useState(selectedModel);
+  const [tempBaseUrl, setTempBaseUrl] = useState(baseUrl);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -52,22 +56,26 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     if (showSettings) {
         setTempKey(apiKey);
         setTempModel(selectedModel);
+        setTempBaseUrl(baseUrl);
     }
-  }, [showSettings, apiKey, selectedModel]);
+  }, [showSettings, apiKey, selectedModel, baseUrl]);
 
   const handleSaveSettings = () => {
       const cleanedKey = tempKey.trim();
+      const cleanedUrl = tempBaseUrl.trim().replace(/\/$/, ''); // remove trailing slash
+      
       setApiKey(cleanedKey);
       setSelectedModel(tempModel);
+      setBaseUrl(cleanedUrl || DEFAULT_BASE_URL);
       
       localStorage.setItem('ai_api_key', cleanedKey);
       localStorage.setItem('ai_model', tempModel);
+      localStorage.setItem('ai_base_url', cleanedUrl || DEFAULT_BASE_URL);
       
       setShowSettings(false);
-      setMessages(prev => [...prev, { role: 'assistant', content: '✅ Настройки сохранены. Можно общаться!' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: '✅ Настройки сохранены.' }]);
   };
 
-  // Helper to map OpenRouter ID to Google Model ID
   const getGoogleModelId = (orId: string) => {
       if (orId.includes('gemini-2.0-pro')) return 'gemini-2.0-pro-exp-02-05';
       if (orId.includes('gemini-2.0-flash')) return 'gemini-2.0-flash-exp';
@@ -77,10 +85,9 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
-    // Check if key is present
     if (!apiKey) {
         setShowSettings(true);
-        setMessages(prev => [...prev, { role: 'assistant', content: '🔑 Пожалуйста, введите API ключ в настройках.' }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: '🔑 Введите API ключ.' }]);
         return;
     }
 
@@ -109,16 +116,14 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       `;
 
       const isGoogleKey = apiKey.startsWith('AIza');
-
       let response;
 
       if (isGoogleKey) {
-          // --- DIRECT GOOGLE API (Better limits) ---
+          // --- DIRECT GOOGLE API (via Proxy if set) ---
           const googleModel = getGoogleModelId(selectedModel);
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${googleModel}:generateContent?key=${apiKey}`;
+          // Use the configured Base URL (Proxy or Default)
+          const url = `${baseUrl}/v1beta/models/${googleModel}:generateContent?key=${apiKey}`;
           
-          // Map messages to Google format
-          // History should exclude system prompt, system prompt goes to systemInstruction or first part
           const contents = messages.map(m => ({
               role: m.role === 'user' ? 'user' : 'model',
               parts: [{ text: m.content }]
@@ -157,33 +162,22 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
       if (!response.ok) {
           const errorText = await response.text();
-          console.error("API Error Body:", errorText);
-          
-          if (response.status === 401 || response.status === 403) {
-              throw new Error("Неверный API ключ (401/403)."); 
-          }
-          if (response.status === 429) {
-              throw new Error("Лимит запросов исчерпан (429). Попробуйте Google ключ.");
-          }
-          if (response.status === 404) {
-               throw new Error("Модель недоступна (404). Смените модель.");
-          }
-          throw new Error(`Ошибка сервера (${response.status})`);
+          if (response.status === 401 || response.status === 403) throw new Error("Ошибка доступа (403/401). Проверьте ключ или прокси.");
+          if (response.status === 429) throw new Error("Лимит исчерпан (429).");
+          if (response.status === 404) throw new Error("Неверный адрес API (404).");
+          throw new Error(`Ошибка сети (${response.status})`);
       }
 
       const data = await response.json();
-      
       let aiResponse = "";
 
       if (isGoogleKey) {
-          // Parse Google Response
           if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
               aiResponse = data.candidates[0].content.parts[0].text;
           } else {
-              aiResponse = "Не удалось получить ответ от Google.";
+              aiResponse = "Ошибка: пустой ответ от Google.";
           }
       } else {
-          // Parse OpenRouter Response
           if (data.choices && data.choices.length > 0) {
             aiResponse = data.choices[0].message.content;
           } else if (data.error) {
@@ -197,11 +191,8 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
     } catch (error: any) {
       console.error("AI Chat Error:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${error.message || 'Ошибка сети'}` }]);
-      
-      if (error.message.includes("401") || error.message.includes("429")) {
-          setShowSettings(true);
-      }
+      setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${error.message}` }]);
+      if (error.message.includes("403") || error.message.includes("429")) setShowSettings(true);
     } finally {
       setIsLoading(false);
     }
@@ -222,7 +213,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
             <div>
                <h3 className="font-bold text-white leading-tight">AI Бариста</h3>
                <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">
-                   {apiKey.startsWith('AIza') ? 'Google Direct' : 'OpenRouter'}
+                   {apiKey.startsWith('AIza') ? 'Google API (Proxy)' : 'OpenRouter'}
                </p>
             </div>
           </div>
@@ -241,19 +232,19 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
             
             {/* Settings Overlay */}
             {showSettings && (
-                <div className="absolute inset-0 z-20 bg-black/90 backdrop-blur-xl p-6 flex flex-col items-center justify-center animate-fade-in text-center">
-                    <div className="w-full max-w-xs space-y-5">
+                <div className="absolute inset-0 z-20 bg-black/95 backdrop-blur-xl p-6 flex flex-col items-center justify-center animate-fade-in text-center">
+                    <div className="w-full max-w-xs space-y-4 overflow-y-auto max-h-full py-2 no-scrollbar">
                         <div>
-                            <h3 className="text-xl font-bold text-white mb-1">Настройки доступа</h3>
-                            <p className="text-xs text-brand-muted mb-2">
-                                Для стабильной работы без ошибок (429) рекомендуем использовать 
-                                <span className="text-brand-yellow font-bold"> Google AI Studio Key</span>.
+                            <h3 className="text-xl font-bold text-white mb-1">Настройки</h3>
+                            <p className="text-[10px] text-brand-muted">
+                                Используйте ключ Google.
+                                <br/>Прокси для РФ настроен автоматически.
                             </p>
                             <a 
                                 href="https://aistudio.google.com/app/apikey" 
                                 target="_blank" 
                                 rel="noreferrer"
-                                className="text-[10px] text-blue-400 underline"
+                                className="text-[10px] text-blue-400 underline block mt-1"
                             >
                                 Получить ключ Google (бесплатно)
                             </a>
@@ -266,7 +257,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                                     <button
                                         key={m.id}
                                         onClick={() => setTempModel(m.id)}
-                                        className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+                                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
                                             tempModel === m.id 
                                             ? 'bg-brand-yellow text-black border-brand-yellow' 
                                             : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
@@ -279,14 +270,31 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                         </div>
 
                         <div className="space-y-1 text-left">
-                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">API Ключ</label>
+                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">API Ключ (Google)</label>
                             <input 
                                 type="password" 
                                 value={tempKey}
                                 onChange={(e) => setTempKey(e.target.value)}
-                                placeholder="AIza... (Google) или sk-or... (OpenRouter)"
-                                className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 text-center font-mono text-xs"
+                                placeholder="AIza..."
+                                className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 font-mono text-xs"
                             />
+                        </div>
+
+                        <div className="space-y-1 text-left">
+                            <label className="text-xs font-bold text-brand-muted uppercase ml-1 flex items-center justify-between">
+                                <span>Прокси URL</span>
+                                <span className="text-[9px] opacity-50 text-white">Cloudflare</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                value={tempBaseUrl}
+                                onChange={(e) => setTempBaseUrl(e.target.value)}
+                                placeholder="https://..."
+                                className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 font-mono text-xs"
+                            />
+                            <p className="text-[9px] text-brand-muted pl-1 leading-tight">
+                                URL вашего воркера. Уже вставлен по умолчанию.
+                            </p>
                         </div>
 
                         <div className="flex gap-2 pt-2">
