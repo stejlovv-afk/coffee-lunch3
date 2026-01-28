@@ -14,16 +14,16 @@ interface Message {
   content: string;
 }
 
-// Ключ и настройки по умолчанию
+// Новый ключ API
 const DEFAULT_KEY = 'AIzaSyCgAd7WzVgafJSYguKsch0JACo1MEPXauE';
-// Используем ваш Cloudflare Worker как прокси
+// Ваш прокси
 const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
 
-// Вернул 3 версии для теста
+// Вернул 3 версии для теста стабильности
 const AVAILABLE_MODELS = [
-  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Зернышко ⚡️)' },
+  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Быстрая ⚡️)' },
   { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash (Баланс 🔥)' },
-  { id: 'google/gemini-3-flash', name: 'Gemini 3 Flash (Умный 🧠)' },
+  { id: 'google/gemini-3-flash', name: 'Gemini 3 / Pro (Умная 🧠)' },
 ];
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
@@ -41,7 +41,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   
   const [showSettings, setShowSettings] = useState(false);
   
-  // Temp state
+  // Temp state for settings
   const [tempKey, setTempKey] = useState(apiKey);
   const [tempModel, setTempModel] = useState(selectedModel);
   const [tempBaseUrl, setTempBaseUrl] = useState(baseUrl);
@@ -75,14 +75,14 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       localStorage.setItem('ai_base_url', cleanedUrl || DEFAULT_BASE_URL);
       
       setShowSettings(false);
-      setMessages(prev => [...prev, { role: 'assistant', content: '✅ Настройки сохранены.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: '✅ Настройки сохранены. Попробуйте отправить сообщение.' }]);
   };
 
-  // Маппинг названий из списка пользователя в реальные ID Google API
+  // Маппинг названий моделей
   const getGoogleModelId = (orId: string) => {
       if (orId.includes('gemini-2.5-flash-lite')) return 'gemini-2.0-flash-lite-preview-02-05';
       if (orId.includes('gemini-2.5-flash')) return 'gemini-2.0-flash';
-      if (orId.includes('gemini-3-flash')) return 'gemini-2.0-pro-exp-02-05'; // Пробуем Pro версию как "3"
+      if (orId.includes('gemini-3-flash')) return 'gemini-2.0-pro-exp-02-05'; 
       return 'gemini-2.0-flash-lite-preview-02-05';
   };
 
@@ -117,7 +117,9 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                   } else if (data.choices?.[0]?.delta?.content) {
                       onChunk(data.choices[0].delta.content);
                   }
-              } catch (e) { }
+              } catch (e) { 
+                  // Игнорируем ошибки парсинга неполных JSON
+              }
           }
       }
   };
@@ -137,11 +139,11 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     setMessages(newHistory);
     setIsLoading(true);
 
-    // Placeholder
+    // Placeholder для ответа
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), 30000); // 30 сек таймаут
+    const timeoutId = setTimeout(() => abortController.abort(), 40000); // 40 сек таймаут
 
     try {
       const menuContext = products.map(p => 
@@ -154,10 +156,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         ${menuContext}
 
         ПРАВИЛА:
-        1. Твоя цель - вкусно описать и ПРОДАТЬ товар.
-        2. Если советуешь продукт, ОБЯЗАТЕЛЬНО пиши его ID в конце предложения так: {{ID_ТОВАРА}}.
-           Пример: "Попробуй латте! {{latte}}".
-        3. Будь краток и весел.
+        1. Вкусно опиши и продай товар.
+        2. Советуя товар, пиши его ID в конце предложения: {{ID_ТОВАРА}}.
+           Пример: "Возьми капучино! {{cappuccino}}".
+        3. Будь краток и весел. Используй эмодзи.
         4. Язык: Русский.
       `;
 
@@ -168,6 +170,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
       if (isGoogleKey) {
           const googleModel = getGoogleModelId(selectedModel);
+          // Добавляем streamGenerateContent
           url = `${baseUrl}/v1beta/models/${googleModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
           
           const validHistory = newHistory.filter(m => m.content.trim() !== '' && !m.content.includes('✅ Настройки'));
@@ -183,6 +186,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           };
 
       } else {
+          // Fallback для OpenRouter
           url = "https://openrouter.ai/api/v1/chat/completions";
           headers['Authorization'] = `Bearer ${apiKey}`;
           headers['HTTP-Referer'] = "https://coffee-lunch-app.github.io";
@@ -209,9 +213,11 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
       if (!response.ok) {
           const errorText = await response.text();
-          if (response.status === 401 || response.status === 403) throw new Error("Ошибка ключа (403).");
-          if (response.status === 404) throw new Error("Модель не найдена (404).");
+          console.error("API Error Response:", errorText);
+          if (response.status === 401 || response.status === 403) throw new Error("Ошибка ключа (403). Проверьте настройки.");
+          if (response.status === 404) throw new Error("Модель не найдена (404). Выберите другую версию.");
           if (response.status === 429) throw new Error("Лимит исчерпан (429).");
+          if (response.status === 500) throw new Error("Ошибка сервера AI (500). Попробуйте позже.");
           throw new Error(`Ошибка сети (${response.status})`);
       }
 
@@ -228,6 +234,11 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           });
       });
 
+      // Если после стрима текст пустой (иногда бывает при ошибках прокси, которые отдают 200 OK но без данных)
+      if (!fullText) {
+           throw new Error("Пустой ответ от сервера.");
+      }
+
     } catch (error: any) {
       console.error("AI Chat Error:", error);
       setMessages(prev => {
@@ -235,14 +246,24 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           const lastIdx = newMsgs.length - 1;
           if (lastIdx >= 0 && newMsgs[lastIdx].role === 'assistant') {
                const currentContent = newMsgs[lastIdx].content;
-               const errorMsg = error.name === 'AbortError' ? '⏳ Превышено время ожидания.' : `⚠️ ${error.message}`;
-               newMsgs[lastIdx] = { 
-                   ...newMsgs[lastIdx], 
-                   content: currentContent ? currentContent + `\n[${errorMsg}]` : errorMsg 
-               };
+               // Если есть контент, не затираем его ошибкой, а добавляем
+               const errorMsg = error.name === 'AbortError' ? '⏳ Слишком долгое ожидание.' : `⚠️ ${error.message}`;
+               
+               // Если контента еще не было, показываем ошибку
+               if (!currentContent) {
+                   newMsgs[lastIdx] = { ...newMsgs[lastIdx], content: errorMsg };
+               } else {
+                   // Если контент был (обрыв стрима), добавляем пометку
+                   newMsgs[lastIdx] = { ...newMsgs[lastIdx], content: currentContent + `\n\n[${errorMsg}]` };
+               }
           }
           return newMsgs;
       });
+      
+      // Показываем настройки при критических ошибках
+      if (error.message.includes("403") || error.message.includes("429") || error.message.includes("404")) {
+          setTimeout(() => setShowSettings(true), 1500);
+      }
     } finally {
       setIsLoading(false);
       clearTimeout(timeoutId);
