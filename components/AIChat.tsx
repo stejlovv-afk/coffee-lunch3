@@ -82,7 +82,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           "X-Title": "Coffee Lunch App",        
         },
         body: JSON.stringify({
-          "model": "google/gemini-flash-1.5-8b",
+          "model": "google/gemini-2.0-flash-exp:free",
           "messages": [
             { "role": "system", "content": systemPrompt },
             ...messages.map(m => ({ role: m.role, content: m.content })),
@@ -139,7 +139,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
             </div>
             <div>
                <h3 className="font-bold text-white leading-tight">AI Бариста</h3>
-               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Powered by Gemini</p>
+               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Powered by Gemini 2.0</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
