@@ -69,11 +69,13 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         headers: {
           "Authorization": `Bearer ${API_KEY}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": window.location.href, // Required by OpenRouter for ranking/logging
-          "X-Title": "Coffee Lunch App",        // Required by OpenRouter for ranking/logging
+          // OpenRouter requires a valid URL for the Referer. 
+          // Using a hardcoded valid URL bypasses issues with 'localhost' or 'file://' in WebViews.
+          "HTTP-Referer": "https://coffee-lunch-app.github.io", 
+          "X-Title": "Coffee Lunch App",        
         },
         body: JSON.stringify({
-          "model": "google/gemini-flash-1.5", // Switched to Flash 1.5 (Faster & More reliable for this key type)
+          "model": "google/gemini-flash-1.5", 
           "messages": [
             { "role": "system", "content": systemPrompt },
             ...messages.map(m => ({ role: m.role, content: m.content })),
@@ -82,25 +84,29 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         })
       });
 
+      // Check for HTTP errors first
+      if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Ошибка API (${response.status}): ${errorText}`);
+      }
+
       const data = await response.json();
       
-      // Debug logging
       if (data.error) {
-          console.error("OpenRouter API Error:", data.error);
-          throw new Error(data.error.message || "API returned an error");
+          throw new Error(data.error.message || "API вернул ошибку");
       }
 
       if (data.choices && data.choices.length > 0) {
         const aiResponse = data.choices[0].message.content;
         setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
       } else {
-        console.warn("Unexpected API response structure:", data);
-        setMessages(prev => [...prev, { role: 'assistant', content: 'Ой, что-то пошло не так. Попробуйте еще раз!' }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Пустой ответ от нейросети.' }]);
       }
 
-    } catch (error) {
-      console.error("AI Network Error:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Проблемы со связью. Я пока пойду варить кофе, попробуйте позже!' }]);
+    } catch (error: any) {
+      console.error("AI Chat Error:", error);
+      // Display the ACTUAL error to the user for debugging purposes
+      setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${error.message || 'Неизвестная ошибка сети'}` }]);
     } finally {
       setIsLoading(false);
     }
