@@ -50,27 +50,34 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     const timeoutId = setTimeout(() => abortController.abort(), 60000); 
 
     try {
-      // 1. Формируем контекст меню для бота
-      const menuContext = products.map(p => 
-        `- ${p.name} (${p.category}) ID:${p.id} : ${p.variants[0].price}₽`
-      ).join('\n');
+      // 1. ОПТИМИЗАЦИЯ ТОКЕНОВ: Сжимаем меню
+      // Группируем товары по категориям и убираем лишние слова
+      const categories: Record<string, string[]> = {};
+      products.forEach(p => {
+          // Если товар скрыт в админке, его можно не добавлять, чтобы экономить токены
+          // Но здесь мы берем все products переданные в пропсы (они уже отфильтрованы в App.tsx если надо)
+          if (!categories[p.category]) categories[p.category] = [];
+          // Формат: "Название 100₽ {{id}}"
+          categories[p.category].push(`${p.name} ${p.variants[0].price}₽ {{${p.id}}}`);
+      });
+
+      const menuContext = Object.entries(categories)
+          .map(([cat, items]) => `${cat.toUpperCase()}: ${items.join(', ')}`)
+          .join('\n');
 
       const systemPromptText = `
-        Ты - "Зернышко", веселый бариста в кофейне "Coffee Lunch".
-        МЕНЮ:
+        Ты бариста "Зернышко".
+        МЕНЮ (Категория: Товар Цена {{ID}}...):
         ${menuContext}
 
-        ПРАВИЛА:
-        1. Твоя цель - помочь выбрать и продать. Предлагай вкусные сочетания (кофе + десерт).
-        2. ВАЖНО: Когда советуешь конкретный товар, пиши его ID в формате {{ID}}. 
-           Пример: "Возьми капучино! {{cappuccino}}"
-        3. Не выдумывай цены, бери их из меню.
-        4. Будь краток, дружелюбен и используй эмодзи.
-        5. Отвечай на русском языке.
+        ИНСТРУКЦИЯ:
+        1. Предлагай вкусное.
+        2. Советуя товар, пиши ID: {{ID}}. Пример: "Бери латте! {{latte}}"
+        3. Не придумывай цены.
+        4. Будь краток и весел.
       `;
 
       // 2. Формируем сообщения для API
-      // Timeweb AI работает по стандарту OpenAI, поэтому формат messages такой же
       const apiMessages = [
           { role: 'system', content: systemPromptText },
           ...newHistory
@@ -84,11 +91,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
               'Authorization': `Bearer ${TIMEWEB_API_KEY}`,
           },
           body: JSON.stringify({
-              // Модель указываем, хотя агент Timeweb часто использует свою настройку по умолчанию
               model: 'gemini-3-flash-preview', 
               messages: apiMessages,
               temperature: 0.7,
-              max_tokens: 800
+              max_tokens: 500 // Ограничиваем длину ответа для экономии
           }),
           signal: abortController.signal
       });
