@@ -92,6 +92,9 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
   const [hotDogSausage, setHotDogSausage] = useState<'pork' | 'beef'>('pork');
   const [hotDogOnion, setHotDogOnion] = useState<boolean>(true);
   const [hotDogSauces, setHotDogSauces] = useState<string[]>([]);
+  
+  // Espresso Tonic Specific
+  const [tonicType, setTonicType] = useState<'classic' | 'pomegranate'>('classic');
 
   // UI State for Tooltips
   const [showFilterTooltip, setShowFilterTooltip] = useState(false);
@@ -163,6 +166,8 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
       hotDogSausage: isHotDog ? hotDogSausage : undefined,
       hotDogOnion: isHotDog ? hotDogOnion : undefined,
       hotDogSauces: isHotDog ? hotDogSauces : undefined,
+      // Espresso Tonic
+      tonicType: mods.isEspressoTonic ? tonicType : undefined,
     });
     onClose();
   };
@@ -224,6 +229,17 @@ const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, in
             <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
               <button onClick={() => setTemp('cold')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'cold' ? 'bg-white/10 shadow-sm border border-white/10 text-blue-400' : 'text-brand-muted'}`}>Холодный</button>
               <button onClick={() => setTemp('hot')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${temp === 'hot' ? 'bg-white/10 shadow-sm border border-white/10 text-brand-yellow' : 'text-brand-muted'}`}>Теплый</button>
+            </div>
+          </div>
+        )}
+        
+        {/* Espresso Tonic Selection */}
+        {mods.isEspressoTonic && (
+          <div className="mb-6">
+            <label className="block text-xs font-bold text-brand-muted uppercase tracking-wider mb-2">Вкус тоника</label>
+            <div className="flex bg-black/20 p-1 rounded-xl border border-white/5">
+              <button onClick={() => setTonicType('classic')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${tonicType === 'classic' ? 'bg-white/10 shadow-sm border border-white/10 text-white' : 'text-brand-muted'}`}>Классический</button>
+              <button onClick={() => setTonicType('pomegranate')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${tonicType === 'pomegranate' ? 'bg-white/10 shadow-sm border border-white/10 text-red-400' : 'text-brand-muted'}`}>Гранатовый</button>
             </div>
           </div>
         )}
