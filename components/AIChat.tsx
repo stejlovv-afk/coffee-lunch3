@@ -19,9 +19,10 @@ const DEFAULT_KEY = '';
 const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
 
 const AVAILABLE_MODELS = [
+  { id: 'google/gemini-3-flash', name: 'Gemini 3 Flash (Newest)' },
+  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite' },
   { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Fast)' },
   { id: 'google/gemini-2.0-pro-exp-02-05:free', name: 'Gemini 2.0 Pro (Smart)' },
-  { id: 'google/gemini-flash-1.5', name: 'Gemini 1.5 Flash (Stable)' },
 ];
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
@@ -77,8 +78,14 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   };
 
   const getGoogleModelId = (orId: string) => {
+      // Mappings based on user request for 2.5 and 3
+      if (orId.includes('gemini-3-flash')) return 'gemini-3-flash-preview';
+      if (orId.includes('gemini-2.5-flash-lite')) return 'gemini-flash-lite-latest';
+      
+      // Legacy Mappings
       if (orId.includes('gemini-2.0-pro')) return 'gemini-2.0-pro-exp-02-05';
       if (orId.includes('gemini-2.0-flash')) return 'gemini-2.0-flash-exp';
+      
       return 'gemini-1.5-flash';
   };
 
@@ -164,7 +171,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           const errorText = await response.text();
           if (response.status === 401 || response.status === 403) throw new Error("Ошибка доступа (403/401). Проверьте ключ или прокси.");
           if (response.status === 429) throw new Error("Лимит исчерпан (429).");
-          if (response.status === 404) throw new Error("Неверный адрес API (404).");
+          if (response.status === 404) throw new Error("Неверный адрес API (404) или Модели.");
           throw new Error(`Ошибка сети (${response.status})`);
       }
 
