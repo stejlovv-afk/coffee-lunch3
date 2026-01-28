@@ -16,7 +16,7 @@ interface Message {
 
 // NOTE: In production, it is recommended to use a Proxy Server to hide the API Key.
 // For this mini-app demo, we are using the client-side call directly.
-const API_KEY = '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';
+const API_KEY = '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';
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [messages, setMessages] = useState<Message[]>([
