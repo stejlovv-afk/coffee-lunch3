@@ -44,6 +44,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
     try {
       // Create context from products
+      // We limit the context size slightly to ensure speed
       const menuContext = products.map(p => 
         `- ${p.name} (${p.category}): ${p.variants[0].price}₽`
       ).join('\n');
@@ -67,10 +68,12 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "HTTP-Referer": window.location.href, // Required by OpenRouter for ranking/logging
+          "X-Title": "Coffee Lunch App",        // Required by OpenRouter for ranking/logging
         },
         body: JSON.stringify({
-          "model": "google/gemini-pro-1.5", // Using Gemini via OpenRouter
+          "model": "google/gemini-flash-1.5", // Switched to Flash 1.5 (Faster & More reliable for this key type)
           "messages": [
             { "role": "system", "content": systemPrompt },
             ...messages.map(m => ({ role: m.role, content: m.content })),
@@ -81,15 +84,22 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
       const data = await response.json();
       
+      // Debug logging
+      if (data.error) {
+          console.error("OpenRouter API Error:", data.error);
+          throw new Error(data.error.message || "API returned an error");
+      }
+
       if (data.choices && data.choices.length > 0) {
         const aiResponse = data.choices[0].message.content;
         setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
       } else {
+        console.warn("Unexpected API response structure:", data);
         setMessages(prev => [...prev, { role: 'assistant', content: 'Ой, что-то пошло не так. Попробуйте еще раз!' }]);
       }
 
     } catch (error) {
-      console.error("AI Error:", error);
+      console.error("AI Network Error:", error);
       setMessages(prev => [...prev, { role: 'assistant', content: 'Проблемы со связью. Я пока пойду варить кофе, попробуйте позже!' }]);
     } finally {
       setIsLoading(false);
