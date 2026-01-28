@@ -18,8 +18,8 @@ interface Message {
 const DEFAULT_KEY = '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';
 
 const AVAILABLE_MODELS = [
-  { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', name: 'Gemini 2.0 Flash Lite (Free)' },
   { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash Exp (Free)' },
+  { id: 'google/gemini-2.0-pro-exp-02-05:free', name: 'Gemini 2.0 Pro Exp (Free)' },
   { id: 'google/gemini-flash-1.5-8b', name: 'Gemini 1.5 Flash 8B' },
   { id: 'google/gemini-flash-1.5', name: 'Gemini 1.5 Flash' },
 ];
@@ -34,7 +34,15 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   
   // Settings State
   const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('openrouter_api_key') || DEFAULT_KEY);
-  const [selectedModel, setSelectedModel] = useState<string>(() => localStorage.getItem('openrouter_model') || AVAILABLE_MODELS[0].id);
+  
+  // Model State with validation
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    const stored = localStorage.getItem('openrouter_model');
+    // Ensure the stored model is valid, otherwise default to the first available one
+    const isValid = AVAILABLE_MODELS.some(m => m.id === stored);
+    return isValid && stored ? stored : AVAILABLE_MODELS[0].id;
+  });
+
   const [showSettings, setShowSettings] = useState(false);
   
   // Temp state for settings form
