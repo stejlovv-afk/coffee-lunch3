@@ -16,13 +16,14 @@ interface Message {
 
 // Ключ и настройки по умолчанию
 const DEFAULT_KEY = 'AIzaSyCgAd7WzVgafJSYguKsch0JACo1MEPXauE';
-// Используем ваш Cloudflare Worker как прокси для обхода блокировок в РФ (если пользователь в РФ)
-// Если пользователь не в РФ, Google API работает напрямую.
+// Используем ваш Cloudflare Worker как прокси
 const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
 
-// Только одна модель, как просили
+// Вернул 3 версии для теста
 const AVAILABLE_MODELS = [
-  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Зернышко)' },
+  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (Зернышко ⚡️)' },
+  { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash (Баланс 🔥)' },
+  { id: 'google/gemini-3-flash', name: 'Gemini 3 Flash (Умный 🧠)' },
 ];
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
@@ -77,7 +78,14 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       setMessages(prev => [...prev, { role: 'assistant', content: '✅ Настройки сохранены.' }]);
   };
 
-  // Helper function to read streaming response
+  // Маппинг названий из списка пользователя в реальные ID Google API
+  const getGoogleModelId = (orId: string) => {
+      if (orId.includes('gemini-2.5-flash-lite')) return 'gemini-2.0-flash-lite-preview-02-05';
+      if (orId.includes('gemini-2.5-flash')) return 'gemini-2.0-flash';
+      if (orId.includes('gemini-3-flash')) return 'gemini-2.0-pro-exp-02-05'; // Пробуем Pro версию как "3"
+      return 'gemini-2.0-flash-lite-preview-02-05';
+  };
+
   const readStream = async (response: Response, onChunk: (text: string) => void) => {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -104,12 +112,9 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
               try {
                   const data = JSON.parse(dataStr);
-                  // Google Format
                   if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
                       onChunk(data.candidates[0].content.parts[0].text);
-                  }
-                  // OpenRouter Format
-                  else if (data.choices?.[0]?.delta?.content) {
+                  } else if (data.choices?.[0]?.delta?.content) {
                       onChunk(data.choices[0].delta.content);
                   }
               } catch (e) { }
@@ -128,13 +133,15 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
     const userMessage = input.trim();
     setInput('');
-    // Добавляем сообщение пользователя
     const newHistory: Message[] = [...messages, { role: 'user', content: userMessage }];
     setMessages(newHistory);
     setIsLoading(true);
 
-    // Placeholder для ответа ассистента
+    // Placeholder
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), 30000); // 30 сек таймаут
 
     try {
       const menuContext = products.map(p => 
@@ -143,17 +150,15 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
       const systemPromptText = `
         Ты - "Зернышко", веселый бариста в кофейне "Coffee Lunch".
-        
         МЕНЮ:
         ${menuContext}
 
         ПРАВИЛА:
         1. Твоя цель - вкусно описать и ПРОДАТЬ товар.
-        2. Если ты советуешь конкретный продукт, ОБЯЗАТЕЛЬНО добавь его ID в конце предложения в формате: {{ID_ТОВАРА}}. 
-           Например: "Возьмите капучино, он бодрит! {{cappuccino}}".
-           Можно советовать несколько товаров: "К кофе {{latte}} отлично подойдет круассан {{croissant_chocolate}}".
-        3. Будь дружелюбным, используй эмодзи.
-        4. Отвечай на русском языке.
+        2. Если советуешь продукт, ОБЯЗАТЕЛЬНО пиши его ID в конце предложения так: {{ID_ТОВАРА}}.
+           Пример: "Попробуй латте! {{latte}}".
+        3. Будь краток и весел.
+        4. Язык: Русский.
       `;
 
       const isGoogleKey = apiKey.startsWith('AIza');
@@ -162,13 +167,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       let headers: any = { 'Content-Type': 'application/json' };
 
       if (isGoogleKey) {
-          // --- DIRECT GOOGLE API (STREAMING) ---
-          const googleModel = 'gemini-2.0-flash-lite-preview-02-05';
+          const googleModel = getGoogleModelId(selectedModel);
           url = `${baseUrl}/v1beta/models/${googleModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
           
-          // Формируем историю для Google (строго user -> model -> user)
           const validHistory = newHistory.filter(m => m.content.trim() !== '' && !m.content.includes('✅ Настройки'));
-          
           const contents = validHistory.map(m => ({
               role: m.role === 'user' ? 'user' : 'model',
               parts: [{ text: m.content }]
@@ -177,14 +179,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           body = {
               contents: contents,
               systemInstruction: { parts: [{ text: systemPromptText }] },
-              generationConfig: {
-                  temperature: 0.7
-                  // Убрали ограничение maxOutputTokens, чтобы ответы были полными
-              }
+              generationConfig: { temperature: 0.7 }
           };
 
       } else {
-          // --- OPENROUTER (Fallback) ---
           url = "https://openrouter.ai/api/v1/chat/completions";
           headers['Authorization'] = `Bearer ${apiKey}`;
           headers['HTTP-Referer'] = "https://coffee-lunch-app.github.io";
@@ -200,12 +198,20 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           };
       }
 
-      const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      const response = await fetch(url, { 
+          method: 'POST', 
+          headers, 
+          body: JSON.stringify(body),
+          signal: abortController.signal
+      });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
           const errorText = await response.text();
-          if (response.status === 401 || response.status === 403) throw new Error("Ошибка ключа. Проверьте настройки.");
-          if (response.status === 429) throw new Error("Слишком много запросов.");
+          if (response.status === 401 || response.status === 403) throw new Error("Ошибка ключа (403).");
+          if (response.status === 404) throw new Error("Модель не найдена (404).");
+          if (response.status === 429) throw new Error("Лимит исчерпан (429).");
           throw new Error(`Ошибка сети (${response.status})`);
       }
 
@@ -229,32 +235,27 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           const lastIdx = newMsgs.length - 1;
           if (lastIdx >= 0 && newMsgs[lastIdx].role === 'assistant') {
                const currentContent = newMsgs[lastIdx].content;
+               const errorMsg = error.name === 'AbortError' ? '⏳ Превышено время ожидания.' : `⚠️ ${error.message}`;
                newMsgs[lastIdx] = { 
                    ...newMsgs[lastIdx], 
-                   content: currentContent ? currentContent + `\n[Ошибка: ${error.message}]` : `⚠️ ${error.message}` 
+                   content: currentContent ? currentContent + `\n[${errorMsg}]` : errorMsg 
                };
           }
           return newMsgs;
       });
-      
-      if (error.message.includes("403") || error.message.includes("429")) setShowSettings(true);
     } finally {
       setIsLoading(false);
+      clearTimeout(timeoutId);
     }
   };
 
-  // --- Рендеринг сообщения с карточками товаров ---
   const renderMessageContent = (text: string) => {
-    // Разбиваем текст по тегу {{ID}}
     const parts = text.split(/(\{\{.*?\}\})/g);
-
     return parts.map((part, index) => {
-        // Если это тег товара
         if (part.startsWith('{{') && part.endsWith('}}')) {
             const productId = part.slice(2, -2).trim();
             const product = products.find(p => p.id === productId);
-
-            if (!product) return null; // Если товар не найден, скрываем тег
+            if (!product) return null;
 
             return (
                 <div key={index} className="my-2 p-2 bg-black/40 rounded-xl border border-brand-yellow/30 flex items-center gap-3 shadow-lg transform transition-all hover:scale-[1.02]">
@@ -273,7 +274,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                 </div>
             );
         }
-        // Обычный текст
         return <span key={index}>{part}</span>;
     });
   };
@@ -292,9 +292,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
             </div>
             <div>
                <h3 className="font-bold text-white leading-tight">Зернышко AI</h3>
-               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">
-                   Online
-               </p>
+               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Online</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -310,17 +308,31 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
         {/* Content Area */}
         <div className="flex-1 overflow-hidden relative">
             
-            {/* Settings Overlay (Скрыт по умолчанию) */}
+            {/* Settings Overlay */}
             {showSettings && (
                 <div className="absolute inset-0 z-20 bg-black/95 backdrop-blur-xl p-6 flex flex-col items-center justify-center animate-fade-in text-center">
-                    <div className="w-full max-w-xs space-y-4">
+                    <div className="w-full max-w-xs space-y-4 overflow-y-auto max-h-full py-2 no-scrollbar">
                         <h3 className="text-xl font-bold text-white">Настройки</h3>
+                        
                         <div className="space-y-1 text-left">
                             <label className="text-xs font-bold text-brand-muted uppercase ml-1">Модель</label>
-                            <div className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold border bg-brand-yellow text-black border-brand-yellow">
-                                {AVAILABLE_MODELS[0].name}
+                            <div className="space-y-1">
+                                {AVAILABLE_MODELS.map(m => (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => setTempModel(m.id)}
+                                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                                            tempModel === m.id 
+                                            ? 'bg-brand-yellow text-black border-brand-yellow' 
+                                            : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
+                                        }`}
+                                    >
+                                        {m.name}
+                                    </button>
+                                ))}
                             </div>
                         </div>
+
                         <div className="space-y-1 text-left">
                             <label className="text-xs font-bold text-brand-muted uppercase ml-1">API Ключ</label>
                             <input 
@@ -330,6 +342,17 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                                 className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 font-mono text-xs"
                             />
                         </div>
+
+                        <div className="space-y-1 text-left">
+                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">Прокси URL</label>
+                            <input 
+                                type="text" 
+                                value={tempBaseUrl}
+                                onChange={(e) => setTempBaseUrl(e.target.value)}
+                                className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 font-mono text-xs"
+                            />
+                        </div>
+
                         <div className="flex gap-2 pt-2">
                             <button onClick={() => setShowSettings(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button>
                             <button onClick={handleSaveSettings} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Сохранить</button>
