@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
 import { Category, Product, CartItem, WebAppPayload, PromoCode } from './types';
@@ -830,7 +829,10 @@ const App: React.FC = () => {
       
       {showAiChat && (
         <AIChat 
-          products={allProducts} 
+          products={allProducts.filter(p => 
+            !hiddenItems.includes(p.id) && 
+            (inventory[p.id] === undefined || inventory[p.id] > 0)
+          )} 
           onClose={() => setShowAiChat(false)} 
           onAddToCart={(product) => setSelectedProduct(product)} 
         />
