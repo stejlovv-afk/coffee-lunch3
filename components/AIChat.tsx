@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { SparklesIcon, SendIcon, XMarkIcon, PlusIcon } from './ui/Icons';
-import { Product } from '../types';
+import { Product, Category } from '../types';
 
 interface AIChatProps {
   products: Product[];
@@ -15,15 +15,38 @@ interface Message {
 }
 
 // --- НАСТРОЙКИ TIMEWEB AI ---
-// Адрес вашего агента
 const TIMEWEB_API_URL = 'https://agent.timeweb.cloud/api/v1/cloud-ai/agents/aabb17cb-c1df-4ccb-b419-f438bb89fec1/v1';
-
-// Ваш токен доступа
 const TIMEWEB_API_KEY = 'eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCIsImtpZCI6IjFrYnhacFJNQGJSI0tSbE1xS1lqIn0.eyJ1c2VyIjoicW40ODM4MjAiLCJ0eXBlIjoiYXBpX2tleSIsImFwaV9rZXlfaWQiOiI1ZDA5MjAzYS03OTg0LTRjMTQtYmVkYS1jNjJlNTBkMDFlODgiLCJpYXQiOjE3Njk2MzY5MDJ9.BKZO8nPYf7ueqwQEr6gRxB_nqsO91ChQPq7Jh1FZff6WVWACQ0KmQdpTCIFH2jXzilW14mNqx856gRNp-xlyTJkmyB6EAWdVPnjreSk3ENaMEEzz1Jc8AyREP7q_qkzJHzsvoql1OXYFGD1aok7iBpNNEZqgPEmi-qLp8cv9T8zDNG5l6vBJjJctfzpN29vrUcyeDqLKEny05K6vYALXx-l0QFMM082rwJcW2y2DVZsnbS4_BA8wYSGUz1TciBAJJAVgxNJXZ87-xK_PmR-oMzNND2TeXl_Miez_HdOuit6kC6kQipbw-anCLFdaTxc3UXOWF_zuskPqeb3s9RmtyYLnDMIfPHSwl0K-IvDmShQVKIEdRM7QUq52xLfqLjPjjTaOdPcWAjaRLW_PKrFleARmyoHoSRN2g9UWY-EeuJVUBj-7SBRygyjp_O4BRtlUcTi51WGGE5RNx_n5JMcn_DfzvZEjkh3vthztn4S1X35LW8Go7AGEmS_JlDX_VU_z';
+
+// --- КЛЮЧЕВЫЕ СЛОВА ДЛЯ ФИЛЬТРАЦИИ ---
+const KEYWORD_MAP: Record<string, Category[]> = {
+    'напит': ['coffee', 'tea', 'seasonal', 'punch', 'soda'],
+    'пить': ['coffee', 'tea', 'seasonal', 'punch', 'soda'],
+    'кофе': ['coffee', 'seasonal'],
+    'капуч': ['coffee'],
+    'латте': ['coffee'],
+    'чай': ['tea', 'punch'],
+    'сок': ['soda'],
+    'лимонад': ['soda'],
+    'еда': ['fast_food', 'combo', 'hot_dishes', 'soups', 'side_dishes', 'salads'],
+    'куш': ['fast_food', 'combo', 'hot_dishes', 'soups', 'side_dishes', 'salads'],
+    'голод': ['fast_food', 'combo', 'hot_dishes', 'soups', 'side_dishes', 'salads'],
+    'обед': ['combo', 'hot_dishes', 'soups', 'salads'],
+    'ужин': ['hot_dishes', 'salads', 'side_dishes'],
+    'суп': ['soups'],
+    'салат': ['salads'],
+    'слад': ['bakery', 'desserts', 'sweets', 'ice_cream'],
+    'десерт': ['bakery', 'desserts', 'sweets', 'ice_cream'],
+    'вкусн': ['bakery', 'desserts', 'sweets', 'ice_cream', 'combo'],
+    'комбо': ['combo'],
+    'выпеч': ['bakery'],
+    'бургер': ['fast_food'],
+    'сэндвич': ['fast_food'],
+};
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Привет! Я Зернышко ☕️\nЯ знаю всё о нашем меню. Что ты хочешь попробовать?' }
+    { role: 'assistant', content: 'Привет! Я Зернышко ☕️\nПодсказать что-то из еды или напитков?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +59,45 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Функция для умного подбора контекста (RAG Lite)
+  const getRelevantMenuContext = (userInput: string): string => {
+      const lowerInput = userInput.toLowerCase();
+      const relevantCategories = new Set<Category>();
+      let foundKeywords = false;
+
+      // 1. Ищем совпадения по ключевым словам
+      Object.entries(KEYWORD_MAP).forEach(([keyword, categories]) => {
+          if (lowerInput.includes(keyword)) {
+              categories.forEach(c => relevantCategories.add(c));
+              foundKeywords = true;
+          }
+      });
+
+      // 2. Если нашли категории - формируем список товаров ТОЛЬКО из них
+      if (foundKeywords) {
+          const catItems: Record<string, string[]> = {};
+          products.filter(p => relevantCategories.has(p.category)).forEach(p => {
+              if (!catItems[p.category]) catItems[p.category] = [];
+              catItems[p.category].push(`${p.name} ${p.variants[0].price}₽ {{${p.id}}}`);
+          });
+
+          return "ВЫБРАННОЕ МЕНЮ (Только то, что спросил клиент):\n" + 
+                 Object.entries(catItems).map(([c, i]) => `${c.toUpperCase()}: ${i.join(', ')}`).join('\n');
+      }
+
+      // 3. Если запрос общий (или не поняли) - отправляем только НАЗВАНИЯ категорий и Сезонное меню (оно важное)
+      const seasonalItems = products.filter(p => p.category === 'seasonal').map(p => `${p.name} {{${p.id}}}`);
+      const categoryNames = Array.from(new Set(products.map(p => p.category))).join(', ');
+      
+      return `ОБЩЕЕ МЕНЮ (Подробности скрыты для экономии):
+      Категории: ${categoryNames}.
+      
+      СЕЗОННОЕ ПРЕДЛОЖЕНИЕ (Предлагай это, если не знают что выбрать):
+      ${seasonalItems.join(', ')}
+      
+      (Если клиент спросит конкретнее про еду, кофе или десерты - я загружу подробный список).`;
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -50,40 +112,30 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     const timeoutId = setTimeout(() => abortController.abort(), 60000); 
 
     try {
-      // 1. ОПТИМИЗАЦИЯ ТОКЕНОВ: Сжимаем меню
-      // Группируем товары по категориям и убираем лишние слова
-      const categories: Record<string, string[]> = {};
-      products.forEach(p => {
-          // Если товар скрыт в админке, его можно не добавлять, чтобы экономить токены
-          // Но здесь мы берем все products переданные в пропсы (они уже отфильтрованы в App.tsx если надо)
-          if (!categories[p.category]) categories[p.category] = [];
-          // Формат: "Название 100₽ {{id}}"
-          categories[p.category].push(`${p.name} ${p.variants[0].price}₽ {{${p.id}}}`);
-      });
+      // 1. Генерируем контекст специально под запрос
+      const menuContext = getRelevantMenuContext(userMessage);
 
-      const menuContext = Object.entries(categories)
-          .map(([cat, items]) => `${cat.toUpperCase()}: ${items.join(', ')}`)
-          .join('\n');
-
+      // 2. Системный промпт
       const systemPromptText = `
         Ты бариста "Зернышко".
-        МЕНЮ (Категория: Товар Цена {{ID}}...):
+        КОНТЕКСТ МЕНЮ:
         ${menuContext}
 
         ИНСТРУКЦИЯ:
-        1. Предлагай вкусное.
-        2. Советуя товар, пиши ID: {{ID}}. Пример: "Бери латте! {{latte}}"
+        1. Если в меню только категории, спроси, что именно интересно (Еда, Кофе, Десерты).
+        2. Если видишь товары, советуй их. Пиши ID: {{ID}}. Пример: "Бери латте! {{latte}}"
         3. Не придумывай цены.
-        4. Будь краток и весел.
+        4. Будь краток.
       `;
 
-      // 2. Формируем сообщения для API
+      // 3. Формируем историю (обрезаем старое, чтобы экономить токены)
+      // Берем последние 6 сообщений + системное
+      const recentHistory = newHistory.slice(-6); 
       const apiMessages = [
           { role: 'system', content: systemPromptText },
-          ...newHistory
+          ...recentHistory
       ];
 
-      // 3. Отправляем запрос на Timeweb
       const response = await fetch(`${TIMEWEB_API_URL}/chat/completions`, { 
           method: 'POST', 
           headers: {
@@ -94,33 +146,25 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
               model: 'gemini-3-flash-preview', 
               messages: apiMessages,
               temperature: 0.7,
-              max_tokens: 500 // Ограничиваем длину ответа для экономии
+              max_tokens: 600 
           }),
           signal: abortController.signal
       });
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Timeweb API Error:", errorText);
-          throw new Error(`Ошибка сервера (${response.status})`);
-      }
+      if (!response.ok) throw new Error(`Ошибка сервера (${response.status})`);
 
       const data = await response.json();
-      
       const aiText = data.choices?.[0]?.message?.content;
       
-      if (!aiText) {
-          console.log("Full Response:", data);
-          throw new Error("Пришел пустой ответ от нейросети.");
-      }
+      if (!aiText) throw new Error("Пустой ответ.");
 
       setMessages(prev => [...prev, { role: 'assistant', content: aiText }]);
 
     } catch (error: any) {
-      console.error("AI Chat Error:", error);
-      const errorMsg = error.name === 'AbortError' ? '⏳ Время ожидания истекло.' : `⚠️ ${error.message}`;
+      console.error("AI Error:", error);
+      const errorMsg = error.name === 'AbortError' ? '⏳ Долго думал...' : `⚠️ Ошибка связи`;
       setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
     } finally {
       setIsLoading(false);
@@ -129,7 +173,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   };
 
   const renderMessageContent = (text: string) => {
-    // Рендер кнопок товаров {{ID}}
     const parts = text.split(/(\{\{.*?\}\})/g);
     return parts.map((part, index) => {
         if (part.startsWith('{{') && part.endsWith('}}')) {
@@ -175,44 +218,35 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Timeweb Power</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-              <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-brand-muted hover:text-white transition-colors">
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-brand-muted hover:text-white transition-colors">
+            <XMarkIcon className="w-6 h-6" />
+          </button>
         </div>
 
-        {/* Content Area */}
+        {/* Content */}
         <div className="flex-1 overflow-hidden relative">
-            {/* Chat Messages */}
             <div className="absolute inset-0 z-10 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-black/20 to-transparent">
             {messages.map((msg, idx) => (
                 <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div 
-                    className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${
-                    msg.role === 'user' 
-                        ? 'bg-brand-yellow text-black rounded-tr-none font-medium' 
-                        : 'bg-white/10 text-white border border-white/5 rounded-tl-none'
-                    }`}
-                >
+                <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${msg.role === 'user' ? 'bg-brand-yellow text-black rounded-tr-none font-medium' : 'bg-white/10 text-white border border-white/5 rounded-tl-none'}`}>
                     {renderMessageContent(msg.content)}
                 </div>
                 </div>
             ))}
             {isLoading && (
                 <div className="flex justify-start">
-                <div className="bg-white/10 p-4 rounded-2xl rounded-tl-none flex gap-1.5 items-center">
-                    <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce delay-100"></div>
-                    <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce delay-200"></div>
-                </div>
+                  <div className="bg-white/10 p-4 rounded-2xl rounded-tl-none flex gap-1.5 items-center">
+                      <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce delay-100"></div>
+                      <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce delay-200"></div>
+                  </div>
                 </div>
             )}
             <div ref={messagesEndRef} />
             </div>
         </div>
 
-        {/* Input Area */}
+        {/* Input */}
         <div className="p-4 bg-black/40 border-t border-white/10 backdrop-blur-xl safe-area-bottom z-30">
            <div className="flex gap-2">
              <input 
@@ -220,17 +254,13 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                value={input}
                onChange={(e) => setInput(e.target.value)}
                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-               placeholder="Что посоветуешь?" 
+               placeholder="Посоветуй кофе..." 
                className="flex-1 glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 transition-all placeholder:text-brand-muted/50"
              />
              <button 
                onClick={handleSend}
                disabled={isLoading || !input.trim()}
-               className={`p-3 rounded-xl transition-all flex items-center justify-center aspect-square ${
-                 !input.trim() 
-                   ? 'bg-white/5 text-brand-muted' 
-                   : 'bg-brand-yellow text-black shadow-[0_0_15px_rgba(250,204,21,0.4)] active:scale-95'
-               }`}
+               className={`p-3 rounded-xl transition-all flex items-center justify-center aspect-square ${!input.trim() ? 'bg-white/5 text-brand-muted' : 'bg-brand-yellow text-black shadow-[0_0_15px_rgba(250,204,21,0.4)] active:scale-95'}`}
              >
                <SendIcon className="w-6 h-6" />
              </button>
