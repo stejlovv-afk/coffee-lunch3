@@ -20,6 +20,7 @@ export interface ProductModifiers {
   isBuckthorn?: boolean;  // Спец. опция для облепихи (мед/фильтр)
   isSoda?: boolean;       // Газ/Негаз, Температура (legacy flag)
   isHotDog?: boolean;     // Спец. опция для хот-дога
+  isEspressoTonic?: boolean; // Спец. опция для эспрессо-тоника (вкус)
 }
 
 export interface Product {
@@ -56,7 +57,8 @@ export interface CartItemOption {
   matchaColor?: 'green' | 'blue';
   hotDogSausage?: 'pork' | 'beef';
   hotDogOnion?: boolean;
-  hotDogSauces?: string[]; // Array of sauce IDs for hot dog      
+  hotDogSauces?: string[]; // Array of sauce IDs for hot dog
+  tonicType?: 'classic' | 'pomegranate';      
 }
 
 export interface CartItem {
