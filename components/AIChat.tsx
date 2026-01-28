@@ -61,6 +61,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Refs for voice input
+  const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef('');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -187,7 +191,13 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     }
   };
 
-  const startListening = () => {
+  const toggleListening = () => {
+      // Если уже слушаем - останавливаем
+      if (isListening) {
+          recognitionRef.current?.stop();
+          return;
+      }
+
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
           alert("Ваш браузер не поддерживает голосовой ввод.");
           return;
@@ -196,17 +206,36 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.lang = 'ru-RU';
-      recognition.interimResults = false;
+      recognition.interimResults = true; // Чтобы видеть текст в процессе
       recognition.maxAlternatives = 1;
 
+      recognitionRef.current = recognition;
+      transcriptRef.current = ''; // Сброс текста
+
       recognition.onstart = () => setIsListening(true);
-      recognition.onend = () => setIsListening(false);
-      recognition.onerror = () => setIsListening(false);
+      
+      recognition.onend = () => {
+          setIsListening(false);
+          // Отправляем ТОЛЬКО когда микрофон выключился (автоматически или вручную)
+          const finalText = transcriptRef.current.trim();
+          if (finalText) {
+              handleSend(finalText);
+          }
+      };
+
+      recognition.onerror = (event: any) => {
+          console.error("Speech error", event.error);
+          setIsListening(false);
+      };
 
       recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setInput(transcript);
-          handleSend(transcript);
+          // Собираем текст
+          const transcript = Array.from(event.results)
+              .map((result: any) => result[0].transcript)
+              .join('');
+          
+          transcriptRef.current = transcript;
+          setInput(transcript); // Просто показываем в поле, но не отправляем
       };
 
       recognition.start();
@@ -300,8 +329,8 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
            {/* Input Bar */}
            <div className="px-4 pb-4 flex gap-2 items-center">
              <button 
-                onClick={startListening} 
-                className={`p-3 rounded-xl transition-all border border-white/5 ${isListening ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-white/5 text-brand-muted'}`}
+                onClick={toggleListening} 
+                className={`p-3 rounded-xl transition-all border border-white/5 ${isListening ? 'bg-red-500/20 text-red-400 animate-pulse border-red-500/50' : 'bg-white/5 text-brand-muted hover:text-white'}`}
              >
                 <MicrophoneIcon className="w-6 h-6" isListening={isListening} />
              </button>
@@ -311,8 +340,8 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                value={input}
                onChange={(e) => setInput(e.target.value)}
                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-               placeholder="Посоветуй кофе..." 
-               className="flex-1 glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 transition-all placeholder:text-brand-muted/50"
+               placeholder={isListening ? "Слушаю..." : "Посоветуй кофе..."}
+               className={`flex-1 glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 transition-all placeholder:text-brand-muted/50 ${isListening ? 'border-brand-yellow/30 bg-brand-yellow/5' : ''}`}
              />
              
              <button 
