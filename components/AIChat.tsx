@@ -27,30 +27,12 @@ const SUGGESTIONS = [
     "Хочу кофе", "Что поесть?", "Авторский чай", "Сладкое к кофе"
 ];
 
-// --- КЛЮЧЕВЫЕ СЛОВА ДЛЯ ФИЛЬТРАЦИИ ---
-const KEYWORD_MAP: Record<string, Category[]> = {
-    'напит': ['coffee', 'tea', 'seasonal', 'punch', 'soda'],
-    'пить': ['coffee', 'tea', 'seasonal', 'punch', 'soda'],
-    'кофе': ['coffee', 'seasonal'],
-    'капуч': ['coffee'],
-    'латте': ['coffee'],
-    'чай': ['tea', 'punch'],
-    'сок': ['soda'],
-    'лимонад': ['soda'],
-    'еда': ['fast_food', 'combo', 'hot_dishes', 'soups', 'side_dishes', 'salads'],
-    'куш': ['fast_food', 'combo', 'hot_dishes', 'soups', 'side_dishes', 'salads'],
-    'голод': ['fast_food', 'combo', 'hot_dishes', 'soups', 'side_dishes', 'salads'],
-    'обед': ['combo', 'hot_dishes', 'soups', 'salads'],
-    'ужин': ['hot_dishes', 'salads', 'side_dishes'],
-    'суп': ['soups'],
-    'салат': ['salads'],
-    'слад': ['bakery', 'desserts', 'sweets', 'ice_cream'],
-    'десерт': ['bakery', 'desserts', 'sweets', 'ice_cream'],
-    'вкусн': ['bakery', 'desserts', 'sweets', 'ice_cream', 'combo'],
-    'комбо': ['combo'],
-    'выпеч': ['bakery'],
-    'бургер': ['fast_food'],
-    'сэндвич': ['fast_food'],
+// Русские названия категорий для красивого вывода
+const CATEGORY_NAMES: Record<string, string> = {
+    coffee: 'КОФЕ', tea: 'ЧАЙ', seasonal: 'СЕЗОННОЕ', punch: 'ПУНШИ', soda: 'НАПИТКИ',
+    fast_food: 'ФАСТФУД', combo: 'КОМБО ОБЕДЫ', hot_dishes: 'ГОРЯЧЕЕ', soups: 'СУПЫ',
+    side_dishes: 'ГАРНИРЫ', salads: 'САЛАТЫ', bakery: 'ВЫПЕЧКА', desserts: 'ДЕСЕРТЫ',
+    sweets: 'СЛАДОСТИ', ice_cream: 'МОРОЖЕНОЕ'
 };
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
@@ -74,43 +56,25 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     scrollToBottom();
   }, [messages]);
 
-  // Функция для умного подбора контекста (RAG Lite)
-  const getRelevantMenuContext = (userInput: string): string => {
-      const lowerInput = userInput.toLowerCase();
-      const relevantCategories = new Set<Category>();
-      let foundKeywords = false;
+  // Генерация полного контекста меню
+  // Мы берем ВСЕ продукты, которые пришли в props (они уже отфильтрованы в App.tsx)
+  const getFullMenuContext = (): string => {
+      const grouped: Record<string, string[]> = {};
 
-      // 1. Ищем совпадения по ключевым словам
-      Object.entries(KEYWORD_MAP).forEach(([keyword, categories]) => {
-          if (lowerInput.includes(keyword)) {
-              categories.forEach(c => relevantCategories.add(c));
-              foundKeywords = true;
-          }
+      products.forEach(p => {
+          if (!grouped[p.category]) grouped[p.category] = [];
+          // Формат: Название (Цена) {{ID}}
+          grouped[p.category].push(`${p.name} (${p.variants[0].price}₽) {{${p.id}}}`);
       });
 
-      // 2. Если нашли категории - формируем список товаров ТОЛЬКО из них
-      if (foundKeywords) {
-          const catItems: Record<string, string[]> = {};
-          products.filter(p => relevantCategories.has(p.category)).forEach(p => {
-              if (!catItems[p.category]) catItems[p.category] = [];
-              catItems[p.category].push(`${p.name} ${p.variants[0].price}₽ {{${p.id}}}`);
-          });
-
-          return "ВЫБРАННОЕ МЕНЮ (Только то, что спросил клиент):\n" + 
-                 Object.entries(catItems).map(([c, i]) => `${c.toUpperCase()}: ${i.join(', ')}`).join('\n');
+      let contextString = "АКТУАЛЬНОЕ МЕНЮ (Только то, что есть в наличии):\n";
+      
+      for (const [cat, items] of Object.entries(grouped)) {
+          const catName = CATEGORY_NAMES[cat] || cat.toUpperCase();
+          contextString += `\n--- ${catName} ---\n${items.join(', ')}\n`;
       }
 
-      // 3. Если запрос общий (или не поняли) - отправляем только НАЗВАНИЯ категорий и Сезонное меню (оно важное)
-      const seasonalItems = products.filter(p => p.category === 'seasonal').map(p => `${p.name} {{${p.id}}}`);
-      const categoryNames = Array.from(new Set(products.map(p => p.category))).join(', ');
-      
-      return `ОБЩЕЕ МЕНЮ (Подробности скрыты для экономии):
-      Категории: ${categoryNames}.
-      
-      СЕЗОННОЕ ПРЕДЛОЖЕНИЕ (Предлагай это, если не знают что выбрать):
-      ${seasonalItems.join(', ')}
-      
-      (Если клиент спросит конкретнее про еду, кофе или десерты - я загружу подробный список).`;
+      return contextString;
   };
 
   const handleSend = async (textOverride?: string) => {
@@ -126,29 +90,31 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     const timeoutId = setTimeout(() => abortController.abort(), 60000); 
 
     try {
-      // 1. Генерируем контекст специально под запрос
-      const menuContext = getRelevantMenuContext(textToSend);
+      // 1. Получаем ПОЛНЫЙ список доступных товаров
+      const menuContext = getFullMenuContext();
 
-      // 2. Системный промпт
+      // 2. Строгий системный промпт
       const systemPromptText = `
         Ты бариста "Зернышко".
         
-        ДОСТУПНЫЕ ДОБАВКИ:
+        Твоя задача — продавать товары ИСКЛЮЧИТЕЛЬНО из списка ниже.
+        
+        СПИСОК ДОСТУПНЫХ ТОВАРОВ:
+        ${menuContext}
+
+        ДОБАВКИ (можно предлагать к кофе/чаю):
         Сиропы: ${AVAILABLE_SYRUPS}
         Молоко: ${AVAILABLE_MILK}
 
-        КОНТЕКСТ МЕНЮ:
-        ${menuContext}
-
-        ИНСТРУКЦИЯ:
-        1. Если в меню только категории, спроси, что именно интересно.
-        2. Если видишь товары, советуй их. Пиши ID: {{ID}}. 
-        3. ОБЯЗАТЕЛЬНО предлагай вкусные сочетания с сиропами и молоком. 
-           Пример: "Попробуй Латте {{latte}} на банановом молоке с сиропом 'Соленая карамель'!"
-        4. Не придумывай цены. Будь краток.
+        СТРОГИЕ ПРАВИЛА:
+        1. Если пользователь просит товар, которого НЕТ в списке (например, Латте, если он скрыт) — ты ОБЯЗАН сказать: "К сожалению, [Товар] сейчас закончился или выведен из меню". НЕ предлагай его.
+        2. Если товар есть в списке — расскажи о нем вкусно и предложи добавить его в корзину, указав ID в формате {{ID}}.
+        3. Если просят "что-нибудь поесть" — посмотри разделы ФАСТФУД, ВЫПЕЧКА, ГОРЯЧЕЕ, СУПЫ в списке. Там есть Сосиски, Самса, Супы и т.д.
+        4. Не придумывай цены. Бери их из списка.
+        5. Будь краток и вежлив.
       `;
 
-      // 3. Формируем историю (обрезаем старое, чтобы экономить токены)
+      // 3. Формируем историю
       const recentHistory = newHistory.slice(-6); 
       const apiMessages = [
           { role: 'system', content: systemPromptText },
@@ -164,8 +130,8 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           body: JSON.stringify({
               model: 'gemini-3-flash-preview', 
               messages: apiMessages,
-              temperature: 0.7,
-              max_tokens: 600 
+              temperature: 0.4, // Понижаем температуру, чтобы он меньше фантазировал
+              max_tokens: 800 
           }),
           signal: abortController.signal
       });
@@ -192,7 +158,6 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   };
 
   const toggleListening = () => {
-      // Если уже слушаем - останавливаем
       if (isListening) {
           recognitionRef.current?.stop();
           return;
@@ -206,17 +171,16 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.lang = 'ru-RU';
-      recognition.interimResults = true; // Чтобы видеть текст в процессе
+      recognition.interimResults = true;
       recognition.maxAlternatives = 1;
 
       recognitionRef.current = recognition;
-      transcriptRef.current = ''; // Сброс текста
+      transcriptRef.current = '';
 
       recognition.onstart = () => setIsListening(true);
       
       recognition.onend = () => {
           setIsListening(false);
-          // Отправляем ТОЛЬКО когда микрофон выключился (автоматически или вручную)
           const finalText = transcriptRef.current.trim();
           if (finalText) {
               handleSend(finalText);
@@ -229,13 +193,12 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       };
 
       recognition.onresult = (event: any) => {
-          // Собираем текст
           const transcript = Array.from(event.results)
               .map((result: any) => result[0].transcript)
               .join('');
           
           transcriptRef.current = transcript;
-          setInput(transcript); // Просто показываем в поле, но не отправляем
+          setInput(transcript);
       };
 
       recognition.start();
