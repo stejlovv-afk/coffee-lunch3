@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { SparklesIcon, SendIcon, XMarkIcon, PlusIcon } from './ui/Icons';
+import { SparklesIcon, SendIcon, XMarkIcon, PlusIcon, MicrophoneIcon } from './ui/Icons';
 import { Product, Category } from '../types';
 
 interface AIChatProps {
@@ -17,6 +17,15 @@ interface Message {
 // --- НАСТРОЙКИ TIMEWEB AI ---
 const TIMEWEB_API_URL = 'https://agent.timeweb.cloud/api/v1/cloud-ai/agents/aabb17cb-c1df-4ccb-b419-f438bb89fec1/v1';
 const TIMEWEB_API_KEY = 'eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCIsImtpZCI6IjFrYnhacFJNQGJSI0tSbE1xS1lqIn0.eyJ1c2VyIjoicW40ODM4MjAiLCJ0eXBlIjoiYXBpX2tleSIsImFwaV9rZXlfaWQiOiI1ZDA5MjAzYS03OTg0LTRjMTQtYmVkYS1jNjJlNTBkMDFlODgiLCJpYXQiOjE3Njk2MzY5MDJ9.BKZO8nPYf7ueqwQEr6gRxB_nqsO91ChQPq7Jh1FZff6WVWACQ0KmQdpTCIFH2jXzilW14mNqx856gRNp-xlyTJkmyB6EAWdVPnjreSk3ENaMEEzz1Jc8AyREP7q_qkzJHzsvoql1OXYFGD1aok7iBpNNEZqgPEmi-qLp8cv9T8zDNG5l6vBJjJctfzpN29vrUcyeDqLKEny05K6vYALXx-l0QFMM082rwJcW2y2DVZsnbS4_BA8wYSGUz1TciBAJJAVgxNJXZ87-xK_PmR-oMzNND2TeXl_Miez_HdOuit6kC6kQipbw-anCLFdaTxc3UXOWF_zuskPqeb3s9RmtyYLnDMIfPHSwl0K-IvDmShQVKIEdRM7QUq52xLfqLjPjjTaOdPcWAjaRLW_PKrFleARmyoHoSRN2g9UWY-EeuJVUBj-7SBRygyjp_O4BRtlUcTi51WGGE5RNx_n5JMcn_DfzvZEjkh3vthztn4S1X35LW8Go7AGEmS_JlDX_VU_z';
+
+// --- СПИСКИ ДОБАВОК ---
+const AVAILABLE_MILK = "Банановое, Кокосовое, Миндальное, Безлактозное, Обычное";
+const AVAILABLE_SYRUPS = "Фисташка, Лесной орех, Кокос, Миндаль, Кр. апельсин, Клубника, Персик, Дыня, Слива, Яблоко, Малина, Вишня, Лаванда, Пряник, Лемонграсс, Попкорн, Мята, Баблгам, Сол. карамель";
+
+// --- БЫСТРЫЕ ВОПРОСЫ ---
+const SUGGESTIONS = [
+    "Хочу кофе", "Что поесть?", "Авторский чай", "Сладкое к кофе"
+];
 
 // --- КЛЮЧЕВЫЕ СЛОВА ДЛЯ ФИЛЬТРАЦИИ ---
 const KEYWORD_MAP: Record<string, Category[]> = {
@@ -50,6 +59,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -99,12 +109,12 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       (Если клиент спросит конкретнее про еду, кофе или десерты - я загружу подробный список).`;
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSend = async (textOverride?: string) => {
+    const textToSend = textOverride || input.trim();
+    if (!textToSend || isLoading) return;
 
-    const userMessage = input.trim();
     setInput('');
-    const newHistory: Message[] = [...messages, { role: 'user', content: userMessage }];
+    const newHistory: Message[] = [...messages, { role: 'user', content: textToSend }];
     setMessages(newHistory);
     setIsLoading(true);
 
@@ -113,23 +123,28 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
     try {
       // 1. Генерируем контекст специально под запрос
-      const menuContext = getRelevantMenuContext(userMessage);
+      const menuContext = getRelevantMenuContext(textToSend);
 
       // 2. Системный промпт
       const systemPromptText = `
         Ты бариста "Зернышко".
+        
+        ДОСТУПНЫЕ ДОБАВКИ:
+        Сиропы: ${AVAILABLE_SYRUPS}
+        Молоко: ${AVAILABLE_MILK}
+
         КОНТЕКСТ МЕНЮ:
         ${menuContext}
 
         ИНСТРУКЦИЯ:
-        1. Если в меню только категории, спроси, что именно интересно (Еда, Кофе, Десерты).
-        2. Если видишь товары, советуй их. Пиши ID: {{ID}}. Пример: "Бери латте! {{latte}}"
-        3. Не придумывай цены.
-        4. Будь краток.
+        1. Если в меню только категории, спроси, что именно интересно.
+        2. Если видишь товары, советуй их. Пиши ID: {{ID}}. 
+        3. ОБЯЗАТЕЛЬНО предлагай вкусные сочетания с сиропами и молоком. 
+           Пример: "Попробуй Латте {{latte}} на банановом молоке с сиропом 'Соленая карамель'!"
+        4. Не придумывай цены. Будь краток.
       `;
 
       // 3. Формируем историю (обрезаем старое, чтобы экономить токены)
-      // Берем последние 6 сообщений + системное
       const recentHistory = newHistory.slice(-6); 
       const apiMessages = [
           { role: 'system', content: systemPromptText },
@@ -170,6 +185,31 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       setIsLoading(false);
       clearTimeout(timeoutId);
     }
+  };
+
+  const startListening = () => {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+          alert("Ваш браузер не поддерживает голосовой ввод.");
+          return;
+      }
+
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ru-RU';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = () => setIsListening(false);
+
+      recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setInput(transcript);
+          handleSend(transcript);
+      };
+
+      recognition.start();
   };
 
   const renderMessageContent = (text: string) => {
@@ -246,9 +286,26 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
             </div>
         </div>
 
-        {/* Input */}
-        <div className="p-4 bg-black/40 border-t border-white/10 backdrop-blur-xl safe-area-bottom z-30">
-           <div className="flex gap-2">
+        {/* Suggestions & Input */}
+        <div className="bg-black/40 border-t border-white/10 backdrop-blur-xl safe-area-bottom z-30 flex flex-col">
+           {/* Quick Suggestions */}
+           <div className="px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar">
+              {SUGGESTIONS.map((s, i) => (
+                  <button key={i} onClick={() => handleSend(s)} className="whitespace-nowrap px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs font-bold text-brand-muted hover:bg-white/10 hover:text-white transition-colors">
+                      {s}
+                  </button>
+              ))}
+           </div>
+
+           {/* Input Bar */}
+           <div className="px-4 pb-4 flex gap-2 items-center">
+             <button 
+                onClick={startListening} 
+                className={`p-3 rounded-xl transition-all border border-white/5 ${isListening ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-white/5 text-brand-muted'}`}
+             >
+                <MicrophoneIcon className="w-6 h-6" isListening={isListening} />
+             </button>
+             
              <input 
                type="text" 
                value={input}
@@ -257,8 +314,9 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                placeholder="Посоветуй кофе..." 
                className="flex-1 glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 transition-all placeholder:text-brand-muted/50"
              />
+             
              <button 
-               onClick={handleSend}
+               onClick={() => handleSend()}
                disabled={isLoading || !input.trim()}
                className={`p-3 rounded-xl transition-all flex items-center justify-center aspect-square ${!input.trim() ? 'bg-white/5 text-brand-muted' : 'bg-brand-yellow text-black shadow-[0_0_15px_rgba(250,204,21,0.4)] active:scale-95'}`}
              >
