@@ -14,7 +14,15 @@ interface Message {
   content: string;
 }
 
-const DEFAULT_KEY = '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';
+// Updated with the user provided key
+const DEFAULT_KEY = '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';
+
+const AVAILABLE_MODELS = [
+  { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', name: 'Gemini 2.0 Flash Lite (Free)' },
+  { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash Exp (Free)' },
+  { id: 'google/gemini-flash-1.5-8b', name: 'Gemini 1.5 Flash 8B' },
+  { id: 'google/gemini-flash-1.5', name: 'Gemini 1.5 Flash' },
+];
 
 const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   const [messages, setMessages] = useState<Message[]>([
@@ -26,8 +34,12 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   
   // Settings State
   const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('openrouter_api_key') || DEFAULT_KEY);
+  const [selectedModel, setSelectedModel] = useState<string>(() => localStorage.getItem('openrouter_model') || AVAILABLE_MODELS[0].id);
   const [showSettings, setShowSettings] = useState(false);
+  
+  // Temp state for settings form
   const [tempKey, setTempKey] = useState(apiKey);
+  const [tempModel, setTempModel] = useState(selectedModel);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -37,12 +49,24 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     scrollToBottom();
   }, [messages, showSettings]);
 
-  const handleSaveKey = () => {
-      const cleaned = tempKey.trim();
-      setApiKey(cleaned);
-      localStorage.setItem('openrouter_api_key', cleaned);
+  // Sync temp state when opening settings
+  useEffect(() => {
+    if (showSettings) {
+        setTempKey(apiKey);
+        setTempModel(selectedModel);
+    }
+  }, [showSettings, apiKey, selectedModel]);
+
+  const handleSaveSettings = () => {
+      const cleanedKey = tempKey.trim();
+      setApiKey(cleanedKey);
+      setSelectedModel(tempModel);
+      
+      localStorage.setItem('openrouter_api_key', cleanedKey);
+      localStorage.setItem('openrouter_model', tempModel);
+      
       setShowSettings(false);
-      setMessages(prev => [...prev, { role: 'assistant', content: '✅ API ключ обновлен. Попробуйте отправить запрос.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: '✅ Настройки обновлены. Попробуйте отправить запрос.' }]);
   };
 
   const handleSend = async () => {
@@ -82,7 +106,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           "X-Title": "Coffee Lunch App",        
         },
         body: JSON.stringify({
-          "model": "google/gemini-2.0-flash-exp:free",
+          "model": selectedModel,
           "messages": [
             { "role": "system", "content": systemPrompt },
             ...messages.map(m => ({ role: m.role, content: m.content })),
@@ -94,7 +118,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       if (!response.ok) {
           const errorText = await response.text();
           if (response.status === 401) {
-              throw new Error("401"); // Special handle for auth
+              throw new Error("401"); 
+          }
+          if (response.status === 429) {
+              throw new Error("429");
           }
           throw new Error(`Ошибка API (${response.status}): ${errorText}`);
       }
@@ -115,7 +142,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     } catch (error: any) {
       console.error("AI Chat Error:", error);
       if (error.message === '401') {
-          setMessages(prev => [...prev, { role: 'assistant', content: `🔒 Ошибка ключа (401). Пожалуйста, обновите API ключ в настройках.` }]);
+          setMessages(prev => [...prev, { role: 'assistant', content: `🔒 Ошибка ключа. Проверьте API ключ в настройках.` }]);
+          setShowSettings(true);
+      } else if (error.message === '429') {
+          setMessages(prev => [...prev, { role: 'assistant', content: `⏳ Модель перегружена (ошибка 429). Попробуйте выбрать другую модель в настройках.` }]);
           setShowSettings(true);
       } else {
           setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${error.message || 'Неизвестная ошибка сети'}` }]);
@@ -139,7 +169,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
             </div>
             <div>
                <h3 className="font-bold text-white leading-tight">AI Бариста</h3>
-               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Powered by Gemini 2.0</p>
+               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-wider">Powered by Gemini</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -160,19 +190,43 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                 <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-xl p-6 flex flex-col items-center justify-center animate-fade-in">
                     <div className="w-full max-w-xs space-y-4">
                         <div className="text-center">
-                            <h3 className="text-xl font-bold text-white mb-1">Настройки API</h3>
-                            <p className="text-sm text-brand-muted">Введите OpenRouter API ключ</p>
+                            <h3 className="text-xl font-bold text-white mb-1">Настройки AI</h3>
+                            <p className="text-sm text-brand-muted">API Ключ и Модель</p>
                         </div>
-                        <input 
-                            type="password" 
-                            value={tempKey}
-                            onChange={(e) => setTempKey(e.target.value)}
-                            placeholder="sk-or-v1-..."
-                            className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 text-center font-mono text-sm"
-                        />
-                        <div className="flex gap-2">
+                        
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">Модель</label>
+                            <div className="space-y-2">
+                                {AVAILABLE_MODELS.map(m => (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => setTempModel(m.id)}
+                                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                                            tempModel === m.id 
+                                            ? 'bg-brand-yellow text-black border-brand-yellow' 
+                                            : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
+                                        }`}
+                                    >
+                                        {m.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-brand-muted uppercase ml-1">API Ключ (OpenRouter)</label>
+                            <input 
+                                type="password" 
+                                value={tempKey}
+                                onChange={(e) => setTempKey(e.target.value)}
+                                placeholder="sk-or-v1-..."
+                                className="w-full glass-input p-3 rounded-xl text-white outline-none focus:border-brand-yellow/50 text-center font-mono text-sm"
+                            />
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
                             <button onClick={() => setShowSettings(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button>
-                            <button onClick={handleSaveKey} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Сохранить</button>
+                            <button onClick={handleSaveSettings} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Сохранить</button>
                         </div>
                     </div>
                 </div>
