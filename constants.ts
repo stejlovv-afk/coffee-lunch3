@@ -1,3 +1,4 @@
+
 import { Product } from './types';
 
 const IMG_PATH = "./img";
@@ -9,25 +10,53 @@ const withDefaults = (p: Product): Product => {
   
   // Logic from previous ItemModal
   if (p.isDrink) {
-      if (['coffee', 'seasonal', 'cacao'].includes(p.category) && !p.id.includes('espresso') && !p.id.includes('bumble')) {
+      // Coffee logic (excluding Americano, Espresso, Bumble from Standard Milk)
+      if (['coffee', 'seasonal', 'cacao'].includes(p.category) && 
+          !p.id.includes('espresso') && 
+          !p.id.includes('bumble') && 
+          !p.id.includes('americano')) { // Removed Americano from having milk default
           m.hasMilk = true;
+      }
+
+      // Syrups, Sugar, Cinnamon for Coffee/Seasonal/Cacao (General)
+      if (['coffee', 'seasonal', 'cacao'].includes(p.category) && !p.id.includes('espresso') && !p.id.includes('bumble')) {
           m.hasSyrup = true;
           m.hasSugar = true;
           m.hasCinnamon = true;
       }
+      
+      // Explicitly allow Sugar/Cinnamon for Americano, but NO Milk by default above
+      if (p.id.includes('americano')) {
+          m.hasSugar = true;
+          m.hasCinnamon = true;
+          m.hasSyrup = true;
+      }
+
+      // Tea/Punch logic
       if (p.category === 'tea' || p.category === 'punch') {
           m.hasSugar = true;
           m.hasSyrup = true;
       }
-      if (p.category === 'soda' && !p.id.includes('chern_')) {
-          m.isSoda = true;
-      }
   }
 
-  if (p.id.includes('bumble')) m.isBumble = true;
+  // Bumble logic (Syrups added)
+  if (p.id.includes('bumble')) {
+      m.isBumble = true;
+      m.hasSyrup = true; // Added syrups for Bumble
+  }
+
   if (p.id.includes('matcha')) { m.isMatcha = true; m.hasMilk = true; m.hasSyrup = true; }
   if (p.id === 'punch_buckthorn') m.isBuckthorn = true;
-  if (p.id === 'chern_water') m.isSoda = true; // reusing isSoda for gas flag logic
+  
+  // Espresso Tonic logic
+  if (p.id === 'espresso_tonic') m.isEspressoTonic = true;
+
+  // Soda logic: All sodas/drinks get Temperature choice
+  if (p.category === 'soda') {
+      m.hasTemp = true;
+  }
+  
+  if (p.id === 'chern_water') m.isSoda = true; // Still keep isSoda for gas logic
 
   if (p.category === 'fast_food') m.heatingType = 'advanced'; // Grill/Micro
   if (['soups', 'hot_dishes', 'combo', 'side_dishes', 'salads'].includes(p.category)) {
@@ -48,14 +77,28 @@ const RAW_MENU_ITEMS: Product[] = [
   { id: 'latte', name: 'Латте', category: 'coffee', isDrink: true, image: `${IMG_PATH}/latte.jpg`, variants: [{ size: '250мл', price: 190 }, { size: '350мл', price: 230 }, { size: '450мл', price: 270 }] },
   { id: 'espresso', name: 'Эспрессо', category: 'coffee', isDrink: true, image: `${IMG_PATH}/espresso1.jpg`, variants: [{ size: '30мл', price: 110 }, { size: '60мл', price: 150 }] },
   { id: 'americano', name: 'Американо', category: 'coffee', isDrink: true, image: `${IMG_PATH}/americano.jpg`, variants: [{ size: '250мл', price: 180 }, { size: '350мл', price: 220 }, { size: '450мл', price: 260 }] },
-  { id: 'flat_white', name: 'Флат Уайт', category: 'coffee', isDrink: true, image: `${IMG_PATH}/эспрессо2.jpg`, variants: [{ size: '250мл', price: 220 }, { size: '350мл', price: 260 }, { size: '450мл', price: 360 }] },
+  { id: 'flat_white', name: 'Флэт Уайт', category: 'coffee', isDrink: true, image: `${IMG_PATH}/эспрессо2.jpg`, variants: [{ size: '250мл', price: 220 }, { size: '350мл', price: 260 }, { size: '450мл', price: 360 }] },
   { id: 'raf', name: 'Раф', category: 'coffee', isDrink: true, image: `${IMG_PATH}/latte.jpg`, variants: [{ size: '250мл', price: 210 }, { size: '350мл', price: 250 }, { size: '450мл', price: 290 }] },
+  
+  // Bumble Warm (Standard)
   { id: 'bumble_warm', name: 'Бамбл Теплый', category: 'coffee', isDrink: true, image: `${IMG_PATH}/babblteplo.jpg`, variants: [{ size: '250мл', price: 270 }, { size: '350мл', price: 270 }, { size: '450мл', price: 300 }] },
-  { id: 'bumble_cold', name: 'Бамбл Холодный', category: 'coffee', isDrink: true, image: `${IMG_PATH}/icebambl.jpg`, variants: [{ size: '250мл', price: 270 }, { size: '350мл', price: 300 }] },
+  
+  // Bumble Cold (Sizes shifted: 250->removed, 350->old price of 250, 450->old price of 350)
+  // Old 250(270), 350(300). New: 350(270), 450(300).
+  { id: 'bumble_cold', name: 'Бамбл Холодный', category: 'coffee', isDrink: true, image: `${IMG_PATH}/icebambl.jpg`, variants: [{ size: '350мл', price: 270 }, { size: '450мл', price: 300 }] },
+  
   { id: 'espresso_tonic', name: 'Эспрессо Тоник', category: 'coffee', isDrink: true, image: `${IMG_PATH}/granattonic.jpg`, description: 'Гранатовый / Обычный', variants: [{ size: '250мл', price: 250 }, { size: '350мл', price: 290 }] },
-  { id: 'ice_latte', name: 'Айс Латте', category: 'coffee', isDrink: true, image: `${IMG_PATH}/icelatte.jpg`, variants: [{ size: '250мл', price: 240 }, { size: '350мл', price: 280 }] },
+  
+  // Ice Latte (Sizes shifted)
+  // Old 250(240), 350(280). New 350(240), 450(280).
+  { id: 'ice_latte', name: 'Айс Латте', category: 'coffee', isDrink: true, image: `${IMG_PATH}/icelatte.jpg`, variants: [{ size: '350мл', price: 240 }, { size: '450мл', price: 280 }] },
+  
   { id: 'matcha', name: 'Матча', category: 'coffee', isDrink: true, image: `${IMG_PATH}/matcha.jpg`, variants: [{ size: '250мл', price: 180 }, { size: '350мл', price: 220 }, { size: '450мл', price: 260 }] },
-  { id: 'ice_matcha', name: 'Айс Матча', category: 'coffee', isDrink: true, image: `${IMG_PATH}/matcha.jpg`, variants: [{ size: '250мл', price: 230 }, { size: '350мл', price: 270 }] },
+  
+  // Ice Matcha (Sizes shifted)
+  // Old 250(230), 350(270). New 350(230), 450(270).
+  { id: 'ice_matcha', name: 'Айс Матча', category: 'coffee', isDrink: true, image: `${IMG_PATH}/matcha.jpg`, variants: [{ size: '350мл', price: 230 }, { size: '450мл', price: 270 }] },
+  
   { id: 'cacao', name: 'Какао', category: 'coffee', isDrink: true, image: `${IMG_PATH}/kakao.jpg`, variants: [{ size: '250мл', price: 180 }, { size: '350мл', price: 220 }, { size: '450мл', price: 260 }] },
 
   // --- TEA ---
