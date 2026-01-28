@@ -19,9 +19,9 @@ const DEFAULT_KEY = '';
 const DEFAULT_BASE_URL = 'https://ancient-wind-bb8b.stejlovv.workers.dev';
 
 const AVAILABLE_MODELS = [
-  { id: 'google/gemini-3-flash', name: 'Gemini 3 Flash (Newest)' },
-  { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite' },
+  { id: 'google/gemini-2.0-flash-lite-preview-02-05:free', name: 'Gemini 2.0 Flash Lite (Fastest)' },
   { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Fast)' },
+  { id: 'google/gemini-3-flash', name: 'Gemini 3 Flash (Newest)' },
   { id: 'google/gemini-2.0-pro-exp-02-05:free', name: 'Gemini 2.0 Pro (Smart)' },
 ];
 
@@ -78,15 +78,54 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
   };
 
   const getGoogleModelId = (orId: string) => {
-      // Mappings based on user request for 2.5 and 3
+      if (orId.includes('lite')) return 'gemini-2.0-flash-lite-preview-02-05';
       if (orId.includes('gemini-3-flash')) return 'gemini-3-flash-preview';
-      if (orId.includes('gemini-2.5-flash-lite')) return 'gemini-flash-lite-latest';
-      
-      // Legacy Mappings
       if (orId.includes('gemini-2.0-pro')) return 'gemini-2.0-pro-exp-02-05';
       if (orId.includes('gemini-2.0-flash')) return 'gemini-2.0-flash-exp';
-      
       return 'gemini-1.5-flash';
+  };
+
+  // Helper function to read streaming response
+  const readStream = async (response: Response, onChunk: (text: string) => void) => {
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) return;
+
+      let buffer = '';
+      
+      while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+          
+          const lines = buffer.split('\n');
+          // Keep the last line in buffer if it's incomplete
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith('data: ')) continue;
+              
+              const dataStr = trimmed.slice(6);
+              if (dataStr === '[DONE]') continue;
+
+              try {
+                  const data = JSON.parse(dataStr);
+                  // Google Format
+                  if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                      onChunk(data.candidates[0].content.parts[0].text);
+                  }
+                  // OpenRouter / OpenAI Format
+                  else if (data.choices?.[0]?.delta?.content) {
+                      onChunk(data.choices[0].delta.content);
+                  }
+              } catch (e) {
+                  // Ignore parse errors for partial chunks
+              }
+          }
+      }
   };
 
   const handleSend = async () => {
@@ -100,8 +139,12 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
     const userMessage = input.trim();
     setInput('');
+    // Add user message immediately
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
+
+    // Create a placeholder for assistant message
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
     try {
       const menuContext = products.map(p => 
@@ -117,19 +160,22 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
         ПРАВИЛА:
         1. Рекомендуй ТОЛЬКО позиции из меню.
-        2. Будь кратким, используй эмодзи.
-        3. Предлагай дополнения (сироп, десерт).
-        4. Язык: Русский.
+        2. Будь кратким (максимум 3 предложения).
+        3. Используй эмодзи.
+        4. Не придумывай того, чего нет в меню.
       `;
 
       const isGoogleKey = apiKey.startsWith('AIza');
       let response;
+      let url = '';
+      let body: any = {};
+      let headers: any = { 'Content-Type': 'application/json' };
 
       if (isGoogleKey) {
-          // --- DIRECT GOOGLE API (via Proxy if set) ---
+          // --- DIRECT GOOGLE API (STREAMING) ---
           const googleModel = getGoogleModelId(selectedModel);
-          // Use the configured Base URL (Proxy or Default)
-          const url = `${baseUrl}/v1beta/models/${googleModel}:generateContent?key=${apiKey}`;
+          // alt=sse is crucial for standard stream parsing
+          url = `${baseUrl}/v1beta/models/${googleModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
           
           const contents = messages.map(m => ({
               role: m.role === 'user' ? 'user' : 'model',
@@ -137,68 +183,69 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           }));
           contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
-          response = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  contents: contents,
-                  systemInstruction: { parts: [{ text: systemPromptText }] }
-              })
-          });
+          body = {
+              contents: contents,
+              systemInstruction: { parts: [{ text: systemPromptText }] }
+          };
 
       } else {
-          // --- OPENROUTER API ---
-          response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-              "HTTP-Referer": "https://coffee-lunch-app.github.io", 
-              "X-Title": "Coffee Lunch App",        
-            },
-            body: JSON.stringify({
-              "model": selectedModel,
-              "messages": [
-                { "role": "system", "content": systemPromptText },
+          // --- OPENROUTER API (STREAMING) ---
+          url = "https://openrouter.ai/api/v1/chat/completions";
+          headers['Authorization'] = `Bearer ${apiKey}`;
+          headers['HTTP-Referer'] = "https://coffee-lunch-app.github.io";
+          headers['X-Title'] = "Coffee Lunch App";
+          
+          body = {
+              model: selectedModel,
+              stream: true, // Enable streaming
+              messages: [
+                { role: "system", content: systemPromptText },
                 ...messages.map(m => ({ role: m.role, content: m.content })),
-                { "role": "user", "content": userMessage }
+                { role: "user", content: userMessage }
               ]
-            })
-          });
+          };
       }
+
+      response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
 
       if (!response.ok) {
           const errorText = await response.text();
-          if (response.status === 401 || response.status === 403) throw new Error("Ошибка доступа (403/401). Проверьте ключ или прокси.");
-          if (response.status === 429) throw new Error("Лимит исчерпан (429).");
-          if (response.status === 404) throw new Error("Неверный адрес API (404) или Модели.");
+          if (response.status === 401 || response.status === 403) throw new Error("Ошибка доступа. Проверьте ключ.");
+          if (response.status === 429) throw new Error("Лимит исчерпан.");
           throw new Error(`Ошибка сети (${response.status})`);
       }
 
-      const data = await response.json();
-      let aiResponse = "";
-
-      if (isGoogleKey) {
-          if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-              aiResponse = data.candidates[0].content.parts[0].text;
-          } else {
-              aiResponse = "Ошибка: пустой ответ от Google.";
-          }
-      } else {
-          if (data.choices && data.choices.length > 0) {
-            aiResponse = data.choices[0].message.content;
-          } else if (data.error) {
-             throw new Error(data.error.message);
-          } else {
-             aiResponse = "Пустой ответ.";
-          }
-      }
-
-      setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+      // Handle Streaming Response
+      let fullText = '';
+      await readStream(response, (chunk) => {
+          fullText += chunk;
+          setMessages(prev => {
+              const newMsgs = [...prev];
+              // Update the last message (which is the assistant placeholder)
+              const lastIdx = newMsgs.length - 1;
+              if (lastIdx >= 0 && newMsgs[lastIdx].role === 'assistant') {
+                  newMsgs[lastIdx] = { ...newMsgs[lastIdx], content: fullText };
+              }
+              return newMsgs;
+          });
+      });
 
     } catch (error: any) {
       console.error("AI Chat Error:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${error.message}` }]);
+      // Remove the empty placeholder if error occurred at start, or append error
+      setMessages(prev => {
+          const newMsgs = [...prev];
+          const lastIdx = newMsgs.length - 1;
+          if (lastIdx >= 0 && newMsgs[lastIdx].role === 'assistant') {
+               const currentContent = newMsgs[lastIdx].content;
+               newMsgs[lastIdx] = { 
+                   ...newMsgs[lastIdx], 
+                   content: currentContent ? currentContent + `\n[Ошибка: ${error.message}]` : `⚠️ ${error.message}` 
+               };
+          }
+          return newMsgs;
+      });
+      
       if (error.message.includes("403") || error.message.includes("429")) setShowSettings(true);
     } finally {
       setIsLoading(false);
@@ -327,7 +374,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
                 </div>
                 </div>
             ))}
-            {isLoading && (
+            {isLoading && !messages[messages.length - 1]?.content && (
                 <div className="flex justify-start">
                 <div className="bg-white/10 p-4 rounded-2xl rounded-tl-none flex gap-1.5 items-center">
                     <div className="w-2 h-2 bg-brand-yellow rounded-full animate-bounce"></div>
