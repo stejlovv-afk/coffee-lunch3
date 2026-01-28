@@ -5,6 +5,7 @@ import { Category, Product, CartItem, WebAppPayload, PromoCode } from './types';
 import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon, HomeIcon, SearchIcon, CartIcon, SparklesIcon } from './components/ui/Icons';
 import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
+import AIChat from './components/AIChat';
 
 declare global {
   interface Window {
@@ -87,6 +88,9 @@ const App: React.FC = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isSending, setIsSending] = useState(false);
   
+  // AI Chat State
+  const [showAiChat, setShowAiChat] = useState(false);
+
   // Products (Static + Custom merged)
   const [allProducts, setAllProducts] = useState<Product[]>(MENU_ITEMS);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
@@ -789,6 +793,16 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* --- AI CHAT FLOATING BUTTON --- */}
+      {!isShiftClosed && (
+        <button 
+          onClick={() => setShowAiChat(true)}
+          className="fixed bottom-20 right-4 z-40 bg-brand-yellow text-black p-4 rounded-full shadow-[0_0_20px_rgba(250,204,21,0.5)] active:scale-95 transition-all hover:bg-yellow-300 border-2 border-white/20"
+        >
+          <SparklesIcon className="w-6 h-6 animate-pulse" />
+        </button>
+      )}
+
       {/* --- BOTTOM NAVIGATION --- */}
       <div className="fixed bottom-0 left-0 right-0 glass-modal safe-area-bottom px-6 py-3 flex justify-between items-center z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-white/10">
          <button onClick={() => setCurrentView('menu')} className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'menu' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}>
@@ -814,6 +828,14 @@ const App: React.FC = () => {
 
       {selectedProduct && <ItemModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)} inventory={inventory} />}
       
+      {showAiChat && (
+        <AIChat 
+          products={allProducts} 
+          onClose={() => setShowAiChat(false)} 
+          onAddToCart={(product) => setSelectedProduct(product)} 
+        />
+      )}
+
       {showAdminPanel && (
           <AdminPanel 
             products={allProducts}
