@@ -8,7 +8,7 @@ import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 import AIChat from './components/AIChat';
 
-// ... (Global declarations and helper constants remain the same)
+// ... (Global declarations, useLongPress, getDefaultTime, getAddonPrice remain the same)
 
 const useLongPress = (callback: () => void, ms = 1000) => {
   const timeoutRef = useRef<any>(null);
@@ -547,7 +547,7 @@ const App: React.FC = () => {
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none opacity-50"></div>
                 
                 <div className="relative mb-3 group z-10">
-                  <img src={item.image} alt={item.name} className="w-12 h-12 sm:w-full sm:h-auto sm:aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all mx-auto" onClick={() => !isDisabled && setSelectedProduct(item)} />
+                  <img src={item.image} alt={item.name} className="w-full aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all" onClick={() => !isDisabled && setSelectedProduct(item)} />
                   <button onClick={(e) => toggleFavorite(e, item.id)} className="absolute top-2 right-2 p-2 bg-black/40 backdrop-blur-md rounded-full text-brand-yellow transition-transform active:scale-125 hover:bg-black/60 border border-white/10">
                     <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
                   </button>
