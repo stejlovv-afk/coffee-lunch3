@@ -669,7 +669,7 @@ const App: React.FC = () => {
                 ))}
                 </div>
             </nav>
-            {renderProductGrid(allProducts.filter(item => (item.category === activeCategory) && (isAdmin ? true : !hiddenItems.includes(item.id))))}
+            {renderProductGrid(allProducts.filter(item => (item.category === activeCategory) && !hiddenItems.includes(item.id)))}
         </>
       )}
 
@@ -687,7 +687,7 @@ const App: React.FC = () => {
                     className="w-full glass-input rounded-2xl py-3 pl-12 pr-4 text-white placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all shadow-lg"
                 />
             </div>
-            {renderProductGrid(allProducts.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()) && (isAdmin ? true : !hiddenItems.includes(item.id))))}
+            {renderProductGrid(allProducts.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()) && !hiddenItems.includes(item.id)))}
         </div>
       )}
 
