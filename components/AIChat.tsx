@@ -15,8 +15,12 @@ interface Message {
 }
 
 // --- НАСТРОЙКИ ---
-const API_URL = import.meta.env.VITE_TIMEWEB_API_URL;
-const API_KEY = import.meta.env.VITE_TIMEWEB_API_KEY;
+// Мы вписываем ключи прямо сюда, чтобы они точно работали везде
+const HARDCODED_URL = "https://agent.timeweb.cloud/api/v1/cloud-ai/agents/aabb17cb-c1df-4ccb-b419-f438bb89fec1/v1";
+const HARDCODED_KEY = "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCIsImtpZCI6IjFrYnhacFJNQGJSI0tSbE1xS1lqIn0.eyJ1c2VyIjoicW40ODM4MjAiLCJ0eXBlIjoiYXBpX2tleSIsImFwaV9rZXlfaWQiOiJhOWFmNDQyZi1jZDAwLTRmM2YtYjMwNy0wNjk5ZDhlOGI3ZTEiLCJpYXQiOjE3Njk2NDQ4MTV9.TwP8sLee47L2eHW8iL1pySKs-DtAXHj51t7fxgJP5dHyUW99yBGM2GSWh-kSQRxe3Gzf3NIDfyVWmQ3fl3ZSH7OpvQcOST1sY9ECHkWYRMj_nmRVOdDO2gMsFk3pIXHPmZd696Gt70OnuOIvgNOg_cDFV2iuu_hWa4SDpXEtKtIzGIMdXTkJrS-Ibxy9mDfo5UxJDgBXz1P9B3Xt_bAc3yHakvSuRI4aHONJ02ycTEj_REGh5b29yuKqbEmpntFE4aqae6uQB3htvgsi0ldjCUYQxQFmaGU6GJar5rBH0xORsbSDU8vpMG17iGhgu4Z_-hsX1fJzDuRD3EeyO-FLYfbJ_Xd_eWnBZLfkBIAu7oZ9-QEFH4MEShNeIrVc_wess5bCV2RfecrvLFuhmwsfK58gCECDhndCkr1ti5e3WTqXq3DkcMUYm0ah68aAyiNNOYnOdCzbsSAzb53fTyfTMDHjckdMb4R5osuuvGWaHQXuQg4SkAOwUB0HXogBX_fL";
+
+const API_URL = import.meta.env.VITE_TIMEWEB_API_URL || HARDCODED_URL;
+const API_KEY = import.meta.env.VITE_TIMEWEB_API_KEY || HARDCODED_KEY;
 
 // --- СПИСКИ ДОБАВОК ---
 const ADDONS = "Сиропы (Фисташка, Лесной орех, Кокос, Апельсин, Клубника, Вишня, Пряник, Попкорн, Мята, Карамель). Молоко (Банановое, Кокосовое, Миндальное, Безлактозное).";
@@ -74,10 +78,9 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     const textToSend = textOverride || input.trim();
     if (!textToSend || isLoading) return;
 
-    // Логирование для отладки (не показывает полный ключ)
     if (!API_KEY || !API_URL) {
-        console.error("AI Config Error: Missing Keys", { hasUrl: !!API_URL, hasKey: !!API_KEY });
-        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Ошибка настройки: API ключи не найдены. Если вы администратор, проверьте Secrets и перезапустите deploy.' }]);
+        console.error("AI Config Error: Missing Keys");
+        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Ошибка: Ключи не найдены. Обратитесь к администратору.' }]);
         return;
     }
 
@@ -124,7 +127,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       // Добавляем эндпоинт, если его нет
       const endpoint = cleanUrl.endsWith('/chat/completions') ? cleanUrl : `${cleanUrl}/chat/completions`;
 
-      console.log("Sending request to:", endpoint);
+      console.log("Using API:", endpoint);
 
       // Запрос к Timeweb Cloud AI
       const response = await fetch(endpoint, { 
@@ -183,13 +186,16 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       recognition.maxAlternatives = 1;
 
       recognitionRef.current = recognition;
-      transcriptRef.current = '';
+      transcriptRef.current = transcriptRef.current; // fix reset logic
 
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => {
           setIsListening(false);
           const finalText = transcriptRef.current.trim();
-          if (finalText) handleSend(finalText);
+          if (finalText) {
+              setInput(finalText);
+              handleSend(finalText);
+          }
       };
       recognition.onerror = (event: any) => {
           setIsListening(false);
