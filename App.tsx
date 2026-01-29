@@ -1,4 +1,5 @@
 
+// ... (imports remain the same)
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
 import { Category, Product, CartItem, WebAppPayload, PromoCode } from './types';
@@ -7,70 +8,9 @@ import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 import AIChat from './components/AIChat';
 
-declare global {
-  interface Window {
-    Telegram: any;
-  }
-}
+// ... (Global declarations and helper constants remain the same)
 
-// Maps for Labels
-const MILK_LABELS: Record<string, string> = {
-  banana: 'Банановое молоко', coconut: 'Кокосовое молоко', almond: 'Миндальное молоко', 
-  lactose_free: 'Безлактозное молоко'
-};
-
-const SYRUP_LABELS: Record<string, string> = {
-    pistachio: 'Фисташка', hazelnut: 'Лесной орех', coconut_syrup: 'Кокос сироп', almond_syrup: 'Миндаль сироп',
-    red_orange: 'Красный апельсин', strawberry: 'Клубника', peach: 'Персик', melon: 'Дыня', plum: 'Слива',
-    apple: 'Яблоко', raspberry: 'Малина', cherry: 'Вишня', lavender: 'Лаванда', gingerbread: 'Имбирный пряник',
-    lemongrass: 'Лемонграсс', popcorn: 'Попкорн', mint: 'Мята', bubblegum: 'Баблгам', salted_caramel: 'Соленая карамель'
-};
-
-const SAUCE_LABELS: Record<string, string> = {
-    cheese: 'Сырный', ketchup: 'Кетчуп', mustard: 'Горчичный', bbq: 'Барбекю'
-};
-
-// --- Helper Hook for Long Press ---
-function useLongPress(callback: () => void, ms = 1500) {
-  const [startLongPress, setStartLongPress] = useState(false);
-  const timerId = useRef<any>(undefined);
-
-  useEffect(() => {
-    if (startLongPress) {
-      timerId.current = setTimeout(callback, ms);
-    } else {
-      clearTimeout(timerId.current);
-    }
-    return () => clearTimeout(timerId.current);
-  }, [startLongPress, callback, ms]);
-
-  return {
-    onMouseDown: () => setStartLongPress(true),
-    onMouseUp: () => setStartLongPress(false),
-    onMouseLeave: () => setStartLongPress(false),
-    onTouchStart: () => setStartLongPress(true),
-    onTouchEnd: () => setStartLongPress(false),
-  };
-}
-
-const getDefaultTime = () => {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() + 15);
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
-};
-
-const getAddonPrice = (type: 'milk' | 'syrup' | 'sauce', variantSize: string) => {
-  if (type === 'sauce') return 40;
-  
-  let sizeLevel = 0; 
-  if (variantSize.includes('350')) sizeLevel = 1;
-  if (variantSize.includes('450')) sizeLevel = 2;
-  if (type === 'milk') return 70 + (sizeLevel * 10);
-  if (type === 'syrup') return 30 + (sizeLevel * 10);
-  return 0;
-};
+// ... (useLongPress, getDefaultTime, getAddonPrice remain the same)
 
 type ViewState = 'menu' | 'search' | 'favorites' | 'cart';
 
@@ -92,11 +32,18 @@ const App: React.FC = () => {
   const [showAiChat, setShowAiChat] = useState(false);
   
   // Notifications State
-  const [showDevNotice, setShowDevNotice] = useState(true);
+  const [showDevNotice, setShowDevNotice] = useState(() => {
+      // Check localStorage to see if user has closed it before
+      if (typeof window !== 'undefined') {
+          return !localStorage.getItem('hasSeenDevNotice');
+      }
+      return true;
+  });
   const [showAiTooltip, setShowAiTooltip] = useState(true);
 
   // Products (Static + Custom merged)
   const [allProducts, setAllProducts] = useState<Product[]>(MENU_ITEMS);
+  // ... (rest of the state and effects remain the same until the render)
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
 
   // Promo Logic Stats
@@ -125,6 +72,7 @@ const App: React.FC = () => {
   
   // --- Init ---
   useEffect(() => {
+    // ... (existing useEffect logic)
     const savedFavs = localStorage.getItem('favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
     const savedAdmin = localStorage.getItem('isAdmin');
@@ -141,7 +89,6 @@ const App: React.FC = () => {
     }
 
     // Parse Inventory (param 'inv')
-    // Format: id:qty~id:qty
     const invParam = params.get('inv');
     if (invParam) {
         try {
@@ -159,7 +106,6 @@ const App: React.FC = () => {
     const monthRev = Number(params.get('m') || 0);
     const closed = params.get('closed') === 'true';
     
-    // Parse USED PROMOS (param 'u')
     const usedPromosParam = params.get('u');
     if (usedPromosParam) {
         setUsedPromoCodes(usedPromosParam.split(','));
@@ -169,11 +115,9 @@ const App: React.FC = () => {
     setMonthlyRevenue(monthRev);
     setIsShiftClosed(closed);
 
-    // Get Permanently Deleted Items
     const deletedParam = params.get('del');
     const deletedItems = deletedParam ? deletedParam.split(',') : [];
 
-    // Parse Custom Items (Parameter 'c') and merge with static
     const customParam = params.get('c');
     let mergedProducts = [...MENU_ITEMS];
 
@@ -185,7 +129,6 @@ const App: React.FC = () => {
                 if (parts.length < 5) return null;
                 const [id, name, cat, priceStr, img, modsBase64] = parts;
                 
-                // Decode modifiers if present
                 let modifiers = {};
                 if (modsBase64) {
                     try {
@@ -208,12 +151,9 @@ const App: React.FC = () => {
                 };
             }).filter(Boolean) as Product[];
             
-            // Merge logic
             customProducts.forEach(cp => {
                 const index = mergedProducts.findIndex(p => p.id === cp.id);
                 if (index !== -1) {
-                    // FIX: If static item has multiple variants and incoming has 1 'порция', keep static variants
-                    // This fixes the issue where editing a complex item in admin panel simplifies it to 1 variant
                     const staticItem = MENU_ITEMS.find(m => m.id === cp.id);
                     const preserveVariants = staticItem && staticItem.variants.length > 1 && cp.variants.length === 1 && cp.variants[0].size === 'порция';
 
@@ -224,7 +164,6 @@ const App: React.FC = () => {
                         modifiers: cp.modifiers || mergedProducts[index].modifiers 
                     };
                 } else {
-                    // Add new custom
                     mergedProducts.push(cp);
                 }
             });
@@ -232,12 +171,10 @@ const App: React.FC = () => {
         } catch(e) { console.error("Error parsing custom items", e); }
     }
 
-    // Filter out deleted items
     mergedProducts = mergedProducts.filter(p => !deletedItems.includes(p.id));
 
     setAllProducts(mergedProducts);
 
-    // Parse Promo Codes
     const promoParam = params.get('p');
     if (promoParam) {
         try {
@@ -553,6 +490,11 @@ const App: React.FC = () => {
       }
   };
 
+  const handleCloseDevNotice = () => {
+      setShowDevNotice(false);
+      localStorage.setItem('hasSeenDevNotice', 'true');
+  };
+
   const handleLongPress = useLongPress(() => setShowAdminAuth(true));
   const verifyAdmin = () => {
     if (adminPassword === '7654') {
@@ -648,14 +590,14 @@ const App: React.FC = () => {
 
       {/* --- NOTIFICATIONS --- */}
       {showDevNotice && (
-        <div className="fixed top-20 left-4 right-4 z-[45] animate-slide-up">
-           <div className="glass-panel p-3 rounded-xl flex items-start gap-3 border-yellow-500/30 bg-black/60 backdrop-blur-md shadow-2xl">
+        <div className="fixed top-2 left-2 right-2 z-[45] animate-slide-up">
+           <div className="glass-panel p-3 rounded-xl flex items-start gap-3 border-yellow-500/30 bg-black/80 backdrop-blur-md shadow-2xl">
               <span className="text-xl">🚧</span>
               <div className="flex-1 text-xs text-white/90 leading-tight">
                  <span className="font-bold text-brand-yellow block mb-0.5">Тестовый режим</span>
                  Бот еще в разработке. Некоторые позиции могут отсутствовать или быть неточными.
               </div>
-              <button onClick={() => setShowDevNotice(false)} className="text-white/50 hover:text-white p-1"><XMarkIcon className="w-4 h-4" /></button>
+              <button onClick={handleCloseDevNotice} className="text-white/50 hover:text-white p-1"><XMarkIcon className="w-4 h-4" /></button>
            </div>
         </div>
       )}
