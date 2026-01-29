@@ -15,7 +15,7 @@ interface Message {
 }
 
 // --- НАСТРОЙКИ ---
-// Берем URL и Ключ из переменных окружения (GitHub Secrets)
+// Берем URL и Ключ из переменных окружения
 const API_URL = import.meta.env.VITE_TIMEWEB_API_URL;
 const API_KEY = import.meta.env.VITE_TIMEWEB_API_KEY;
 
@@ -76,7 +76,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     if (!textToSend || isLoading) return;
 
     if (!API_KEY || !API_URL) {
-        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Ошибка: API ключи не настроены в GitHub Secrets.' }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Ошибка: API ключи не настроены. Проверьте GitHub Secrets или файл .env' }]);
         return;
     }
 
@@ -115,15 +115,19 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           ...recentHistory
       ];
 
+      // Очистка ключа от пробелов и переносов строк (на всякий случай)
+      const cleanKey = API_KEY.trim();
+      const cleanUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+
       // Запрос к Timeweb API (OpenAI compatible endpoint)
-      const response = await fetch(`${API_URL}/chat/completions`, { 
+      const response = await fetch(`${cleanUrl}/chat/completions`, { 
           method: 'POST', 
           headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${API_KEY}`,
+              'Authorization': `Bearer ${cleanKey}`,
           },
           body: JSON.stringify({
-              model: 'gemini-pro', // Или модель которая указана в Timeweb
+              model: 'gemini-pro', 
               messages: apiMessages,
               temperature: 0.7,
               max_tokens: 1000
@@ -135,7 +139,8 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
       if (!response.ok) {
           const errText = await response.text();
-          throw new Error(`Ошибка сервера (${response.status}): ${errText}`);
+          console.error("API Error Response:", errText);
+          throw new Error(`Ошибка сервера (${response.status})`);
       }
 
       const data = await response.json();
