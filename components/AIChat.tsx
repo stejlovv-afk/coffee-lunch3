@@ -14,7 +14,7 @@ interface Message {
   content: string;
 }
 
-// --- НАСТРОЙКИ (TIMEWEB) ---
+// --- НАСТРОЙКИ ---
 const API_URL = import.meta.env.VITE_TIMEWEB_API_URL;
 const API_KEY = import.meta.env.VITE_TIMEWEB_API_KEY;
 
@@ -53,7 +53,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     scrollToBottom();
   }, [messages]);
 
-  // СУПЕР-СЖАТЫЙ КОНТЕКСТ: Только Название (Цена)
+  // СУПЕР-СЖАТЫЙ КОНТЕКСТ
   const getSuperCompactMenu = (): string => {
       const grouped: Record<string, string[]> = {};
 
@@ -74,8 +74,10 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     const textToSend = textOverride || input.trim();
     if (!textToSend || isLoading) return;
 
+    // Логирование для отладки (не показывает полный ключ)
     if (!API_KEY || !API_URL) {
-        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Ошибка: Ключи Timeweb не найдены. Проверьте .env или Secrets.' }]);
+        console.error("AI Config Error: Missing Keys", { hasUrl: !!API_URL, hasKey: !!API_KEY });
+        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Ошибка настройки: API ключи не найдены. Если вы администратор, проверьте Secrets и перезапустите deploy.' }]);
         return;
     }
 
@@ -118,7 +120,11 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
       const cleanKey = API_KEY.trim();
       let cleanUrl = API_URL.trim();
       if (cleanUrl.endsWith('/')) cleanUrl = cleanUrl.slice(0, -1);
-      const endpoint = `${cleanUrl}/chat/completions`;
+      
+      // Добавляем эндпоинт, если его нет
+      const endpoint = cleanUrl.endsWith('/chat/completions') ? cleanUrl : `${cleanUrl}/chat/completions`;
+
+      console.log("Sending request to:", endpoint);
 
       // Запрос к Timeweb Cloud AI
       const response = await fetch(endpoint, { 
@@ -128,7 +134,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
               'Authorization': `Bearer ${cleanKey}`,
           },
           body: JSON.stringify({
-              model: 'gemini-pro', // Timeweb часто использует это имя модели для Gemini
+              model: 'gemini-pro', 
               messages: apiMessages,
               temperature: 0.7,
               max_tokens: 1000
@@ -140,14 +146,14 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
 
       if (!response.ok) {
           const errText = await response.text();
-          console.error("API Error Response:", errText);
+          console.error("API Error Response:", response.status, errText);
           throw new Error(`Ошибка сервера (${response.status})`);
       }
 
       const data = await response.json();
       const aiText = data.choices?.[0]?.message?.content;
       
-      if (!aiText) throw new Error("Пустой ответ.");
+      if (!aiText) throw new Error("Пустой ответ от нейросети.");
 
       setMessages(prev => [...prev, { role: 'assistant', content: aiText }]);
 
