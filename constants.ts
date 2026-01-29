@@ -629,3 +629,53 @@ const RAW_MENU_ITEMS: Product[] = [
 ];
 
 export const MENU_ITEMS = RAW_MENU_ITEMS.map(withDefaults);
+
+export const MILK_LABELS: Record<string, string> = {
+  'none': 'Обычное',
+  'lactose_free': 'Безлактозное',
+  'banana': 'Банановое',
+  'coconut': 'Кокосовое',
+  'almond': 'Миндальное',
+};
+
+export const SYRUP_LABELS: Record<string, string> = {
+    'none': 'Нет',
+    'pistachio': 'Фисташка',
+    'hazelnut': 'Лесной орех',
+    'coconut_syrup': 'Кокос',
+    'almond_syrup': 'Миндаль',
+    'red_orange': 'Кр. апельсин',
+    'strawberry': 'Клубника',
+    'peach': 'Персик',
+    'melon': 'Дыня',
+    'plum': 'Слива',
+    'apple': 'Яблоко',
+    'raspberry': 'Малина',
+    'cherry': 'Вишня',
+    'lavender': 'Лаванда',
+    'gingerbread': 'Пряник',
+    'lemongrass': 'Лемонграсс',
+    'popcorn': 'Попкорн',
+    'mint': 'Мята',
+    'bubblegum': 'Баблгам',
+    'salted_caramel': 'Сол. карамель'
+};
+
+export const SAUCE_LABELS: Record<string, string> = {
+    'cheese': 'Сырный',
+    'ketchup': 'Кетчуп',
+    'mustard': 'Горчичный',
+    'bbq': 'Барбекю'
+};
+
+export const getAddonPrice = (type: 'milk' | 'syrup' | 'sauce', size: string) => {
+  if (type === 'sauce') return 40;
+
+  let sizeLevel = 0; // 0 = 250, 1 = 350, 2 = 450
+  if (size.includes('350')) sizeLevel = 1;
+  if (size.includes('450')) sizeLevel = 2;
+
+  if (type === 'milk') return 70 + (sizeLevel * 10);
+  if (type === 'syrup') return 30 + (sizeLevel * 10);
+  return 0;
+};
