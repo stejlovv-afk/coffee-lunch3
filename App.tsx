@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS } from './constants';
 import { Category, Product, CartItem, WebAppPayload, PromoCode } from './types';
-import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon, HomeIcon, SearchIcon, CartIcon, SparklesIcon } from './components/ui/Icons';
+import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon, HomeIcon, SearchIcon, CartIcon, SparklesIcon, XMarkIcon } from './components/ui/Icons';
 import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 import AIChat from './components/AIChat';
@@ -90,6 +90,10 @@ const App: React.FC = () => {
   
   // AI Chat State
   const [showAiChat, setShowAiChat] = useState(false);
+  
+  // Notifications State
+  const [showDevNotice, setShowDevNotice] = useState(true);
+  const [showAiTooltip, setShowAiTooltip] = useState(true);
 
   // Products (Static + Custom merged)
   const [allProducts, setAllProducts] = useState<Product[]>(MENU_ITEMS);
@@ -208,8 +212,17 @@ const App: React.FC = () => {
             customProducts.forEach(cp => {
                 const index = mergedProducts.findIndex(p => p.id === cp.id);
                 if (index !== -1) {
-                    // Override existing (edited static or updated custom)
-                    mergedProducts[index] = { ...mergedProducts[index], ...cp, variants: cp.variants, modifiers: cp.modifiers };
+                    // FIX: If static item has multiple variants and incoming has 1 'порция', keep static variants
+                    // This fixes the issue where editing a complex item in admin panel simplifies it to 1 variant
+                    const staticItem = MENU_ITEMS.find(m => m.id === cp.id);
+                    const preserveVariants = staticItem && staticItem.variants.length > 1 && cp.variants.length === 1 && cp.variants[0].size === 'порция';
+
+                    mergedProducts[index] = { 
+                        ...mergedProducts[index], 
+                        ...cp, 
+                        variants: preserveVariants ? staticItem.variants : cp.variants, 
+                        modifiers: cp.modifiers || mergedProducts[index].modifiers 
+                    };
                 } else {
                     // Add new custom
                     mergedProducts.push(cp);
@@ -633,6 +646,33 @@ const App: React.FC = () => {
           </div>
       )}
 
+      {/* --- NOTIFICATIONS --- */}
+      {showDevNotice && (
+        <div className="fixed top-20 left-4 right-4 z-[45] animate-slide-up">
+           <div className="glass-panel p-3 rounded-xl flex items-start gap-3 border-yellow-500/30 bg-black/60 backdrop-blur-md shadow-2xl">
+              <span className="text-xl">🚧</span>
+              <div className="flex-1 text-xs text-white/90 leading-tight">
+                 <span className="font-bold text-brand-yellow block mb-0.5">Тестовый режим</span>
+                 Бот еще в разработке. Некоторые позиции могут отсутствовать или быть неточными.
+              </div>
+              <button onClick={() => setShowDevNotice(false)} className="text-white/50 hover:text-white p-1"><XMarkIcon className="w-4 h-4" /></button>
+           </div>
+        </div>
+      )}
+
+      {showAiTooltip && !isShiftClosed && !showAiChat && (
+          <div className="fixed bottom-36 right-4 z-40 max-w-[200px] animate-bounce-short">
+              <div className="glass-panel p-3 rounded-xl border-brand-yellow/30 bg-black/80 relative text-xs">
+                  <div className="absolute -bottom-2 right-6 w-4 h-4 bg-black/80 border-r border-b border-brand-yellow/30 transform rotate-45"></div>
+                  <div className="flex gap-2">
+                      <span className="text-lg">🤖</span>
+                      <p className="text-white/90">Я <b>ИИ-помощник</b>! Подскажу и расскажу по ассортименту.</p>
+                  </div>
+                  <button onClick={() => setShowAiTooltip(false)} className="absolute -top-2 -left-2 bg-white/10 rounded-full p-1 border border-white/10 text-white/50 hover:text-white"><XMarkIcon className="w-3 h-3" /></button>
+              </div>
+          </div>
+      )}
+
       {/* --- HEADER --- */}
       <header className="sticky top-0 z-20 bg-brand-dark/70 backdrop-blur-xl border-b border-white/5 px-4 py-3 flex justify-between items-center transition-colors">
         <div>
@@ -799,7 +839,7 @@ const App: React.FC = () => {
       {/* --- AI CHAT FLOATING BUTTON --- */}
       {!isShiftClosed && (
         <button 
-          onClick={() => setShowAiChat(true)}
+          onClick={() => { setShowAiChat(true); setShowAiTooltip(false); }}
           className="fixed bottom-20 right-4 z-40 bg-brand-yellow text-black p-4 rounded-full shadow-[0_0_20px_rgba(250,204,21,0.5)] active:scale-95 transition-all hover:bg-yellow-300 border-2 border-white/20"
         >
           <SparklesIcon className="w-6 h-6 animate-pulse" />
