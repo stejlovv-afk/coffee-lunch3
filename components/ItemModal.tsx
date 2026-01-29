@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product } from '../types';
+import { getAddonPrice } from '../constants';
 
 interface ItemModalProps {
   product: Product;
@@ -52,19 +53,6 @@ const SYRUP_GROUPS = {
     { id: 'bubblegum', label: 'Баблгам' },
     { id: 'salted_caramel', label: 'Сол. карамель' },
   ]
-};
-
-// --- HELPERS ---
-const getAddonPrice = (type: 'milk' | 'syrup' | 'sauce', size: string) => {
-  if (type === 'sauce') return 40;
-
-  let sizeLevel = 0; // 0 = 250, 1 = 350, 2 = 450
-  if (size.includes('350')) sizeLevel = 1;
-  if (size.includes('450')) sizeLevel = 2;
-
-  if (type === 'milk') return 70 + (sizeLevel * 10);
-  if (type === 'syrup') return 30 + (sizeLevel * 10);
-  return 0;
 };
 
 const ItemModal: React.FC<ItemModalProps> = ({ product, onClose, onAddToCart, initialVariantIdx = 0, inventory = {} }) => {
