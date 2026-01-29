@@ -14,8 +14,7 @@ interface Message {
   content: string;
 }
 
-// --- НАСТРОЙКИ ---
-// Берем URL и Ключ из переменных окружения
+// --- НАСТРОЙКИ (TIMEWEB) ---
 const API_URL = import.meta.env.VITE_TIMEWEB_API_URL;
 const API_KEY = import.meta.env.VITE_TIMEWEB_API_KEY;
 
@@ -76,7 +75,7 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
     if (!textToSend || isLoading) return;
 
     if (!API_KEY || !API_URL) {
-        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Ошибка: API ключи не настроены. Проверьте GitHub Secrets или файл .env' }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Ошибка: Ключи Timeweb не найдены. Проверьте .env или Secrets.' }]);
         return;
     }
 
@@ -115,19 +114,21 @@ const AIChat: React.FC<AIChatProps> = ({ products, onClose, onAddToCart }) => {
           ...recentHistory
       ];
 
-      // Очистка ключа от пробелов и переносов строк (на всякий случай)
+      // Очистка и формирование URL для Timeweb
       const cleanKey = API_KEY.trim();
-      const cleanUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+      let cleanUrl = API_URL.trim();
+      if (cleanUrl.endsWith('/')) cleanUrl = cleanUrl.slice(0, -1);
+      const endpoint = `${cleanUrl}/chat/completions`;
 
-      // Запрос к Timeweb API (OpenAI compatible endpoint)
-      const response = await fetch(`${cleanUrl}/chat/completions`, { 
+      // Запрос к Timeweb Cloud AI
+      const response = await fetch(endpoint, { 
           method: 'POST', 
           headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${cleanKey}`,
           },
           body: JSON.stringify({
-              model: 'gemini-pro', 
+              model: 'gemini-pro', // Timeweb часто использует это имя модели для Gemini
               messages: apiMessages,
               temperature: 0.7,
               max_tokens: 1000
