@@ -87,7 +87,8 @@ const RAW_MENU_ITEMS: Product[] = [
   // Old 250(270), 350(300). New: 350(270), 450(300).
   { id: 'bumble_cold', name: 'Бамбл Холодный', category: 'coffee', isDrink: true, image: `${IMG_PATH}/icebambl.jpg`, variants: [{ size: '350мл', price: 270 }, { size: '450мл', price: 300 }] },
   
-  { id: 'espresso_tonic', name: 'Эспрессо Тоник', category: 'coffee', isDrink: true, image: `${IMG_PATH}/granattonic.jpg`, description: 'Гранатовый / Обычный', variants: [{ size: '250мл', price: 250 }, { size: '350мл', price: 290 }] },
+  // Espresso Tonic (Sizes shifted: 350ml = 250rub, 450ml = 290rub)
+  { id: 'espresso_tonic', name: 'Эспрессо Тоник', category: 'coffee', isDrink: true, image: `${IMG_PATH}/granattonic.jpg`, description: 'Гранатовый / Обычный', variants: [{ size: '350мл', price: 250 }, { size: '450мл', price: 290 }] },
   
   // Ice Latte (Sizes shifted)
   // Old 250(240), 350(280). New 350(240), 450(280).
