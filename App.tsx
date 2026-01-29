@@ -1,7 +1,7 @@
 
 // ... (imports remain the same)
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { MENU_ITEMS } from './constants';
+import { MENU_ITEMS, MILK_LABELS, SYRUP_LABELS, SAUCE_LABELS, getAddonPrice } from './constants';
 import { Category, Product, CartItem, WebAppPayload, PromoCode } from './types';
 import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon, HomeIcon, SearchIcon, CartIcon, SparklesIcon, XMarkIcon } from './components/ui/Icons';
 import ItemModal from './components/ItemModal';
@@ -10,7 +10,35 @@ import AIChat from './components/AIChat';
 
 // ... (Global declarations and helper constants remain the same)
 
-// ... (useLongPress, getDefaultTime, getAddonPrice remain the same)
+const useLongPress = (callback: () => void, ms = 1000) => {
+  const timeoutRef = useRef<any>(null);
+
+  const start = () => {
+    timeoutRef.current = setTimeout(callback, ms);
+  };
+
+  const stop = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+  };
+
+  return {
+    onMouseDown: start,
+    onMouseUp: stop,
+    onMouseLeave: stop,
+    onTouchStart: start,
+    onTouchEnd: stop,
+  };
+};
+
+const getDefaultTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 15);
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+};
 
 type ViewState = 'menu' | 'search' | 'favorites' | 'cart';
 
@@ -519,7 +547,7 @@ const App: React.FC = () => {
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none opacity-50"></div>
                 
                 <div className="relative mb-3 group z-10">
-                  <img src={item.image} alt={item.name} className="w-full aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all" onClick={() => !isDisabled && setSelectedProduct(item)} />
+                  <img src={item.image} alt={item.name} className="w-12 h-12 sm:w-full sm:h-auto sm:aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all mx-auto" onClick={() => !isDisabled && setSelectedProduct(item)} />
                   <button onClick={(e) => toggleFavorite(e, item.id)} className="absolute top-2 right-2 p-2 bg-black/40 backdrop-blur-md rounded-full text-brand-yellow transition-transform active:scale-125 hover:bg-black/60 border border-white/10">
                     <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
                   </button>
