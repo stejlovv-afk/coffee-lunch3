@@ -1,4 +1,4 @@
-/// <reference types="vite/client" />
+// Removed reference to vite/client due to missing type definitions
 
 interface ImportMetaEnv {
   readonly VITE_TIMEWEB_API_URL: string
@@ -21,6 +21,7 @@ interface Window {
         user?: {
           username?: string;
           first_name?: string;
+          id?: number;
         };
       };
       HapticFeedback?: {
