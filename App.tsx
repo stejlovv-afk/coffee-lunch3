@@ -7,7 +7,8 @@ import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 import AIChat from './components/AIChat';
 
-// REMOVED CONFLICTING DECLARE GLOBAL BLOCK
+// ИСПРАВЛЕНИЕ: Удалено дублирующее объявление типов для window.Telegram, которое ломало сборку.
+// Типы уже есть в файле vite-env.d.ts
 
 const useLongPress = (callback: () => void, ms = 1000) => {
   const timeoutRef = useRef<any>(null);
