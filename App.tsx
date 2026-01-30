@@ -1,4 +1,3 @@
-
 // ... (imports remain the same)
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MENU_ITEMS, MILK_LABELS, SYRUP_LABELS, SAUCE_LABELS, getAddonPrice } from './constants';
@@ -8,28 +7,17 @@ import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 import AIChat from './components/AIChat';
 
-// ... (Global declarations, useLongPress, getDefaultTime, getAddonPrice remain the same)
+declare global {
+  interface Window {
+    Telegram: any;
+  }
+}
 
 const useLongPress = (callback: () => void, ms = 1000) => {
   const timeoutRef = useRef<any>(null);
-
-  const start = () => {
-    timeoutRef.current = setTimeout(callback, ms);
-  };
-
-  const stop = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-  };
-
-  return {
-    onMouseDown: start,
-    onMouseUp: stop,
-    onMouseLeave: stop,
-    onTouchStart: start,
-    onTouchEnd: stop,
-  };
+  const start = () => { timeoutRef.current = setTimeout(callback, ms); };
+  const stop = () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
+  return { onMouseDown: start, onMouseUp: stop, onMouseLeave: stop, onTouchStart: start, onTouchEnd: stop };
 };
 
 const getDefaultTime = () => {
@@ -48,7 +36,7 @@ const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [hiddenItems, setHiddenItems] = useState<string[]>([]);
-  const [inventory, setInventory] = useState<Record<string, number>>({}); // Inventory State
+  const [inventory, setInventory] = useState<Record<string, number>>({}); 
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminAuth, setShowAdminAuth] = useState(false);
@@ -56,42 +44,27 @@ const App: React.FC = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isSending, setIsSending] = useState(false);
   
-  // AI Chat State
   const [showAiChat, setShowAiChat] = useState(false);
-  
-  // Notifications State
   const [showDevNotice, setShowDevNotice] = useState(() => {
-      // Check localStorage to see if user has closed it before
-      if (typeof window !== 'undefined') {
-          return !localStorage.getItem('hasSeenDevNotice');
-      }
+      if (typeof window !== 'undefined') return !localStorage.getItem('hasSeenDevNotice');
       return true;
   });
   const [showAiTooltip, setShowAiTooltip] = useState(true);
 
-  // Products (Static + Custom merged)
   const [allProducts, setAllProducts] = useState<Product[]>(MENU_ITEMS);
-  // ... (rest of the state and effects remain the same until the render)
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+  const [usedPromoCodes, setUsedPromoCodes] = useState<string[]>([]); 
 
-  // Promo Logic Stats
-  const [usedPromoCodes, setUsedPromoCodes] = useState<string[]>([]); // List of codes used by this user
-
-  // Revenue Stats & Shift
   const [dailyRevenue, setDailyRevenue] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
   const [isShiftClosed, setIsShiftClosed] = useState(false);
 
-  // Search
   const [searchTerm, setSearchTerm] = useState('');
-
-  // Checkout State
   const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'delivery'>('pickup');
   const [pickupTime, setPickupTime] = useState(getDefaultTime());
   const [comment, setComment] = useState('');
   const [username, setUsername] = useState<string>('');
   
-  // Promo Input
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
   const [promoError, setPromoError] = useState('');
@@ -100,24 +73,24 @@ const App: React.FC = () => {
   
   // --- Init ---
   useEffect(() => {
-    // ... (existing useEffect logic)
+    // 1. Load LocalStorage
     const savedFavs = localStorage.getItem('favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
     const savedAdmin = localStorage.getItem('isAdmin');
     if (savedAdmin === 'true') setIsAdmin(true);
 
+    // 2. Parse URL Params
     const params = new URLSearchParams(window.location.search);
-    const hiddenParam = params.get('hidden');
+    
+    // Hidden Items (param 'h' or 'hidden')
+    const hiddenParam = params.get('h') || params.get('hidden');
     if (hiddenParam !== null) {
       if (hiddenParam === '') setHiddenItems([]); 
       else setHiddenItems(hiddenParam.split(','));
-    } else {
-       const savedHidden = localStorage.getItem('hiddenItems');
-       if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
     }
 
-    // Parse Inventory (param 'inv')
-    const invParam = params.get('inv');
+    // Inventory (param 'i' or 'inv')
+    const invParam = params.get('i') || params.get('inv');
     if (invParam) {
         try {
             const invMap: Record<string, number> = {};
@@ -126,44 +99,43 @@ const App: React.FC = () => {
                 if (id && qty !== undefined) invMap[id] = Number(qty);
             });
             setInventory(invMap);
-        } catch (e) { console.error("Error parsing inventory", e); }
+        } catch (e) { console.error("Inv parse error", e); }
     }
 
-    // Parse Params
-    const dayRev = Number(params.get('d') || 0);
-    const monthRev = Number(params.get('m') || 0);
-    const closed = params.get('closed') === 'true';
+    // Stats
+    setDailyRevenue(Number(params.get('d') || 0));
+    setMonthlyRevenue(Number(params.get('m') || 0));
+    setIsShiftClosed(params.get('cl') === '1' || params.get('closed') === 'true');
     
     const usedPromosParam = params.get('u');
-    if (usedPromosParam) {
-        setUsedPromoCodes(usedPromosParam.split(','));
-    }
-    
-    setDailyRevenue(dayRev);
-    setMonthlyRevenue(monthRev);
-    setIsShiftClosed(closed);
+    if (usedPromosParam) setUsedPromoCodes(usedPromosParam.split(','));
 
     const deletedParam = params.get('del');
     const deletedItems = deletedParam ? deletedParam.split(',') : [];
 
+    // 3. Custom Items Merging
     const customParam = params.get('c');
     let mergedProducts = [...MENU_ITEMS];
+
+    // Remove deleted items first from static list
+    if (deletedItems.length > 0) {
+        mergedProducts = mergedProducts.filter(p => !deletedItems.includes(p.id));
+    }
 
     if (customParam) {
         try {
             const rawItems = decodeURIComponent(customParam).split('~');
             const customProducts: Product[] = rawItems.map(s => {
+                // Structure: id|name|category|price|image|modsBase64
                 const parts = s.split('|');
-                if (parts.length < 5) return null;
+                if (parts.length < 4) return null;
                 const [id, name, cat, priceStr, img, modsBase64] = parts;
                 
                 let modifiers = {};
                 if (modsBase64) {
                     try {
                         modifiers = JSON.parse(atob(modsBase64));
-                    } catch (e) {
-                        console.error("Failed to parse modifiers", e);
-                    }
+                    } catch (e) { }
                 }
 
                 return {
@@ -171,7 +143,7 @@ const App: React.FC = () => {
                     name,
                     category: cat as Category,
                     price: Number(priceStr),
-                    image: img,
+                    image: img || '', // Handle empty img
                     isDrink: ['coffee','tea','punch','seasonal','soda'].includes(cat as Category),
                     isCustom: true,
                     variants: [{ size: 'порция', price: Number(priceStr) }],
@@ -179,30 +151,41 @@ const App: React.FC = () => {
                 };
             }).filter(Boolean) as Product[];
             
+            // Merge logic: Replace static item if ID matches, else add
             customProducts.forEach(cp => {
-                const index = mergedProducts.findIndex(p => p.id === cp.id);
-                if (index !== -1) {
-                    const staticItem = MENU_ITEMS.find(m => m.id === cp.id);
-                    const preserveVariants = staticItem && staticItem.variants.length > 1 && cp.variants.length === 1 && cp.variants[0].size === 'порция';
-
-                    mergedProducts[index] = { 
-                        ...mergedProducts[index], 
-                        ...cp, 
-                        variants: preserveVariants ? staticItem.variants : cp.variants, 
-                        modifiers: cp.modifiers || mergedProducts[index].modifiers 
+                // Check if we already have this ID (either static or prev custom)
+                const existingIndex = mergedProducts.findIndex(p => p.id === cp.id);
+                
+                if (existingIndex !== -1) {
+                    // It exists (likely a static item being overridden)
+                    const staticItem = mergedProducts[existingIndex];
+                    
+                    // If the static item had specific variants (sizes), we might want to keep them?
+                    // But usually, an edit overrides the price. 
+                    // Simple logic: Admin edit overrides EVERYTHING.
+                    // BUT: If the admin didn't provide image in edit (to save space), use static image?
+                    // For now, assume admin provides everything needed.
+                    
+                    mergedProducts[existingIndex] = {
+                        ...cp,
+                        // If no image provided in custom param, fallback to static image
+                        image: cp.image || staticItem.image
                     };
                 } else {
+                    // New item
                     mergedProducts.push(cp);
                 }
             });
             
-        } catch(e) { console.error("Error parsing custom items", e); }
+        } catch(e) { console.error("Custom Items parse error", e); }
     }
 
+    // Final filter again just in case a deleted item was re-added incorrectly? No, deleted list wins.
     mergedProducts = mergedProducts.filter(p => !deletedItems.includes(p.id));
 
     setAllProducts(mergedProducts);
 
+    // 4. Promo Codes
     const promoParam = params.get('p');
     if (promoParam) {
         try {
@@ -217,9 +200,10 @@ const App: React.FC = () => {
                 };
             }).filter(Boolean) as PromoCode[];
             setPromoCodes(parsedPromos);
-        } catch(e) { console.error("Error parsing promos", e); }
+        } catch(e) { console.error("Promo parse error", e); }
     }
 
+    // 5. Telegram Init
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.ready();
@@ -324,7 +308,6 @@ const App: React.FC = () => {
             else details += `, Греть: ${item.options.heating === 'grill' ? 'Гриль' : 'СВЧ'}`;
         }
         
-        // Hot Dog Details
         if (item.options.hotDogSausage) details += `, Сосиска: ${item.options.hotDogSausage === 'pork' ? 'Свиная' : 'Говяжья'}`;
         if (item.options.hotDogOnion !== undefined) details += `, ${item.options.hotDogOnion ? 'С луком' : 'Без лука'}`;
         if (item.options.hotDogSauces && item.options.hotDogSauces.length > 0) {
@@ -332,7 +315,6 @@ const App: React.FC = () => {
             details += `, Соусы: ${sauceNames}`;
         }
         
-        // Espresso Tonic
         if (item.options.tonicType) details += `, Тоник: ${item.options.tonicType === 'classic' ? 'Классический' : 'Гранатовый'}`;
 
         if (index === 0) {
@@ -352,7 +334,7 @@ const App: React.FC = () => {
           details
         };
       }),
-      total: finalTotal, // Отправляем сумму со скидкой
+      total: finalTotal,
       deliveryMethod,
       pickupTime,
       comment,
@@ -370,7 +352,6 @@ const App: React.FC = () => {
     }
   }, [cart, finalTotal, isSending, deliveryMethod, pickupTime, comment, username, allProducts, appliedPromo, discountAmount]);
 
-  // Sync Telegram Button
   useEffect(() => {
     if (!window.Telegram?.WebApp) return;
     const tg = window.Telegram.WebApp;
@@ -403,7 +384,6 @@ const App: React.FC = () => {
     const product = allProducts.find(p => p.id === productId);
     if (!product) return;
 
-    // Check Inventory
     const stock = inventory[productId];
     if (stock !== undefined) {
          const currentInCart = cart.filter(i => i.productId === productId).reduce((acc, i) => acc + i.quantity, 0);
@@ -428,25 +408,19 @@ const App: React.FC = () => {
     setCart(prev => prev.filter(i => i.uniqueId !== uniqueId));
   };
 
+  // --- ADMIN ACTIONS ---
   const handleSaveMenuToBot = () => {
     setIsSending(true);
-    // Include Inventory in payload
     const payload: WebAppPayload = { action: 'update_menu', hiddenItems: hiddenItems, inventory: inventory };
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
-    else {
-        console.log('Sending menu update:', payload);
-        setIsSending(false);
-    }
+    else { console.log('Mock Send:', payload); setIsSending(false); }
   };
 
   const handleToggleShift = (closed: boolean) => {
       setIsSending(true);
       const payload: WebAppPayload = { action: 'toggle_shift', isClosed: closed };
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
-      else {
-          setIsShiftClosed(closed);
-          setIsSending(false);
-      }
+      else { setIsShiftClosed(closed); setIsSending(false); }
   };
 
   const handleAddProduct = (payload: any) => {
@@ -462,10 +436,7 @@ const App: React.FC = () => {
           } as unknown as Product
       };
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload));
-      else {
-          alert("Товар отправлен (тест)");
-          setIsSending(false);
-      }
+      else { alert("Mock Added"); setIsSending(false); }
   };
 
   const handleEditProduct = (id: string, payload: any) => {
@@ -482,40 +453,28 @@ const App: React.FC = () => {
           } as unknown as Product
       };
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload));
-      else {
-          alert("Товар изменен (тест)");
-          setIsSending(false);
-      }
+      else { alert("Mock Edited"); setIsSending(false); }
   };
   
   const handleDeleteProduct = (ids: string[]) => {
       setIsSending(true);
       const payload: WebAppPayload = { action: 'delete_product', ids };
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
-      else {
-          alert("Запрос на удаление отправлен (тест)");
-          setIsSending(false);
-      }
+      else { alert("Mock Deleted"); setIsSending(false); }
   };
 
   const handleAddPromo = (promo: PromoCode) => {
       setIsSending(true);
       const payload: WebAppPayload = { action: 'add_promo', promo };
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
-      else {
-          alert("Промокод отправлен (тест)");
-          setIsSending(false);
-      }
+      else { alert("Mock Promo Added"); setIsSending(false); }
   };
 
   const handleDeletePromo = (code: string) => {
       setIsSending(true);
       const payload: WebAppPayload = { action: 'delete_promo', code };
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
-      else {
-          alert("Промокод удален (тест)");
-          setIsSending(false);
-      }
+      else { alert("Mock Promo Deleted"); setIsSending(false); }
   };
 
   const handleCloseDevNotice = () => {
@@ -543,9 +502,7 @@ const App: React.FC = () => {
             
             return (
               <div key={item.id} className={`glass-panel rounded-3xl p-3 flex flex-col justify-between relative transition-all active:scale-[0.98] ${isDisabled ? 'opacity-60 grayscale' : ''}`}>
-                {/* Glossy Overlay */}
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none opacity-50"></div>
-                
                 <div className="relative mb-3 group z-10">
                   <img src={item.image} alt={item.name} className="w-full aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all" onClick={() => !isDisabled && setSelectedProduct(item)} />
                   <button onClick={(e) => toggleFavorite(e, item.id)} className="absolute top-2 right-2 p-2 bg-black/40 backdrop-blur-md rounded-full text-brand-yellow transition-transform active:scale-125 hover:bg-black/60 border border-white/10">
@@ -553,25 +510,13 @@ const App: React.FC = () => {
                   </button>
                   {isHidden && <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm"><EyeSlashIcon className="w-8 h-8 text-white" /></div>}
                   {isSoldOut && !isHidden && <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm"><span className="text-white font-bold border border-white/20 bg-red-500/50 px-3 py-1 rounded-lg">Закончилось</span></div>}
-                  
-                  {/* Stock Badge */}
-                  {stock !== undefined && stock > 0 && (
-                      <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-lg border border-white/10">
-                          <span className="text-[10px] font-bold text-white">Ост: {stock}</span>
-                      </div>
-                  )}
+                  {stock !== undefined && stock > 0 && <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-lg border border-white/10"><span className="text-[10px] font-bold text-white">Ост: {stock}</span></div>}
                 </div>
-                
                 <div onClick={() => !isDisabled && setSelectedProduct(item)} className="z-10 relative">
                   <h3 className="font-bold text-white leading-tight mb-1 text-sm sm:text-base line-clamp-2 min-h-[2.5em] drop-shadow-sm">{item.name}</h3>
                   <p className="text-brand-yellow font-black text-lg drop-shadow-md">{item.variants[0].price}₽</p>
                 </div>
-                
-                <button 
-                  onClick={() => !isDisabled && setSelectedProduct(item)} 
-                  disabled={isDisabled}
-                  className={`z-10 mt-3 w-full py-3 border border-white/10 rounded-2xl flex items-center justify-center transition-all active:scale-95 group backdrop-blur-sm shadow-inner ${isDisabled ? 'bg-white/5 cursor-not-allowed' : 'bg-white/10 hover:bg-brand-yellow hover:text-black text-white'}`}
-                >
+                <button onClick={() => !isDisabled && setSelectedProduct(item)} disabled={isDisabled} className={`z-10 mt-3 w-full py-3 border border-white/10 rounded-2xl flex items-center justify-center transition-all active:scale-95 group backdrop-blur-sm shadow-inner ${isDisabled ? 'bg-white/5 cursor-not-allowed' : 'bg-white/10 hover:bg-brand-yellow hover:text-black text-white'}`}>
                   <PlusIcon className="w-6 h-6 group-active:rotate-90 transition-transform" />
                 </button>
               </div>
@@ -601,30 +546,20 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen font-sans text-brand-text selection:bg-brand-yellow selection:text-black relative">
-      
-      {/* --- CLOSED OVERLAY --- */}
       {isShiftClosed && (
           <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-              <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6 border border-white/10">
-                  <span className="text-4xl">😴</span>
-              </div>
+              <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6 border border-white/10"><span className="text-4xl">😴</span></div>
               <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tight">Кофейня закрыта</h2>
               <p className="text-brand-muted text-lg font-medium">Бариста отдыхает. <br/> Ждем вас в рабочее время!</p>
-              
-              {/* Invisible area for Admin to trigger login when closed */}
               <div {...handleLongPress} className="absolute top-0 left-0 right-0 h-24 bg-transparent" />
           </div>
       )}
 
-      {/* --- NOTIFICATIONS --- */}
       {showDevNotice && (
         <div className="fixed top-2 left-2 right-2 z-[45] animate-slide-up">
            <div className="glass-panel p-3 rounded-xl flex items-start gap-3 border-yellow-500/30 bg-black/80 backdrop-blur-md shadow-2xl">
               <span className="text-xl">🚧</span>
-              <div className="flex-1 text-xs text-white/90 leading-tight">
-                 <span className="font-bold text-brand-yellow block mb-0.5">Тестовый режим</span>
-                 Бот еще в разработке. Некоторые позиции могут отсутствовать или быть неточными.
-              </div>
+              <div className="flex-1 text-xs text-white/90 leading-tight"><span className="font-bold text-brand-yellow block mb-0.5">Тестовый режим</span>Бот в разработке.</div>
               <button onClick={handleCloseDevNotice} className="text-white/50 hover:text-white p-1"><XMarkIcon className="w-4 h-4" /></button>
            </div>
         </div>
@@ -634,29 +569,20 @@ const App: React.FC = () => {
           <div className="fixed bottom-36 right-4 z-40 max-w-[200px] animate-bounce-short">
               <div className="glass-panel p-3 rounded-xl border-brand-yellow/30 bg-black/80 relative text-xs">
                   <div className="absolute -bottom-2 right-6 w-4 h-4 bg-black/80 border-r border-b border-brand-yellow/30 transform rotate-45"></div>
-                  <div className="flex gap-2">
-                      <span className="text-lg">🤖</span>
-                      <p className="text-white/90">Я <b>ИИ-помощник</b>! Подскажу и расскажу по ассортименту.</p>
-                  </div>
+                  <div className="flex gap-2"><span className="text-lg">🤖</span><p className="text-white/90">Я <b>ИИ-помощник</b>!</p></div>
                   <button onClick={() => setShowAiTooltip(false)} className="absolute -top-2 -left-2 bg-white/10 rounded-full p-1 border border-white/10 text-white/50 hover:text-white"><XMarkIcon className="w-3 h-3" /></button>
               </div>
           </div>
       )}
 
-      {/* --- HEADER --- */}
       <header className="sticky top-0 z-20 bg-brand-dark/70 backdrop-blur-xl border-b border-white/5 px-4 py-3 flex justify-between items-center transition-colors">
         <div>
           <h1 {...handleLongPress} className="text-2xl font-black text-brand-yellow tracking-tighter select-none cursor-pointer italic drop-shadow-glow">COFFEE LUNCH</h1>
           <p className="text-[10px] text-brand-muted font-bold tracking-widest uppercase opacity-80">Best Coffee In Town</p>
         </div>
-        
-        <div className="flex items-center gap-2">
-            {username && <div className="text-xs font-bold text-brand-muted/80 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full backdrop-blur-md hidden sm:block">{username}</div>}
-        </div>
+        <div className="flex items-center gap-2">{username && <div className="text-xs font-bold text-brand-muted/80 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full backdrop-blur-md hidden sm:block">{username}</div>}</div>
       </header>
 
-      {/* --- VIEWS --- */}
-      
       {/* VIEW: MENU */}
       {currentView === 'menu' && (
         <>
@@ -678,14 +604,7 @@ const App: React.FC = () => {
         <div className="p-4">
              <div className="relative mb-6">
                 <SearchIcon className="absolute left-4 top-3.5 w-5 h-5 text-brand-muted" />
-                <input 
-                    type="text" 
-                    placeholder="Поиск по меню..." 
-                    autoFocus
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full glass-input rounded-2xl py-3 pl-12 pr-4 text-white placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all shadow-lg"
-                />
+                <input type="text" placeholder="Поиск по меню..." autoFocus value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full glass-input rounded-2xl py-3 pl-12 pr-4 text-white placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all shadow-lg" />
             </div>
             {renderProductGrid(allProducts.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()) && !hiddenItems.includes(item.id)))}
         </div>
@@ -704,39 +623,27 @@ const App: React.FC = () => {
         <div className="p-4 pb-32 animate-fade-in">
             <h2 className="text-2xl font-black text-white uppercase italic mb-6 drop-shadow-md">Корзина</h2>
             
-            {/* Delivery Switcher */}
             <div className="glass-panel p-1.5 rounded-2xl flex mb-6">
                  <button onClick={() => setDeliveryMethod('pickup')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${deliveryMethod === 'pickup' ? 'bg-brand-yellow text-black shadow-lg' : 'text-brand-muted hover:text-white'}`}>Самовывоз</button>
                  <button onClick={() => alert("Доставка появится позже!")} className="flex-1 py-3 rounded-xl font-bold text-sm text-brand-muted/50 cursor-not-allowed flex flex-col items-center justify-center leading-none"><span>Доставка</span><span className="text-[9px] mt-0.5 opacity-60">скоро</span></button>
             </div>
 
-            {/* Promo Code Input */}
             <div className="glass-panel p-4 rounded-2xl mb-4 relative overflow-hidden">
                 <label className="flex items-center gap-2 text-sm font-bold text-brand-muted mb-2"><SparklesIcon className="w-4 h-4" />Промокод</label>
                 {appliedPromo ? (
                     <div className="flex justify-between items-center bg-brand-yellow/10 border border-brand-yellow/30 rounded-xl p-3">
-                        <div>
-                            <span className="font-bold text-brand-yellow tracking-wider">{appliedPromo.code}</span>
-                            <span className="text-xs text-brand-muted ml-2">(-{appliedPromo.discountPercent}%)</span>
-                        </div>
+                        <div><span className="font-bold text-brand-yellow tracking-wider">{appliedPromo.code}</span><span className="text-xs text-brand-muted ml-2">(-{appliedPromo.discountPercent}%)</span></div>
                         <button onClick={removePromo} className="text-xs text-red-400 font-bold border-b border-red-400/30">Удалить</button>
                     </div>
                 ) : (
                     <div className="flex gap-2">
-                        <input 
-                            type="text" 
-                            value={promoInput} 
-                            onChange={(e) => setPromoInput(e.target.value)} 
-                            className="flex-1 glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 uppercase" 
-                            placeholder="CODE..."
-                        />
+                        <input type="text" value={promoInput} onChange={(e) => setPromoInput(e.target.value)} className="flex-1 glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 uppercase" placeholder="CODE..." />
                         <button onClick={handleApplyPromo} className="bg-white/10 hover:bg-white/20 px-4 rounded-xl font-bold text-sm transition-colors">OK</button>
                     </div>
                 )}
                 {promoError && <div className="text-red-400 text-xs mt-2 font-medium">{promoError}</div>}
             </div>
 
-            {/* Inputs */}
             <div className="space-y-4 mb-6">
                 <div className="glass-panel p-4 rounded-2xl">
                    <label className="flex items-center gap-2 text-sm font-bold text-brand-muted mb-2"><ClockIcon className="w-4 h-4" />Время готовности</label>
@@ -748,7 +655,6 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            {/* Total Summary */}
             <div className="flex justify-between items-center mb-4 px-2">
                 <span className="text-brand-muted font-bold">Итого:</span>
                 <div className="text-right">
@@ -757,7 +663,6 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            {/* Items */}
             <div className="space-y-3">
               {cart.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-40 text-brand-muted opacity-50"><div className="text-4xl mb-2">🛒</div><p>Корзина пуста</p></div>
@@ -795,7 +700,6 @@ const App: React.FC = () => {
               )}
             </div>
 
-            {/* Custom Pay Button (Visible if not in TG) */}
             {!window.Telegram?.WebApp && (
                  <div className="pt-8 pb-4">
                     <button onClick={handleCheckout} disabled={isSending} className={`w-full text-black py-4 rounded-2xl font-bold text-lg shadow-[0_0_20px_rgba(250,204,21,0.2)] transition-all mb-2 flex items-center justify-center gap-2 ${isSending ? 'bg-brand-yellow/50 cursor-not-allowed' : 'bg-brand-yellow active:scale-95 hover:bg-yellow-300'}`}>
@@ -806,30 +710,16 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* --- AI CHAT FLOATING BUTTON --- */}
       {!isShiftClosed && (
-        <button 
-          onClick={() => { setShowAiChat(true); setShowAiTooltip(false); }}
-          className="fixed bottom-20 right-4 z-40 bg-brand-yellow text-black p-4 rounded-full shadow-[0_0_20px_rgba(250,204,21,0.5)] active:scale-95 transition-all hover:bg-yellow-300 border-2 border-white/20"
-        >
+        <button onClick={() => { setShowAiChat(true); setShowAiTooltip(false); }} className="fixed bottom-20 right-4 z-40 bg-brand-yellow text-black p-4 rounded-full shadow-[0_0_20px_rgba(250,204,21,0.5)] active:scale-95 transition-all hover:bg-yellow-300 border-2 border-white/20">
           <SparklesIcon className="w-6 h-6 animate-pulse" />
         </button>
       )}
 
-      {/* --- BOTTOM NAVIGATION --- */}
       <div className="fixed bottom-0 left-0 right-0 glass-modal safe-area-bottom px-6 py-3 flex justify-between items-center z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-white/10">
-         <button onClick={() => setCurrentView('menu')} className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'menu' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}>
-            <HomeIcon className="w-6 h-6" fill={currentView === 'menu'} />
-            <span className="text-[10px] font-bold">Меню</span>
-         </button>
-         <button onClick={() => setCurrentView('search')} className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'search' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}>
-            <SearchIcon className="w-6 h-6" />
-            <span className="text-[10px] font-bold">Поиск</span>
-         </button>
-         <button onClick={() => setCurrentView('favorites')} className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'favorites' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}>
-            <HeartIcon className="w-6 h-6" fill={currentView === 'favorites'} />
-            <span className="text-[10px] font-bold">Избр.</span>
-         </button>
+         <button onClick={() => setCurrentView('menu')} className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'menu' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}><HomeIcon className="w-6 h-6" fill={currentView === 'menu'} /><span className="text-[10px] font-bold">Меню</span></button>
+         <button onClick={() => setCurrentView('search')} className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'search' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}><SearchIcon className="w-6 h-6" /><span className="text-[10px] font-bold">Поиск</span></button>
+         <button onClick={() => setCurrentView('favorites')} className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'favorites' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}><HeartIcon className="w-6 h-6" fill={currentView === 'favorites'} /><span className="text-[10px] font-bold">Избр.</span></button>
          <button onClick={() => setCurrentView('cart')} className={`flex flex-col items-center gap-1 relative transition-all active:scale-90 ${currentView === 'cart' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}>
             <div className="relative">
                 <CartIcon className="w-6 h-6" fill={currentView === 'cart'} />
@@ -840,17 +730,7 @@ const App: React.FC = () => {
       </div>
 
       {selectedProduct && <ItemModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)} inventory={inventory} />}
-      
-      {showAiChat && (
-        <AIChat 
-          products={allProducts.filter(p => 
-            !hiddenItems.includes(p.id) && 
-            (inventory[p.id] === undefined || inventory[p.id] > 0)
-          )} 
-          onClose={() => setShowAiChat(false)} 
-          onAddToCart={(product) => setSelectedProduct(product)} 
-        />
-      )}
+      {showAiChat && <AIChat products={allProducts.filter(p => !hiddenItems.includes(p.id) && (inventory[p.id] === undefined || inventory[p.id] > 0))} onClose={() => setShowAiChat(false)} onAddToCart={(product) => setSelectedProduct(product)} />}
 
       {showAdminPanel && (
           <AdminPanel 
@@ -890,6 +770,5 @@ const App: React.FC = () => {
     </div>
   );
 };
-
 
 export default App;
