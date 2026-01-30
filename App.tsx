@@ -7,11 +7,7 @@ import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
 import AIChat from './components/AIChat';
 
-declare global {
-  interface Window {
-    Telegram: any;
-  }
-}
+// REMOVED CONFLICTING DECLARE GLOBAL BLOCK
 
 const useLongPress = (callback: () => void, ms = 1000) => {
   const timeoutRef = useRef<any>(null);
@@ -159,12 +155,6 @@ const App: React.FC = () => {
                 if (existingIndex !== -1) {
                     // It exists (likely a static item being overridden)
                     const staticItem = mergedProducts[existingIndex];
-                    
-                    // If the static item had specific variants (sizes), we might want to keep them?
-                    // But usually, an edit overrides the price. 
-                    // Simple logic: Admin edit overrides EVERYTHING.
-                    // BUT: If the admin didn't provide image in edit (to save space), use static image?
-                    // For now, assume admin provides everything needed.
                     
                     mergedProducts[existingIndex] = {
                         ...cp,
