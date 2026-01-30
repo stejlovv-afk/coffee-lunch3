@@ -1,73 +1,43 @@
+
+// ... (imports remain the same)
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { MENU_ITEMS } from './constants';
+import { MENU_ITEMS, MILK_LABELS, SYRUP_LABELS, SAUCE_LABELS, getAddonPrice } from './constants';
 import { Category, Product, CartItem, WebAppPayload, PromoCode } from './types';
-import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon, HomeIcon, SearchIcon, CartIcon, SparklesIcon } from './components/ui/Icons';
+import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon, HomeIcon, SearchIcon, CartIcon, SparklesIcon, XMarkIcon } from './components/ui/Icons';
 import ItemModal from './components/ItemModal';
 import AdminPanel from './components/AdminPanel';
+import AIChat from './components/AIChat';
 
-declare global {
-  interface Window {
-    Telegram: any;
-  }
-}
+// ... (Global declarations, useLongPress, getDefaultTime, getAddonPrice remain the same)
 
-// Maps for Labels
-const MILK_LABELS: Record<string, string> = {
-  banana: 'Банановое молоко', coconut: 'Кокосовое молоко', almond: 'Миндальное молоко', 
-  lactose_free: 'Безлактозное молоко'
-};
+const useLongPress = (callback: () => void, ms = 1000) => {
+  const timeoutRef = useRef<any>(null);
 
-const SYRUP_LABELS: Record<string, string> = {
-    pistachio: 'Фисташка', hazelnut: 'Лесной орех', coconut_syrup: 'Кокос сироп', almond_syrup: 'Миндаль сироп',
-    red_orange: 'Красный апельсин', strawberry: 'Клубника', peach: 'Персик', melon: 'Дыня', plum: 'Слива',
-    apple: 'Яблоко', raspberry: 'Малина', cherry: 'Вишня', lavender: 'Лаванда', gingerbread: 'Имбирный пряник',
-    lemongrass: 'Лемонграсс', popcorn: 'Попкорн', mint: 'Мята', bubblegum: 'Баблгам', salted_caramel: 'Соленая карамель'
-};
+  const start = () => {
+    timeoutRef.current = setTimeout(callback, ms);
+  };
 
-const SAUCE_LABELS: Record<string, string> = {
-    cheese: 'Сырный', ketchup: 'Кетчуп', mustard: 'Горчичный', bbq: 'Барбекю'
-};
-
-// --- Helper Hook for Long Press ---
-function useLongPress(callback: () => void, ms = 1500) {
-  const [startLongPress, setStartLongPress] = useState(false);
-  const timerId = useRef<any>(undefined);
-
-  useEffect(() => {
-    if (startLongPress) {
-      timerId.current = setTimeout(callback, ms);
-    } else {
-      clearTimeout(timerId.current);
+  const stop = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
     }
-    return () => clearTimeout(timerId.current);
-  }, [startLongPress, callback, ms]);
+  };
 
   return {
-    onMouseDown: () => setStartLongPress(true),
-    onMouseUp: () => setStartLongPress(false),
-    onMouseLeave: () => setStartLongPress(false),
-    onTouchStart: () => setStartLongPress(true),
-    onTouchEnd: () => setStartLongPress(false),
+    onMouseDown: start,
+    onMouseUp: stop,
+    onMouseLeave: stop,
+    onTouchStart: start,
+    onTouchEnd: stop,
   };
-}
-
-const getDefaultTime = () => {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() + 15);
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
 };
 
-const getAddonPrice = (type: 'milk' | 'syrup' | 'sauce', variantSize: string) => {
-  if (type === 'sauce') return 40;
-  
-  let sizeLevel = 0; 
-  if (variantSize.includes('350')) sizeLevel = 1;
-  if (variantSize.includes('450')) sizeLevel = 2;
-  if (type === 'milk') return 70 + (sizeLevel * 10);
-  if (type === 'syrup') return 30 + (sizeLevel * 10);
-  return 0;
+const getDefaultTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 15);
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
 };
 
 type ViewState = 'menu' | 'search' | 'favorites' | 'cart';
@@ -78,14 +48,30 @@ const App: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [hiddenItems, setHiddenItems] = useState<string[]>([]);
+  const [inventory, setInventory] = useState<Record<string, number>>({}); // Inventory State
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminAuth, setShowAdminAuth] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [isSending, setIsSending] = useState(false);
   
+  // AI Chat State
+  const [showAiChat, setShowAiChat] = useState(false);
+  
+  // Notifications State
+  const [showDevNotice, setShowDevNotice] = useState(() => {
+      // Check localStorage to see if user has closed it before
+      if (typeof window !== 'undefined') {
+          return !localStorage.getItem('hasSeenDevNotice');
+      }
+      return true;
+  });
+  const [showAiTooltip, setShowAiTooltip] = useState(true);
+
   // Products (Static + Custom merged)
   const [allProducts, setAllProducts] = useState<Product[]>(MENU_ITEMS);
+  // ... (rest of the state and effects remain the same until the render)
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
 
   // Promo Logic Stats
@@ -114,6 +100,7 @@ const App: React.FC = () => {
   
   // --- Init ---
   useEffect(() => {
+    // ... (existing useEffect logic)
     const savedFavs = localStorage.getItem('favorites');
     if (savedFavs) setFavorites(JSON.parse(savedFavs));
     const savedAdmin = localStorage.getItem('isAdmin');
@@ -129,12 +116,24 @@ const App: React.FC = () => {
        if (savedHidden) setHiddenItems(JSON.parse(savedHidden));
     }
 
+    // Parse Inventory (param 'inv')
+    const invParam = params.get('inv');
+    if (invParam) {
+        try {
+            const invMap: Record<string, number> = {};
+            invParam.split('~').forEach(pair => {
+                const [id, qty] = pair.split(':');
+                if (id && qty !== undefined) invMap[id] = Number(qty);
+            });
+            setInventory(invMap);
+        } catch (e) { console.error("Error parsing inventory", e); }
+    }
+
     // Parse Params
     const dayRev = Number(params.get('d') || 0);
     const monthRev = Number(params.get('m') || 0);
     const closed = params.get('closed') === 'true';
     
-    // Parse USED PROMOS (param 'u')
     const usedPromosParam = params.get('u');
     if (usedPromosParam) {
         setUsedPromoCodes(usedPromosParam.split(','));
@@ -144,11 +143,9 @@ const App: React.FC = () => {
     setMonthlyRevenue(monthRev);
     setIsShiftClosed(closed);
 
-    // Get Permanently Deleted Items
     const deletedParam = params.get('del');
     const deletedItems = deletedParam ? deletedParam.split(',') : [];
 
-    // Parse Custom Items (Parameter 'c') and merge with static
     const customParam = params.get('c');
     let mergedProducts = [...MENU_ITEMS];
 
@@ -160,7 +157,6 @@ const App: React.FC = () => {
                 if (parts.length < 5) return null;
                 const [id, name, cat, priceStr, img, modsBase64] = parts;
                 
-                // Decode modifiers if present
                 let modifiers = {};
                 if (modsBase64) {
                     try {
@@ -183,14 +179,19 @@ const App: React.FC = () => {
                 };
             }).filter(Boolean) as Product[];
             
-            // Merge logic
             customProducts.forEach(cp => {
                 const index = mergedProducts.findIndex(p => p.id === cp.id);
                 if (index !== -1) {
-                    // Override existing (edited static or updated custom)
-                    mergedProducts[index] = { ...mergedProducts[index], ...cp, variants: cp.variants, modifiers: cp.modifiers };
+                    const staticItem = MENU_ITEMS.find(m => m.id === cp.id);
+                    const preserveVariants = staticItem && staticItem.variants.length > 1 && cp.variants.length === 1 && cp.variants[0].size === 'порция';
+
+                    mergedProducts[index] = { 
+                        ...mergedProducts[index], 
+                        ...cp, 
+                        variants: preserveVariants ? staticItem.variants : cp.variants, 
+                        modifiers: cp.modifiers || mergedProducts[index].modifiers 
+                    };
                 } else {
-                    // Add new custom
                     mergedProducts.push(cp);
                 }
             });
@@ -198,12 +199,10 @@ const App: React.FC = () => {
         } catch(e) { console.error("Error parsing custom items", e); }
     }
 
-    // Filter out deleted items
     mergedProducts = mergedProducts.filter(p => !deletedItems.includes(p.id));
 
     setAllProducts(mergedProducts);
 
-    // Parse Promo Codes
     const promoParam = params.get('p');
     if (promoParam) {
         try {
@@ -324,6 +323,17 @@ const App: React.FC = () => {
             if (item.options.heating === 'yes') details += `, Подогреть`;
             else details += `, Греть: ${item.options.heating === 'grill' ? 'Гриль' : 'СВЧ'}`;
         }
+        
+        // Hot Dog Details
+        if (item.options.hotDogSausage) details += `, Сосиска: ${item.options.hotDogSausage === 'pork' ? 'Свиная' : 'Говяжья'}`;
+        if (item.options.hotDogOnion !== undefined) details += `, ${item.options.hotDogOnion ? 'С луком' : 'Без лука'}`;
+        if (item.options.hotDogSauces && item.options.hotDogSauces.length > 0) {
+            const sauceNames = item.options.hotDogSauces.map(s => SAUCE_LABELS[s]).join(', ');
+            details += `, Соусы: ${sauceNames}`;
+        }
+        
+        // Espresso Tonic
+        if (item.options.tonicType) details += `, Тоник: ${item.options.tonicType === 'classic' ? 'Классический' : 'Гранатовый'}`;
 
         if (index === 0) {
             details += `\n[Инфо: ${pickupTime}, ${comment || 'без коммент'}, ${username}]`;
@@ -389,9 +399,20 @@ const App: React.FC = () => {
   };
 
   const addToCart = (productId: string, variantIdx: number, quantity: number, options: any) => {
-    if (isShiftClosed) return; // Block adding to cart if closed
+    if (isShiftClosed) return; 
     const product = allProducts.find(p => p.id === productId);
     if (!product) return;
+
+    // Check Inventory
+    const stock = inventory[productId];
+    if (stock !== undefined) {
+         const currentInCart = cart.filter(i => i.productId === productId).reduce((acc, i) => acc + i.quantity, 0);
+         if (currentInCart + quantity > stock) {
+             alert(`Доступно всего ${stock} шт.`);
+             return;
+         }
+    }
+
     const uniqueId = `${productId}-${variantIdx}-${JSON.stringify(options)}`;
     setCart(prev => {
       const existing = prev.find(item => item.uniqueId === uniqueId);
@@ -409,9 +430,13 @@ const App: React.FC = () => {
 
   const handleSaveMenuToBot = () => {
     setIsSending(true);
-    const payload: WebAppPayload = { action: 'update_menu', hiddenItems: hiddenItems };
+    // Include Inventory in payload
+    const payload: WebAppPayload = { action: 'update_menu', hiddenItems: hiddenItems, inventory: inventory };
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload));
-    else setIsSending(false);
+    else {
+        console.log('Sending menu update:', payload);
+        setIsSending(false);
+    }
   };
 
   const handleToggleShift = (closed: boolean) => {
@@ -426,7 +451,6 @@ const App: React.FC = () => {
 
   const handleAddProduct = (payload: any) => {
       setIsSending(true);
-      // Construct full payload
       const actionPayload: WebAppPayload = { 
           action: 'add_product', 
           product: {
@@ -434,7 +458,7 @@ const App: React.FC = () => {
               category: payload.category,
               price: payload.price,
               image: payload.image,
-              modifiers: payload.modifiers // PASSING MODIFIERS
+              modifiers: payload.modifiers 
           } as unknown as Product
       };
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload));
@@ -454,7 +478,7 @@ const App: React.FC = () => {
               category: payload.category,
               price: payload.price,
               image: payload.image,
-              modifiers: payload.modifiers // PASSING MODIFIERS
+              modifiers: payload.modifiers 
           } as unknown as Product
       };
       if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload));
@@ -494,6 +518,11 @@ const App: React.FC = () => {
       }
   };
 
+  const handleCloseDevNotice = () => {
+      setShowDevNotice(false);
+      localStorage.setItem('hasSeenDevNotice', 'true');
+  };
+
   const handleLongPress = useLongPress(() => setShowAdminAuth(true));
   const verifyAdmin = () => {
     if (adminPassword === '7654') {
@@ -506,29 +535,48 @@ const App: React.FC = () => {
 
   const renderProductGrid = (items: Product[]) => (
     <div className="p-4 grid grid-cols-2 gap-4 pb-32">
-        {items.map(item => (
-          <div key={item.id} className={`glass-panel rounded-3xl p-3 flex flex-col justify-between relative transition-all active:scale-[0.98] ${hiddenItems.includes(item.id) ? 'opacity-50 grayscale' : ''}`}>
-            {/* Glossy Overlay */}
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none opacity-50"></div>
+        {items.map(item => {
+            const stock = inventory[item.id];
+            const isSoldOut = stock !== undefined && stock <= 0;
+            const isHidden = hiddenItems.includes(item.id);
+            const isDisabled = isSoldOut || isHidden || isShiftClosed;
             
-            <div className="relative mb-3 group z-10">
-              <img src={item.image} alt={item.name} className="w-full aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all" onClick={() => !isShiftClosed && setSelectedProduct(item)} />
-              <button onClick={(e) => toggleFavorite(e, item.id)} className="absolute top-2 right-2 p-2 bg-black/40 backdrop-blur-md rounded-full text-brand-yellow transition-transform active:scale-125 hover:bg-black/60 border border-white/10">
-                <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
-              </button>
-              {hiddenItems.includes(item.id) && <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm"><EyeSlashIcon className="w-8 h-8 text-white" /></div>}
-            </div>
-            
-            <div onClick={() => !isShiftClosed && setSelectedProduct(item)} className="z-10 relative">
-              <h3 className="font-bold text-white leading-tight mb-1 text-sm sm:text-base line-clamp-2 min-h-[2.5em] drop-shadow-sm">{item.name}</h3>
-              <p className="text-brand-yellow font-black text-lg drop-shadow-md">{item.variants[0].price}₽</p>
-            </div>
-            
-            <button onClick={() => !isShiftClosed && setSelectedProduct(item)} className="z-10 mt-3 w-full py-3 bg-white/10 hover:bg-brand-yellow hover:text-black border border-white/10 text-white rounded-2xl flex items-center justify-center transition-all active:scale-95 group backdrop-blur-sm shadow-inner">
-              <PlusIcon className="w-6 h-6 group-active:rotate-90 transition-transform" />
-            </button>
-          </div>
-        ))}
+            return (
+              <div key={item.id} className={`glass-panel rounded-3xl p-3 flex flex-col justify-between relative transition-all active:scale-[0.98] ${isDisabled ? 'opacity-60 grayscale' : ''}`}>
+                {/* Glossy Overlay */}
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none opacity-50"></div>
+                
+                <div className="relative mb-3 group z-10">
+                  <img src={item.image} alt={item.name} className="w-full aspect-square object-cover rounded-2xl shadow-lg brightness-90 group-hover:brightness-110 transition-all" onClick={() => !isDisabled && setSelectedProduct(item)} />
+                  <button onClick={(e) => toggleFavorite(e, item.id)} className="absolute top-2 right-2 p-2 bg-black/40 backdrop-blur-md rounded-full text-brand-yellow transition-transform active:scale-125 hover:bg-black/60 border border-white/10">
+                    <HeartIcon className="w-5 h-5" fill={favorites.includes(item.id)} />
+                  </button>
+                  {isHidden && <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm"><EyeSlashIcon className="w-8 h-8 text-white" /></div>}
+                  {isSoldOut && !isHidden && <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl backdrop-blur-sm"><span className="text-white font-bold border border-white/20 bg-red-500/50 px-3 py-1 rounded-lg">Закончилось</span></div>}
+                  
+                  {/* Stock Badge */}
+                  {stock !== undefined && stock > 0 && (
+                      <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-lg border border-white/10">
+                          <span className="text-[10px] font-bold text-white">Ост: {stock}</span>
+                      </div>
+                  )}
+                </div>
+                
+                <div onClick={() => !isDisabled && setSelectedProduct(item)} className="z-10 relative">
+                  <h3 className="font-bold text-white leading-tight mb-1 text-sm sm:text-base line-clamp-2 min-h-[2.5em] drop-shadow-sm">{item.name}</h3>
+                  <p className="text-brand-yellow font-black text-lg drop-shadow-md">{item.variants[0].price}₽</p>
+                </div>
+                
+                <button 
+                  onClick={() => !isDisabled && setSelectedProduct(item)} 
+                  disabled={isDisabled}
+                  className={`z-10 mt-3 w-full py-3 border border-white/10 rounded-2xl flex items-center justify-center transition-all active:scale-95 group backdrop-blur-sm shadow-inner ${isDisabled ? 'bg-white/5 cursor-not-allowed' : 'bg-white/10 hover:bg-brand-yellow hover:text-black text-white'}`}
+                >
+                  <PlusIcon className="w-6 h-6 group-active:rotate-90 transition-transform" />
+                </button>
+              </div>
+            );
+        })}
         {items.length === 0 && <div className="col-span-2 text-center text-brand-muted py-10">Товары не найдены</div>}
     </div>
   );
@@ -545,6 +593,10 @@ const App: React.FC = () => {
     { id: 'soups', label: 'Супы' },
     { id: 'side_dishes', label: 'Гарниры' },
     { id: 'salads', label: 'Салаты' },
+    { id: 'bakery', label: 'Выпечка' },
+    { id: 'desserts', label: 'Десерты' },
+    { id: 'sweets', label: 'Сладости' },
+    { id: 'ice_cream', label: 'Мороженое' },
   ];
 
   return (
@@ -564,10 +616,36 @@ const App: React.FC = () => {
           </div>
       )}
 
+      {/* --- NOTIFICATIONS --- */}
+      {showDevNotice && (
+        <div className="fixed top-2 left-2 right-2 z-[45] animate-slide-up">
+           <div className="glass-panel p-3 rounded-xl flex items-start gap-3 border-yellow-500/30 bg-black/80 backdrop-blur-md shadow-2xl">
+              <span className="text-xl">🚧</span>
+              <div className="flex-1 text-xs text-white/90 leading-tight">
+                 <span className="font-bold text-brand-yellow block mb-0.5">Тестовый режим</span>
+                 Бот еще в разработке. Некоторые позиции могут отсутствовать или быть неточными.
+              </div>
+              <button onClick={handleCloseDevNotice} className="text-white/50 hover:text-white p-1"><XMarkIcon className="w-4 h-4" /></button>
+           </div>
+        </div>
+      )}
+
+      {showAiTooltip && !isShiftClosed && !showAiChat && (
+          <div className="fixed bottom-36 right-4 z-40 max-w-[200px] animate-bounce-short">
+              <div className="glass-panel p-3 rounded-xl border-brand-yellow/30 bg-black/80 relative text-xs">
+                  <div className="absolute -bottom-2 right-6 w-4 h-4 bg-black/80 border-r border-b border-brand-yellow/30 transform rotate-45"></div>
+                  <div className="flex gap-2">
+                      <span className="text-lg">🤖</span>
+                      <p className="text-white/90">Я <b>ИИ-помощник</b>! Подскажу и расскажу по ассортименту.</p>
+                  </div>
+                  <button onClick={() => setShowAiTooltip(false)} className="absolute -top-2 -left-2 bg-white/10 rounded-full p-1 border border-white/10 text-white/50 hover:text-white"><XMarkIcon className="w-3 h-3" /></button>
+              </div>
+          </div>
+      )}
+
       {/* --- HEADER --- */}
       <header className="sticky top-0 z-20 bg-brand-dark/70 backdrop-blur-xl border-b border-white/5 px-4 py-3 flex justify-between items-center transition-colors">
         <div>
-          {/* Long press works on header text even if overlay is not there (but overlay blocks clicks, so we added invisible area above) */}
           <h1 {...handleLongPress} className="text-2xl font-black text-brand-yellow tracking-tighter select-none cursor-pointer italic drop-shadow-glow">COFFEE LUNCH</h1>
           <p className="text-[10px] text-brand-muted font-bold tracking-widest uppercase opacity-80">Best Coffee In Town</p>
         </div>
@@ -591,7 +669,7 @@ const App: React.FC = () => {
                 ))}
                 </div>
             </nav>
-            {renderProductGrid(allProducts.filter(item => (item.category === activeCategory) && (isAdmin ? true : !hiddenItems.includes(item.id))))}
+            {renderProductGrid(allProducts.filter(item => (item.category === activeCategory) && !hiddenItems.includes(item.id)))}
         </>
       )}
 
@@ -609,7 +687,7 @@ const App: React.FC = () => {
                     className="w-full glass-input rounded-2xl py-3 pl-12 pr-4 text-white placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all shadow-lg"
                 />
             </div>
-            {renderProductGrid(allProducts.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()) && (isAdmin ? true : !hiddenItems.includes(item.id))))}
+            {renderProductGrid(allProducts.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()) && !hiddenItems.includes(item.id)))}
         </div>
       )}
 
@@ -728,6 +806,16 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* --- AI CHAT FLOATING BUTTON --- */}
+      {!isShiftClosed && (
+        <button 
+          onClick={() => { setShowAiChat(true); setShowAiTooltip(false); }}
+          className="fixed bottom-20 right-4 z-40 bg-brand-yellow text-black p-4 rounded-full shadow-[0_0_20px_rgba(250,204,21,0.5)] active:scale-95 transition-all hover:bg-yellow-300 border-2 border-white/20"
+        >
+          <SparklesIcon className="w-6 h-6 animate-pulse" />
+        </button>
+      )}
+
       {/* --- BOTTOM NAVIGATION --- */}
       <div className="fixed bottom-0 left-0 right-0 glass-modal safe-area-bottom px-6 py-3 flex justify-between items-center z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-white/10">
          <button onClick={() => setCurrentView('menu')} className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${currentView === 'menu' ? 'text-brand-yellow drop-shadow-glow' : 'text-brand-muted hover:text-white'}`}>
@@ -751,26 +839,25 @@ const App: React.FC = () => {
          </button>
       </div>
 
-      {selectedProduct && <ItemModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)} />}
+      {selectedProduct && <ItemModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)} inventory={inventory} />}
       
-      {showAdminAuth && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl">
-              <div className="glass-panel p-6 rounded-3xl w-80 shadow-2xl animate-slide-up">
-                  <h3 className="text-xl font-bold mb-4 text-center text-white">Вход для админа</h3>
-                  <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Пароль" className="w-full p-3 glass-input text-white rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-brand-yellow/50" />
-                  <div className="flex gap-2">
-                      <button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button>
-                      <button onClick={verifyAdmin} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Войти</button>
-                  </div>
-              </div>
-          </div>
+      {showAiChat && (
+        <AIChat 
+          products={allProducts.filter(p => 
+            !hiddenItems.includes(p.id) && 
+            (inventory[p.id] === undefined || inventory[p.id] > 0)
+          )} 
+          onClose={() => setShowAiChat(false)} 
+          onAddToCart={(product) => setSelectedProduct(product)} 
+        />
       )}
-      
+
       {showAdminPanel && (
           <AdminPanel 
             products={allProducts}
             promoCodes={promoCodes}
             hiddenItems={hiddenItems} 
+            inventory={inventory}
             onToggleHidden={(id) => setHiddenItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])} 
             onSaveToBot={handleSaveMenuToBot} 
             onClose={() => setShowAdminPanel(false)} 
@@ -784,10 +871,25 @@ const App: React.FC = () => {
             onDeleteProduct={handleDeleteProduct}
             onAddPromo={handleAddPromo}
             onDeletePromo={handleDeletePromo}
+            onUpdateInventory={setInventory}
           />
+      )}
+      
+      {showAdminAuth && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl">
+              <div className="glass-panel p-6 rounded-3xl w-80 shadow-2xl animate-slide-up">
+                  <h3 className="text-xl font-bold mb-4 text-center text-white">Вход для админа</h3>
+                  <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="Пароль" className="w-full p-3 glass-input text-white rounded-xl mb-4 text-center text-lg outline-none focus:ring-2 ring-brand-yellow/50" />
+                  <div className="flex gap-2">
+                      <button onClick={() => setShowAdminAuth(false)} className="flex-1 py-3 text-brand-muted font-bold hover:text-white transition-colors">Отмена</button>
+                      <button onClick={verifyAdmin} className="flex-1 py-3 bg-brand-yellow text-black rounded-xl font-bold shadow-lg">Войти</button>
+                  </div>
+              </div>
+          </div>
       )}
     </div>
   );
 };
+
 
 export default App;
