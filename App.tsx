@@ -3,7 +3,7 @@ import { MENU_ITEMS, MILK_LABELS, SYRUP_LABELS, SAUCE_LABELS, getAddonPrice } fr
 import { Category, Product, CartItem, WebAppPayload, PromoCode } from './types'; 
 import { HeartIcon, PlusIcon, TrashIcon, EyeSlashIcon, ClockIcon, ChatIcon, HomeIcon, SearchIcon, CartIcon, SparklesIcon, XMarkIcon } from './components/ui/Icons'; 
 import ItemModal from './components/ItemModal'; 
-import AdminPanel from './components/AdminPanel'; 
+import AdminPanel, { CATEGORIES } from './components/AdminPanel'; 
 import AIChat from './components/AIChat'; 
 
 const useLongPress = (callback: () => void, ms = 1000) => { 
@@ -28,7 +28,10 @@ const App: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<Category>('coffee'); 
   const [cart, setCart] = useState<CartItem[]>([]); 
   const [favorites, setFavorites] = useState<string[]>([]); 
+  
   const [hiddenItems, setHiddenItems] = useState<string[]>([]); 
+  const [hiddenCategories, setHiddenCategories] = useState<string[]>([]); // <-- Новое состояние
+  
   const [inventory, setInventory] = useState<Record<string, number>>({}); 
   const [isAdmin, setIsAdmin] = useState(false); 
   const [showAdminAuth, setShowAdminAuth] = useState(false); 
@@ -68,14 +71,24 @@ const App: React.FC = () => {
     if (savedAdmin === 'true') setIsAdmin(true); 
     
     const params = new URLSearchParams(window.location.search); 
+    
+    // Hidden Items
     const hiddenParam = params.get('hidden'); 
     if (hiddenParam !== null) {   
-      if (hiddenParam === '') setHiddenItems([]);   
-      else setHiddenItems(hiddenParam.split(',')); 
+      setHiddenItems(hiddenParam === '' ? [] : hiddenParam.split(',')); 
     } else {    
       const savedHidden = localStorage.getItem('hiddenItems');    
       if (savedHidden) setHiddenItems(JSON.parse(savedHidden)); 
     }  
+
+    // Hidden Categories
+    const hcParam = params.get('hc');
+    if (hcParam !== null) {
+      setHiddenCategories(hcParam === '' ? [] : hcParam.split(','));
+    } else {
+      const savedHc = localStorage.getItem('hiddenCategories');
+      if (savedHc) setHiddenCategories(JSON.parse(savedHc));
+    }
     
     const invParam = params.get('inv'); 
     if (invParam) {     
@@ -180,6 +193,15 @@ const App: React.FC = () => {
       } catch (e) {} 
     } 
   }, []); 
+
+  const visibleCategories = CATEGORIES.filter(cat => !hiddenCategories.includes(cat.id));
+
+  useEffect(() => {
+    // Если текущая активная категория была скрыта, переключаемся на первую доступную
+    if (hiddenCategories.includes(activeCategory) && visibleCategories.length > 0) {
+        setActiveCategory(visibleCategories[0].id);
+    }
+  }, [hiddenCategories, activeCategory, visibleCategories]);
 
   const rawTotal = useMemo(() => { 
     return cart.reduce((total, item) => { 
@@ -294,6 +316,7 @@ const App: React.FC = () => {
 
   useEffect(() => { localStorage.setItem('favorites', JSON.stringify(favorites)); }, [favorites]); 
   useEffect(() => { localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems)); }, [hiddenItems]); 
+  useEffect(() => { localStorage.setItem('hiddenCategories', JSON.stringify(hiddenCategories)); }, [hiddenCategories]); 
   useEffect(() => { localStorage.setItem('isAdmin', String(isAdmin)); }, [isAdmin]); 
 
   const toggleFavorite = (e: React.MouseEvent, id: string) => { 
@@ -324,7 +347,7 @@ const App: React.FC = () => {
 
   const handleSaveMenuToBot = () => { 
     setIsSending(true); 
-    const payload: WebAppPayload = { action: 'update_menu', hiddenItems: hiddenItems, inventory: inventory }; 
+    const payload: WebAppPayload = { action: 'update_menu', hiddenItems, hiddenCategories, inventory }; 
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload)); 
     else { setIsSending(false); } 
   }; 
@@ -340,14 +363,14 @@ const App: React.FC = () => {
     setIsSending(true); 
     const actionPayload: any = { action: 'add_product', product: { name: payload.name, category: payload.category, variants: payload.variants, image: payload.image, modifiers: payload.modifiers } }; 
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload)); 
-    else { alert("Товар отправлен"); setIsSending(false); } 
+    else { setIsSending(false); } 
   }; 
 
   const handleEditProduct = (id: string, payload: any) => { 
     setIsSending(true); 
     const actionPayload: any = { action: 'edit_product', id, product: { name: payload.name, category: payload.category, variants: payload.variants, image: payload.image, modifiers: payload.modifiers } }; 
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload)); 
-    else { alert("Товар изменен"); setIsSending(false); } 
+    else { setIsSending(false); } 
   }; 
 
   const handleDeleteProduct = (ids: string[]) => { 
@@ -416,14 +439,6 @@ const App: React.FC = () => {
     </div> 
   ); 
 
-  const categories: {id: Category, label: string}[] = [ 
-    { id: 'coffee', label: 'Кофе' }, { id: 'tea', label: 'Чай' }, { id: 'seasonal', label: 'Сезонное' }, 
-    { id: 'punch', label: 'Пунши' }, { id: 'soda', label: 'Напитки' }, { id: 'fast_food', label: 'Фастфуд' }, 
-    { id: 'combo', label: 'Комбо' }, { id: 'hot_dishes', label: 'Горячее' }, { id: 'soups', label: 'Супы' }, 
-    { id: 'side_dishes', label: 'Гарниры' }, { id: 'salads', label: 'Салаты' }, { id: 'bakery', label: 'Выпечка' }, 
-    { id: 'desserts', label: 'Десерты' }, { id: 'sweets', label: 'Сладости' }, { id: 'ice_cream', label: 'Мороженое' }, 
-  ]; 
-
   return ( 
     <div className="min-h-screen font-sans text-brand-text selection:bg-brand-yellow selection:text-black relative"> 
       {isShiftClosed && (       
@@ -475,7 +490,7 @@ const App: React.FC = () => {
         <>         
           <nav className="sticky top-[61px] z-10 bg-brand-dark/80 backdrop-blur-lg py-3 overflow-x-auto no-scrollbar border-b border-transparent shadow-lg">             
             <div className="flex px-4 gap-2 min-w-max">             
-              {categories.map(cat => (                 
+              {visibleCategories.map(cat => (                 
                 <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all border ${activeCategory === cat.id ? 'bg-brand-yellow text-black border-brand-yellow shadow-[0_0_15px_rgba(250,204,21,0.4)] scale-105' : 'bg-white/5 text-brand-muted border-white/5 hover:bg-white/10 hover:border-white/20'}`}>                 
                   {cat.label}                 
                 </button>             
@@ -617,12 +632,13 @@ const App: React.FC = () => {
       {selectedProduct && <ItemModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={(variantIdx, quantity, options) => addToCart(selectedProduct.id, variantIdx, quantity, options)} inventory={inventory} />}      
 
       {showAiChat && (     
-        <AIChat products={allProducts.filter(p => !hiddenItems.includes(p.id) && (inventory[p.id] === undefined || inventory[p.id] > 0))} onClose={() => setShowAiChat(false)} onAddToCart={(product) => setSelectedProduct(product)} />   
+        <AIChat products={allProducts.filter(p => !hiddenItems.includes(p.id) && !hiddenCategories.includes(p.category) && (inventory[p.id] === undefined || inventory[p.id] > 0))} onClose={() => setShowAiChat(false)} onAddToCart={(product) => setSelectedProduct(product)} />   
       )}    
 
       {showAdminPanel && (       
-        <AdminPanel products={allProducts} promoCodes={promoCodes} hiddenItems={hiddenItems} inventory={inventory}         
+        <AdminPanel products={allProducts} promoCodes={promoCodes} hiddenItems={hiddenItems} hiddenCategories={hiddenCategories} inventory={inventory}         
           onToggleHidden={(id) => setHiddenItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}         
+          onToggleCategoryHidden={(id) => setHiddenCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id])}
           onSaveToBot={handleSaveMenuToBot} onClose={() => setShowAdminPanel(false)} isLoading={isSending}         
           dailyRevenue={dailyRevenue} monthlyRevenue={monthlyRevenue} isShiftClosed={isShiftClosed}         
           onToggleShift={handleToggleShift} onAddProduct={handleAddProduct} onEditProduct={handleEditProduct}         
