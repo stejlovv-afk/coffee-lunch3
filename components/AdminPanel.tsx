@@ -6,8 +6,10 @@ interface AdminPanelProps {
   products: Product[]; 
   promoCodes: PromoCode[];
   hiddenItems: string[];
+  hiddenCategories: string[]; // <-- Новое
   inventory: Record<string, number>;
   onToggleHidden: (id: string) => void;
+  onToggleCategoryHidden: (id: string) => void; // <-- Новое
   onSaveToBot: () => void;
   onClose: () => void;
   isLoading: boolean;
@@ -23,7 +25,7 @@ interface AdminPanelProps {
   onUpdateInventory: (inv: Record<string, number>) => void;
 }
 
-const CATEGORIES: {id: Category, label: string}[] = [
+export const CATEGORIES: {id: Category, label: string}[] = [
     { id: 'coffee', label: 'Кофе' }, { id: 'tea', label: 'Чай' }, { id: 'seasonal', label: 'Сезонное' },
     { id: 'punch', label: 'Пунши' }, { id: 'soda', label: 'Напитки' }, { id: 'fast_food', label: 'Фастфуд' },
     { id: 'combo', label: 'Комбо' }, { id: 'hot_dishes', label: 'Горячее' }, { id: 'soups', label: 'Супы' },
@@ -32,11 +34,11 @@ const CATEGORIES: {id: Category, label: string}[] = [
 ];
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ 
-  products, promoCodes, hiddenItems, inventory, onToggleHidden, onSaveToBot, onClose, isLoading,
-  dailyRevenue, monthlyRevenue, isShiftClosed, onToggleShift, onAddProduct, onEditProduct, onDeleteProduct,
-  onAddPromo, onDeletePromo, onUpdateInventory
+  products, promoCodes, hiddenItems, hiddenCategories, inventory, onToggleHidden, onToggleCategoryHidden, 
+  onSaveToBot, onClose, isLoading, dailyRevenue, monthlyRevenue, isShiftClosed, onToggleShift, 
+  onAddProduct, onEditProduct, onDeleteProduct, onAddPromo, onDeletePromo, onUpdateInventory
 }) => {
-  const [activeTab, setActiveTab] = useState<'menu' | 'editor' | 'revenue' | 'promo'>('menu');
+  const [activeTab, setActiveTab] = useState<'menu' | 'categories' | 'editor' | 'promo' | 'revenue'>('menu');
   const [searchTerm, setSearchTerm] = useState('');
   const [editorSearchTerm, setEditorSearchTerm] = useState(''); 
   const [showShiftConfirm, setShowShiftConfirm] = useState(false);
@@ -45,7 +47,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editId, setEditId] = useState<string | null>(null);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState<string[]>([]);
 
-  // Form State
   const [newName, setNewName] = useState('');
   const [newCat, setNewCat] = useState<Category>('coffee');
   const [newImage, setNewImage] = useState('');
@@ -108,16 +109,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           modifiers: modifiers
       };
 
-      // ВАЖНО: Убраны alert(), чтобы Telegram WebApp успел отправить данные и закрыться без обрыва соединения
-      if (editId) {
-          onEditProduct(editId, payload);
-      } else {
-          onAddProduct(payload);
-      }
+      if (editId) onEditProduct(editId, payload);
+      else onAddProduct(payload);
       
-      if (!window.Telegram?.WebApp) {
-          setEditorMode('list');
-      }
+      if (!window.Telegram?.WebApp) setEditorMode('list');
   };
 
   const handleDelete = (id: string) => {
@@ -168,6 +163,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
         <div className="flex bg-black/40 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar gap-1">
             <button onClick={() => setActiveTab('menu')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'menu' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Меню</button>
+            <button onClick={() => setActiveTab('categories')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'categories' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Категории</button>
             <button onClick={() => setActiveTab('editor')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'editor' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Редактор</button>
             <button onClick={() => setActiveTab('promo')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'promo' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Промо</button>
             <button onClick={() => setActiveTab('revenue')} className={`flex-1 min-w-[60px] py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'revenue' ? 'bg-white/10 text-brand-yellow shadow-md' : 'text-brand-muted'}`}>Выручка</button>
@@ -193,6 +189,27 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                 })}
             </div>
             <div className="p-4 border-t border-white/10 glass-panel safe-area-bottom"><button onClick={onSaveToBot} disabled={isLoading} className={`w-full py-3 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(250,204,21,0.3)] transition-all flex items-center justify-center gap-2 ${isLoading ? 'bg-brand-yellow/50 text-black/50 cursor-not-allowed' : 'bg-brand-yellow text-black active:scale-95'}`}>{isLoading ? 'Рассылка...' : 'Сохранить и Разослать'}</button></div>
+        </>
+      )}
+
+      {/* Вкладка категорий */}
+      {activeTab === 'categories' && (
+        <>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                <h3 className="text-white font-bold text-lg mb-2">Отключение категорий</h3>
+                {CATEGORIES.map(cat => {
+                    const isHidden = hiddenCategories.includes(cat.id);
+                    return (
+                        <div key={cat.id} onClick={() => !isLoading && onToggleCategoryHidden(cat.id)} className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-colors backdrop-blur-sm ${isHidden ? 'bg-red-900/10 border-red-500/20' : 'bg-white/5 border-white/5 hover:bg-white/10'}`}>
+                            <span className={`font-bold ${isHidden ? 'text-red-400 line-through' : 'text-brand-text'}`}>{cat.label}</span>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded border ${isHidden ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'}`}>{isHidden ? 'СКРЫТО' : 'АКТИВНО'}</span>
+                        </div>
+                    );
+                })}
+            </div>
+            <div className="p-4 border-t border-white/10 glass-panel safe-area-bottom">
+                <button onClick={onSaveToBot} disabled={isLoading} className={`w-full py-3 rounded-xl font-bold text-lg shadow-[0_0_20px_rgba(250,204,21,0.3)] transition-all flex items-center justify-center gap-2 ${isLoading ? 'bg-brand-yellow/50 text-black/50 cursor-not-allowed' : 'bg-brand-yellow text-black active:scale-95'}`}>{isLoading ? 'Рассылка...' : 'Сохранить и Разослать'}</button>
+            </div>
         </>
       )}
 
@@ -227,7 +244,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                       
                       <div><label className="text-xs text-brand-muted uppercase font-bold ml-1">Название</label><input type="text" value={newName} onChange={e => setNewName(e.target.value)} className="w-full glass-input p-3 rounded-xl text-white outline-none" placeholder="Название" /></div>
                       
-                      {/* Опции: Объемы и Цены */}
                       <div className="bg-white/5 p-4 rounded-xl border border-white/10 space-y-3">
                           <h4 className="text-xs font-bold text-brand-yellow uppercase tracking-wider mb-2">Объемы и Цены</h4>
                           {newVariants.map((v, i) => (
