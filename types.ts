@@ -90,6 +90,7 @@ export interface OrderActionPayload {
 export interface MenuUpdateActionPayload {
   action: 'update_menu';
   hiddenItems: string[];
+  hiddenCategories: string[]; // <-- Новое поле
   inventory: Record<string, number>;
 }
 
