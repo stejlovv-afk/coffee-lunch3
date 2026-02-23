@@ -53,7 +53,6 @@ const App: React.FC = () => {
   const [comment, setComment] = useState(''); 
   const [username, setUsername] = useState<string>(''); 
   
-  // --- НОВЫЕ ПОЛЯ: данные покупателя --- 
   const [customerName, setCustomerName] = useState(''); 
   const [customerPhone, setCustomerPhone] = useState(''); 
   const [customerEmail, setCustomerEmail] = useState(''); 
@@ -113,16 +112,26 @@ const App: React.FC = () => {
         const customProducts: Product[] = rawItems.map(s => {             
           const parts = s.split('|');             
           if (parts.length < 5) return null;             
-          const [id, name, cat, priceStr, img, modsBase64] = parts;             
+          const [id, name, cat, variantsRaw, img, modsBase64] = parts;             
           let modifiers = {};             
           if (modsBase64) {                 
             try { modifiers = JSON.parse(atob(modsBase64)); } catch (e) {}             
           }             
+
+          let parsedVariants = [{ size: 'порция', price: Number(variantsRaw) || 0 }];
+          if (variantsRaw && variantsRaw.includes(':')) {
+              parsedVariants = variantsRaw.split('^').map(vStr => {
+                  const [s, p] = vStr.split(':');
+                  return { size: s, price: Number(p) };
+              });
+          }
+
           return {                 
-            id, name, category: cat as Category, price: Number(priceStr), image: img,                 
+            id, name, category: cat as Category, image: img,                 
             isDrink: ['coffee','tea','punch','seasonal','soda'].includes(cat as Category),                 
             isCustom: true,                 
-            variants: [{ size: 'порция', price: Number(priceStr) }],                 
+            variants: parsedVariants,
+            price: parsedVariants[0].price,                 
             modifiers: modifiers             
           };         
         }).filter(Boolean) as Product[];                  
@@ -130,9 +139,7 @@ const App: React.FC = () => {
         customProducts.forEach(cp => {             
           const index = mergedProducts.findIndex(p => p.id === cp.id);             
           if (index !== -1) {                 
-            const staticItem = MENU_ITEMS.find(m => m.id === cp.id);                 
-            const preserveVariants = staticItem && staticItem.variants.length > 1 && cp.variants.length === 1 && cp.variants[0].size === 'порция';                 
-            mergedProducts[index] = { ...mergedProducts[index], ...cp, variants: preserveVariants ? staticItem.variants : cp.variants, modifiers: cp.modifiers || mergedProducts[index].modifiers };             
+            mergedProducts[index] = { ...mergedProducts[index], ...cp, variants: cp.variants, modifiers: cp.modifiers || mergedProducts[index].modifiers };             
           } else {                 
             mergedProducts.push(cp);             
           }         
@@ -197,36 +204,18 @@ const App: React.FC = () => {
   const handleApplyPromo = () => { 
     const code = promoInput.toUpperCase().trim(); 
     const found = promoCodes.find(p => p.code === code); 
-    if (!found) { 
-      setPromoError('Неверный код'); 
-      setAppliedPromo(null); 
-      return; 
-    } 
-    if (found.firstOrderOnly && usedPromoCodes.includes(found.code)) { 
-      setPromoError('Вы уже использовали этот промокод'); 
-      setAppliedPromo(null); 
-      return; 
-    } 
-    setAppliedPromo(found); 
-    setPromoError(''); 
-    setPromoInput(''); 
+    if (!found) { setPromoError('Неверный код'); setAppliedPromo(null); return; } 
+    if (found.firstOrderOnly && usedPromoCodes.includes(found.code)) { setPromoError('Вы уже использовали этот промокод'); setAppliedPromo(null); return; } 
+    setAppliedPromo(found); setPromoError(''); setPromoInput(''); 
     if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success'); 
   }; 
 
-  const removePromo = () => { 
-    setAppliedPromo(null); 
-    setPromoInput(''); 
-    setPromoError(''); 
-  }; 
+  const removePromo = () => { setAppliedPromo(null); setPromoInput(''); setPromoError(''); }; 
 
   const handleCheckout = useCallback(() => { 
     if (cart.length === 0 || isSending) return; 
-    if (finalTotal < 1) { 
-      alert("Сумма заказа слишком мала"); 
-      return; 
-    } 
+    if (finalTotal < 1) { alert("Сумма заказа слишком мала"); return; } 
 
-    // Валидация данных покупателя 
     if (!customerName.trim()) { alert("Укажите ваше имя"); return; } 
     if (!customerPhone.trim()) { alert("Укажите номер телефона"); return; } 
     if (!customerEmail.trim()) { alert("Укажите email"); return; } 
@@ -235,8 +224,6 @@ const App: React.FC = () => {
 
     setIsSending(true);  
 
-    // ВАЖНО: Мы используем тип any вместо WebAppPayload, чтобы TypeScript не ругался на новые поля,
-    // и меняем названия customerName на clientName (и т.д.), чтобы они дошли в ваш bot.js!
     const payload: any = {   
       action: 'order',   
       items: cart.map((item, index) => {     
@@ -280,24 +267,15 @@ const App: React.FC = () => {
         return { name: product.name, size: variant.size, count: item.quantity, price: finalPrice, details };   
       }),   
       total: finalTotal,   
-      deliveryMethod,   
-      pickupTime,   
-      comment,   
-      username,   
-      // --- Данные покупателя (clientName, clientPhone, clientEmail для бота) ---   
-      clientName: customerName.trim(),   
-      clientPhone: customerPhone.trim(),   
-      clientEmail: customerEmail.trim(),   
-      promoCode: appliedPromo?.code,   
-      discountAmount: discountAmount 
+      deliveryMethod, pickupTime, comment, username,   
+      clientName: customerName.trim(), clientPhone: customerPhone.trim(), clientEmail: customerEmail.trim(),   
+      promoCode: appliedPromo?.code, discountAmount: discountAmount 
     };  
 
     if (window.Telegram?.WebApp) {   
       window.Telegram.WebApp.sendData(JSON.stringify(payload)); 
     } else {   
-      console.log("Order Payload:", payload);   
-      alert(`[Тест] Заказ отправлен.`);   
-      setIsSending(false); 
+      alert(`[Тест] Заказ отправлен.`); setIsSending(false); 
     } 
   }, [cart, finalTotal, isSending, deliveryMethod, pickupTime, comment, username, allProducts, appliedPromo, discountAmount, customerName, customerPhone, customerEmail]); 
 
@@ -307,33 +285,19 @@ const App: React.FC = () => {
     const mainBtn = tg.MainButton; 
     
     if (currentView === 'cart' && cart.length > 0 && !isShiftClosed) {     
-      mainBtn.setText(`ОПЛАТИТЬ ${finalTotal}₽`);     
-      mainBtn.textColor = "#000000";     
-      mainBtn.color = "#FACC15";     
-      mainBtn.isVisible = true;     
-      mainBtn.onClick(handleCheckout); 
+      mainBtn.setText(`ОПЛАТИТЬ ${finalTotal}₽`); mainBtn.textColor = "#000000"; mainBtn.color = "#FACC15"; mainBtn.isVisible = true; mainBtn.onClick(handleCheckout); 
     } else {     
-      mainBtn.isVisible = false;     
-      mainBtn.offClick(handleCheckout); 
+      mainBtn.isVisible = false; mainBtn.offClick(handleCheckout); 
     } 
     return () => { mainBtn.offClick(handleCheckout); }; 
   }, [currentView, cart.length, finalTotal, handleCheckout, isShiftClosed]); 
 
-  useEffect(() => { 
-    localStorage.setItem('favorites', JSON.stringify(favorites)); 
-  }, [favorites]); 
-
-  useEffect(() => { 
-    localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems)); 
-  }, [hiddenItems]); 
-
-  useEffect(() => { 
-    localStorage.setItem('isAdmin', String(isAdmin)); 
-  }, [isAdmin]); 
+  useEffect(() => { localStorage.setItem('favorites', JSON.stringify(favorites)); }, [favorites]); 
+  useEffect(() => { localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems)); }, [hiddenItems]); 
+  useEffect(() => { localStorage.setItem('isAdmin', String(isAdmin)); }, [isAdmin]); 
 
   const toggleFavorite = (e: React.MouseEvent, id: string) => { 
-    e.stopPropagation(); 
-    setFavorites(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]); 
+    e.stopPropagation(); setFavorites(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]); 
   }; 
 
   const addToCart = (productId: string, variantIdx: number, quantity: number, options: any) => { 
@@ -344,10 +308,7 @@ const App: React.FC = () => {
     const stock = inventory[productId]; 
     if (stock !== undefined) {      
       const currentInCart = cart.filter(i => i.productId === productId).reduce((acc, i) => acc + i.quantity, 0);      
-      if (currentInCart + quantity > stock) { 
-        alert(`Доступно всего ${stock} шт.`); 
-        return; 
-      } 
+      if (currentInCart + quantity > stock) { alert(`Доступно всего ${stock} шт.`); return; } 
     }  
 
     const uniqueId = `${productId}-${variantIdx}-${JSON.stringify(options)}`; 
@@ -359,100 +320,63 @@ const App: React.FC = () => {
     if(window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('medium'); 
   }; 
 
-  const removeFromCart = (uniqueId: string) => { 
-    setCart(prev => prev.filter(i => i.uniqueId !== uniqueId)); 
-  }; 
+  const removeFromCart = (uniqueId: string) => setCart(prev => prev.filter(i => i.uniqueId !== uniqueId)); 
 
   const handleSaveMenuToBot = () => { 
     setIsSending(true); 
     const payload: WebAppPayload = { action: 'update_menu', hiddenItems: hiddenItems, inventory: inventory }; 
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload)); 
-    else { 
-      console.log('Sending menu update:', payload); 
-      setIsSending(false); 
-    } 
+    else { setIsSending(false); } 
   }; 
 
   const handleToggleShift = (closed: boolean) => { 
     setIsSending(true); 
     const payload: WebAppPayload = { action: 'toggle_shift', isClosed: closed }; 
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload)); 
-    else { 
-      setIsShiftClosed(closed); 
-      setIsSending(false); 
-    } 
+    else { setIsShiftClosed(closed); setIsSending(false); } 
   }; 
 
   const handleAddProduct = (payload: any) => { 
     setIsSending(true); 
-    const actionPayload: WebAppPayload = { 
-      action: 'add_product', 
-      product: { name: payload.name, category: payload.category, price: payload.price, image: payload.image, modifiers: payload.modifiers } as unknown as Product 
-    }; 
+    const actionPayload: any = { action: 'add_product', product: { name: payload.name, category: payload.category, variants: payload.variants, image: payload.image, modifiers: payload.modifiers } }; 
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload)); 
-    else { 
-      alert("Товар отправлен (тест)"); 
-      setIsSending(false); 
-    } 
+    else { alert("Товар отправлен"); setIsSending(false); } 
   }; 
 
   const handleEditProduct = (id: string, payload: any) => { 
     setIsSending(true); 
-    const actionPayload: WebAppPayload = { 
-      action: 'edit_product', id, 
-      product: { name: payload.name, category: payload.category, price: payload.price, image: payload.image, modifiers: payload.modifiers } as unknown as Product 
-    }; 
+    const actionPayload: any = { action: 'edit_product', id, product: { name: payload.name, category: payload.category, variants: payload.variants, image: payload.image, modifiers: payload.modifiers } }; 
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(actionPayload)); 
-    else { 
-      alert("Товар изменен (тест)"); 
-      setIsSending(false); 
-    } 
+    else { alert("Товар изменен"); setIsSending(false); } 
   }; 
 
   const handleDeleteProduct = (ids: string[]) => { 
     setIsSending(true); 
     const payload: WebAppPayload = { action: 'delete_product', ids }; 
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload)); 
-    else { 
-      alert("Запрос на удаление отправлен (тест)"); 
-      setIsSending(false); 
-    } 
+    else { setIsSending(false); } 
   }; 
 
   const handleAddPromo = (promo: PromoCode) => { 
     setIsSending(true); 
     const payload: WebAppPayload = { action: 'add_promo', promo }; 
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload)); 
-    else { 
-      alert("Промокод отправлен (тест)"); 
-      setIsSending(false); 
-    } 
+    else { setIsSending(false); } 
   }; 
 
   const handleDeletePromo = (code: string) => { 
     setIsSending(true); 
     const payload: WebAppPayload = { action: 'delete_promo', code }; 
     if (window.Telegram?.WebApp) window.Telegram.WebApp.sendData(JSON.stringify(payload)); 
-    else { 
-      alert("Промокод удален (тест)"); 
-      setIsSending(false); 
-    } 
+    else { setIsSending(false); } 
   }; 
 
-  const handleCloseDevNotice = () => { 
-    setShowDevNotice(false); 
-    localStorage.setItem('hasSeenDevNotice', 'true'); 
-  }; 
-
+  const handleCloseDevNotice = () => { setShowDevNotice(false); localStorage.setItem('hasSeenDevNotice', 'true'); }; 
   const handleLongPress = useLongPress(() => setShowAdminAuth(true)); 
 
   const verifyAdmin = () => { 
-    if (adminPassword === '7654') { 
-      setIsAdmin(true); 
-      setShowAdminPanel(true); 
-      setShowAdminAuth(false); 
-      setAdminPassword(''); 
-    } else alert('Неверный пароль'); 
+    if (adminPassword === '7654') { setIsAdmin(true); setShowAdminPanel(true); setShowAdminAuth(false); setAdminPassword(''); } 
+    else alert('Неверный пароль'); 
   }; 
 
   const renderProductGrid = (items: Product[]) => ( 
@@ -480,7 +404,7 @@ const App: React.FC = () => {
             </div> 
             <div onClick={() => !isDisabled && setSelectedProduct(item)} className="z-10 relative"> 
               <h3 className="font-bold text-white leading-tight mb-1 text-sm sm:text-base line-clamp-2 min-h-[2.5em] drop-shadow-sm">{item.name}</h3> 
-              <p className="text-brand-yellow font-black text-lg drop-shadow-md">{item.variants[0].price}₽</p> 
+              <p className="text-brand-yellow font-black text-lg drop-shadow-md">{item.variants[0]?.price || 0}₽</p> 
             </div> 
             <button onClick={() => !isDisabled && setSelectedProduct(item)} disabled={isDisabled} className={`z-10 mt-3 w-full py-3 border border-white/10 rounded-2xl flex items-center justify-center transition-all active:scale-95 group backdrop-blur-sm shadow-inner ${isDisabled ? 'bg-white/5 cursor-not-allowed' : 'bg-white/10 hover:bg-brand-yellow hover:text-black text-white'}`}> 
               <PlusIcon className="w-6 h-6 group-active:rotate-90 transition-transform" /> 
@@ -588,28 +512,17 @@ const App: React.FC = () => {
             <button onClick={() => alert("Доставка появится позже!")} className="flex-1 py-3 rounded-xl font-bold text-sm text-brand-muted/50 cursor-not-allowed flex flex-col items-center justify-center leading-none"><span>Доставка</span><span className="text-[9px] mt-0.5 opacity-60">скоро</span></button>         
           </div>          
 
-          {/* ===== ДАННЫЕ ПОКУПАТЕЛЯ ===== */}         
           <div className="glass-panel p-4 rounded-2xl mb-4 border border-brand-yellow/20">             
             <label className="flex items-center gap-2 text-sm font-bold text-brand-yellow mb-3">                 
               <span>👤</span> Ваши данные для заказа             
             </label>             
             <div className="space-y-3">                 
-              <div>                     
-                <label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider ml-1 mb-1 block">Имя *</label>                     
-                <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Иван Иванов" className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 placeholder:text-brand-muted/50" />                 
-              </div>                 
-              <div>                     
-                <label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider ml-1 mb-1 block">Телефон *</label>                     
-                <input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="+7 900 000 00 00" className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 placeholder:text-brand-muted/50" />                 
-              </div>                 
-              <div>                     
-                <label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider ml-1 mb-1 block">Email *</label>                     
-                <input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="example@mail.ru" className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 placeholder:text-brand-muted/50" />                 
-              </div>             
+              <div><label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider ml-1 mb-1 block">Имя *</label><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Иван Иванов" className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 placeholder:text-brand-muted/50" /></div>                 
+              <div><label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider ml-1 mb-1 block">Телефон *</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="+7 900 000 00 00" className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 placeholder:text-brand-muted/50" /></div>                 
+              <div><label className="text-[10px] font-bold text-brand-muted uppercase tracking-wider ml-1 mb-1 block">Email *</label><input type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="example@mail.ru" className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 placeholder:text-brand-muted/50" /></div>             
             </div>         
           </div>          
 
-          {/* Promo Code */}         
           <div className="glass-panel p-4 rounded-2xl mb-4 relative overflow-hidden">             
             <label className="flex items-center gap-2 text-sm font-bold text-brand-muted mb-2"><SparklesIcon className="w-4 h-4" />Промокод</label>             
             {appliedPromo ? (                 
@@ -626,19 +539,11 @@ const App: React.FC = () => {
             {promoError && <div className="text-red-400 text-xs mt-2 font-medium">{promoError}</div>}         
           </div>          
 
-          {/* Time & Comment */}         
           <div className="space-y-4 mb-6">             
-            <div className="glass-panel p-4 rounded-2xl">                
-              <label className="flex items-center gap-2 text-sm font-bold text-brand-muted mb-2"><ClockIcon className="w-4 h-4" />Время готовности</label>                
-              <input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all [color-scheme:dark]" />             
-            </div>             
-            <div className="glass-panel p-4 rounded-2xl">                
-              <label className="flex items-center gap-2 text-sm font-bold text-brand-muted mb-2"><ChatIcon className="w-4 h-4" />Комментарий</label>                
-              <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Погорячее, поменьше льда..." rows={2} className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all resize-none placeholder:text-brand-muted/50" />             
-            </div>         
+            <div className="glass-panel p-4 rounded-2xl"><label className="flex items-center gap-2 text-sm font-bold text-brand-muted mb-2"><ClockIcon className="w-4 h-4" />Время готовности</label><input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all [color-scheme:dark]" /></div>             
+            <div className="glass-panel p-4 rounded-2xl"><label className="flex items-center gap-2 text-sm font-bold text-brand-muted mb-2"><ChatIcon className="w-4 h-4" />Комментарий</label><textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Погорячее, поменьше льда..." rows={2} className="w-full glass-input text-white p-3 rounded-xl outline-none focus:border-brand-yellow/50 focus:ring-1 focus:ring-brand-yellow/50 transition-all resize-none placeholder:text-brand-muted/50" /></div>         
           </div>          
 
-          {/* Total Summary */}         
           <div className="flex justify-between items-center mb-4 px-2">             
             <span className="text-brand-muted font-bold">Итого:</span>             
             <div className="text-right">                 
@@ -647,7 +552,6 @@ const App: React.FC = () => {
             </div>         
           </div>          
 
-          {/* Items */}         
           <div className="space-y-3">           
             {cart.length === 0 ? (             
               <div className="flex flex-col items-center justify-center h-40 text-brand-muted opacity-50"><div className="text-4xl mb-2">🛒</div><p>Корзина пуста</p></div>           
