@@ -108,14 +108,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           modifiers: modifiers
       };
 
+      // ВАЖНО: Убраны alert(), чтобы Telegram WebApp успел отправить данные и закрыться без обрыва соединения
       if (editId) {
           onEditProduct(editId, payload);
-          alert("Товар обновлен!");
       } else {
           onAddProduct(payload);
-          alert("Товар добавлен!");
       }
-      setEditorMode('list');
+      
+      if (!window.Telegram?.WebApp) {
+          setEditorMode('list');
+      }
   };
 
   const handleDelete = (id: string) => {
@@ -138,7 +140,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       if (!promoCode || !promoPercent) { alert("Заполните код и процент"); return; }
       onAddPromo({ code: promoCode.toUpperCase().trim(), discountPercent: Number(promoPercent), firstOrderOnly: promoFirstOrder });
       setPromoCode(''); setPromoPercent(''); setPromoFirstOrder(false);
-      alert("Промокод добавлен!");
   };
 
   const toggleModifier = (key: keyof ProductModifiers, value: any) => setModifiers(prev => ({...prev, [key]: value}));
