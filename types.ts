@@ -1,4 +1,3 @@
-
 export type Category = 'coffee' | 'tea' | 'seasonal' | 'punch' | 'soda' | 'salads' | 'soups' | 'hot_dishes' | 'side_dishes' | 'combo' | 'fast_food' | 'sweets' | 'ice_cream' | 'desserts' | 'bakery';
 
 export interface ProductVariant {
@@ -7,20 +6,20 @@ export interface ProductVariant {
 }
 
 export interface ProductModifiers {
-  hasMilk?: boolean;      // Обычное, альтернативное
-  hasSyrup?: boolean;     // Сиропы
-  hasSugar?: boolean;     // Сахар
-  hasCinnamon?: boolean;  // Корица
-  hasSauce?: boolean;     // Соусы (Сырный, Кетчуп и т.д.)
-  hasTemp?: boolean;      // Температура (Холодный/Теплый) - принудительно
-  heatingType?: 'none' | 'simple' | 'advanced'; // simple = Да/Нет, advanced = Гриль/СВЧ
-  needsCutlery?: boolean; // Приборы
-  isBumble?: boolean;     // Спец. опция для бамбла (выбор сока)
-  isMatcha?: boolean;     // Спец. опция для матчи (цвет)
-  isBuckthorn?: boolean;  // Спец. опция для облепихи (мед/фильтр)
-  isSoda?: boolean;       // Газ/Негаз, Температура (legacy flag)
-  isHotDog?: boolean;     // Спец. опция для хот-дога
-  isEspressoTonic?: boolean; // Спец. опция для эспрессо-тоника (вкус)
+  hasMilk?: boolean;      
+  hasSyrup?: boolean;     
+  hasSugar?: boolean;     
+  hasCinnamon?: boolean;  
+  hasSauce?: boolean;     
+  hasTemp?: boolean;      
+  heatingType?: 'none' | 'simple' | 'advanced'; 
+  needsCutlery?: boolean; 
+  isBumble?: boolean;     
+  isMatcha?: boolean;     
+  isBuckthorn?: boolean;  
+  isSoda?: boolean;       
+  isHotDog?: boolean;     
+  isEspressoTonic?: boolean; 
 }
 
 export interface Product {
@@ -32,7 +31,8 @@ export interface Product {
   isDrink: boolean;
   description?: string;
   isCustom?: boolean; 
-  modifiers?: ProductModifiers; // Новое поле настроек
+  modifiers?: ProductModifiers;
+  price?: number; 
 }
 
 export interface PromoCode {
@@ -57,7 +57,7 @@ export interface CartItemOption {
   matchaColor?: 'green' | 'blue';
   hotDogSausage?: 'pork' | 'beef';
   hotDogOnion?: boolean;
-  hotDogSauces?: string[]; // Array of sauce IDs for hot dog
+  hotDogSauces?: string[]; 
   tonicType?: 'classic' | 'pomegranate';      
 }
 
@@ -69,7 +69,6 @@ export interface CartItem {
   options: CartItemOption;
 }
 
-// Data sent to Bot for an Order
 export interface OrderActionPayload {
   action: 'order';
   items: {
@@ -88,11 +87,10 @@ export interface OrderActionPayload {
   discountAmount?: number; 
 }
 
-// Data sent to Bot to update Menu
 export interface MenuUpdateActionPayload {
   action: 'update_menu';
   hiddenItems: string[];
-  inventory: Record<string, number>; // Added inventory data
+  inventory: Record<string, number>;
 }
 
 export interface ToggleShiftPayload {
@@ -102,7 +100,7 @@ export interface ToggleShiftPayload {
 
 export interface AddProductPayload {
   action: 'add_product';
-  product: Product; // Send full product object
+  product: Product; 
 }
 
 export interface EditProductPayload {
@@ -113,8 +111,8 @@ export interface EditProductPayload {
 
 export interface DeleteProductPayload {
   action: 'delete_product';
-  id?: string;    // Single delete (optional now)
-  ids?: string[]; // Bulk delete
+  id?: string;    
+  ids?: string[]; 
 }
 
 export interface AddPromoPayload {
