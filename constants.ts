@@ -58,7 +58,14 @@ const withDefaults = (p: Product): Product => {
   
   if (p.id === 'chern_water') m.isSoda = true; // Still keep isSoda for gas logic
 
-  if (p.category === 'fast_food') m.heatingType = 'advanced'; // Grill/Micro
+  if (p.category === 'fast_food') {
+      m.heatingType = 'advanced'; // Grill/Micro
+      // Добавляем приборы для пельменей и вареников, так как они в фастфуде
+      if (['pelmeni', 'vareniki_potato_mushroom'].includes(p.id)) {
+          m.needsCutlery = true;
+      }
+  }
+
   if (['soups', 'hot_dishes', 'combo', 'side_dishes', 'salads'].includes(p.category)) {
       m.needsCutlery = true;
       if (p.category !== 'salads') m.heatingType = 'simple'; // Yes/No
@@ -78,7 +85,7 @@ const RAW_MENU_ITEMS: Product[] = [
   { id: 'espresso', name: 'Эспрессо', category: 'coffee', isDrink: true, image: `${IMG_PATH}/espresso1.jpg`, variants: [{ size: '30мл', price: 110 }, { size: '60мл', price: 150 }] },
   { id: 'americano', name: 'Американо', category: 'coffee', isDrink: true, image: `${IMG_PATH}/americano.jpg`, variants: [{ size: '250мл', price: 180 }, { size: '350мл', price: 220 }, { size: '450мл', price: 260 }] },
   { id: 'filter_coffee', name: 'Фильтр-кофе', category: 'coffee', isDrink: true, image: `${IMG_PATH}/filtercoffee.jpg`, variants: [{ size: '250мл', price: 230 }] },
-  { id: 'flat_white', name: 'Флэт Уайт', category: 'coffee', isDrink: true, image: `${IMG_PATH}/эспрессо2.jpg`, variants: [{ size: '250мл', price: 220 }, { size: '350мл', price: 260 }, { size: '450мл', price: 360 }] },
+  { id: 'flat_white', name: 'Флэт Уайт', category: 'coffee', isDrink: true, image: `${IMG_PATH}/fletyait.jpg`, variants: [{ size: '250мл', price: 220 }, { size: '350мл', price: 260 }, { size: '450мл', price: 360 }] },
   { id: 'raf', name: 'Раф', category: 'coffee', isDrink: true, image: `${IMG_PATH}/latte.jpg`, variants: [{ size: '250мл', price: 210 }, { size: '350мл', price: 250 }, { size: '450мл', price: 290 }] },
   
   // Bumble Warm (Standard)
@@ -236,7 +243,7 @@ const RAW_MENU_ITEMS: Product[] = [
     name: 'Малиновый Пунш',
     category: 'punch',
     isDrink: true,
-    image: `${IMG_PATH}/malinapunch.jpg`,
+    image: `${IMG_PATH}/malinapunsh.jpg`,
     variants: [
       { size: '350мл', price: 230 },
       { size: '450мл', price: 270 },
@@ -363,10 +370,12 @@ const RAW_MENU_ITEMS: Product[] = [
 
   // --- FAST FOOD ---
   { id: 'croissant_salmon', name: 'Круассан с лососем', category: 'fast_food', isDrink: false, image: `${IMG_PATH}/unnamed (1).jpg`, variants: [{ size: 'шт', price: 390 }] },
-  { id: 'sandwich_chicken', name: 'Сэндвич с курицей', category: 'fast_food', isDrink: false, image: `${IMG_PATH}/sendvitchchiken.jpg`, variants: [{ size: 'шт', price: 280 }] },
-  { id: 'sandwich_pork', name: 'Сэндвич с бужениной', category: 'fast_food', isDrink: false, image: 'https://picsum.photos/300/300?random=102', variants: [{ size: 'шт', price: 280 }] },
+  { id: 'sandwich_chicken', name: 'Сэндвич с курицей', category: 'fast_food', isDrink: false, image: `${IMG_PATH}/sendvitchchiken.jpg`, variants: [{ size: 'шт', price: 290 }] },
+  { id: 'sandwich_pork', name: 'Сэндвич с бужениной', category: 'fast_food', isDrink: false, image: `${IMG_PATH}/sendvichbuzenina.png`, variants: [{ size: 'шт', price: 260 }] },
   { id: 'sandwich_ham', name: 'Сэндвич с ветчиной', category: 'fast_food', isDrink: false, image: `${IMG_PATH}/sendvichvetcina.jpg`, variants: [{ size: 'шт', price: 280 }] },
-  { id: 'hot_dog_danish', name: 'Хот-дог Датский', category: 'fast_food', isDrink: false, image: 'https://picsum.photos/300/300?random=104', variants: [{ size: 'шт', price: 260 }] },
+  { id: 'hot_dog_danish', name: 'Хот-дог Датский', category: 'fast_food', isDrink: false, image: `${IMG_PATH}/hotdog.jpg`, variants: [{ size: 'шт', price: 280 }] },
+  { id: 'pelmeni', name: 'Пельмени', category: 'fast_food', isDrink: false, image: `${IMG_PATH}/pelmeni.jpg`, variants: [{ size: 'порция', price: 350 }] },
+  { id: 'vareniki_potato_mushroom', name: 'Вареники с картошкой и грибами', category: 'fast_food', isDrink: false, image: `${IMG_PATH}/vareniki.jpg`, variants: [{ size: 'порция', price: 350 }] },
 
   // --- SALADS ---
   { id: 'greek_salad', name: 'Греческий салат', category: 'salads', isDrink: false, image: `${IMG_PATH}/salatgrek.jpg`, variants: [{ size: 'порция', price: 250 }] },
@@ -487,10 +496,14 @@ const RAW_MENU_ITEMS: Product[] = [
   { id: 'samsa_cheese', name: 'Самса с сыром', category: 'bakery', isDrink: false, image: `${IMG_PATH}/samsachesse.jpg`, variants: [{ size: 'шт', price: 190 }] },
   { id: 'sausage_dough', name: 'Сосиска в тесте', category: 'bakery', isDrink: false, image: `${IMG_PATH}/sososikavteste.jpg`, variants: [{ size: 'шт', price: 110 }] },
   { id: 'samsa_chicken', name: 'Самса с курицей', category: 'bakery', isDrink: false, image: `${IMG_PATH}/samsachiken.jpg`, variants: [{ size: 'шт', price: 180 }] },
+  { id: 'patty_cabbage', name: 'Пирожок с капустой', category: 'bakery', isDrink: false, image: `${IMG_PATH}/pirozhokkapusta.jpg`, variants: [{ size: 'шт', price: 70 }] },
+  { id: 'patty_potato', name: 'Пирожок с картошкой', category: 'bakery', isDrink: false, image: `${IMG_PATH}/pirozokkartoshka.png`, variants: [{ size: 'шт', price: 70 }] },
+  { id: 'cutlet_in_dough', name: 'Котлета в тесте', category: 'bakery', isDrink: false, image: `${IMG_PATH}/kotletavteste.jpg`, variants: [{ size: 'шт', price: 100 }] },
+  { id: 'donut_caramel', name: 'Донат с карамелью', category: 'bakery', isDrink: false, image: `${IMG_PATH}/ponchikcaramel.jpg`, variants: [{ size: 'шт', price: 170 }] },
 
   // --- DESSERTS ---
-  { id: 'trifle_snickers', name: 'Трайфл Сникерс', category: 'desserts', isDrink: false, image: 'https://picsum.photos/300/300?random=501', variants: [{ size: 'шт', price: 260 }] },
-  { id: 'tube_condensed_milk', name: 'Трубочка со сгущенкой', category: 'desserts', isDrink: false, image: 'https://picsum.photos/300/300?random=502', variants: [{ size: 'шт', price: 160 }] },
+  { id: 'trifle_snickers', name: 'Трайфл Сникерс', category: 'desserts', isDrink: false, image: `${IMG_PATH}/traifalsnikers.jpg`, variants: [{ size: 'шт', price: 260 }] },
+  { id: 'tube_condensed_milk', name: 'Трубочка со сгущенкой', category: 'desserts', isDrink: false, image: `${IMG_PATH}/trubochkasgushenka.jpg`, variants: [{ size: 'шт', price: 160 }] },
   { id: 'shu_berry', name: 'Шу Ягодное', category: 'desserts', isDrink: false, image: 'https://picsum.photos/300/300?random=503', variants: [{ size: 'шт', price: 160 }] },
   { id: 'eclair_napoleon', name: 'Эклер Наполеон', category: 'desserts', isDrink: false, image: 'https://picsum.photos/300/300?random=504', variants: [{ size: 'шт', price: 180 }] },
   { id: 'eclair_snickers', name: 'Эклер Сникерс', category: 'desserts', isDrink: false, image: 'https://picsum.photos/300/300?random=505', variants: [{ size: 'шт', price: 180 }] },
@@ -498,6 +511,7 @@ const RAW_MENU_ITEMS: Product[] = [
   { id: 'cake_potato', name: 'Пирожное Картошка', category: 'desserts', isDrink: false, image: 'https://picsum.photos/300/300?random=507', variants: [{ size: 'шт', price: 150 }] },
   { id: 'honey_cake', name: 'Торт Медовик', category: 'desserts', isDrink: false, image: 'https://picsum.photos/300/300?random=508', variants: [{ size: 'шт', price: 220 }] },
   { id: 'cheesecake_cherry', name: 'Чизкейк с вишней', category: 'desserts', isDrink: false, image: 'https://picsum.photos/300/300?random=509', variants: [{ size: 'шт', price: 200 }] },
+  { id: 'cheesecake_strawberry', name: 'Чизкейк с клубникой', category: 'desserts', isDrink: false, image: `${IMG_PATH}/cheascaceklubnika.jpg`, variants: [{ size: 'шт', price: 200 }] },
 
   // --- ICE CREAM ---
   { id: 'ice_vanilla_choco', name: 'Ванильно-шоколадное', category: 'ice_cream', isDrink: false, image: 'https://picsum.photos/300/300?random=601', variants: [{ size: 'шт', price: 110 }] },
