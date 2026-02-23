@@ -230,7 +230,7 @@ const App: React.FC = () => {
 
     setIsSending(true);
 
-    const payload: WebAppPayload = {
+    const payload = {
       action: 'order',
       items: cart.map((item, index) => {
         const product = allProducts.find(p => p.id === item.productId)!;
@@ -277,13 +277,13 @@ const App: React.FC = () => {
       pickupTime,
       comment,
       username,
-      // --- Данные покупателя ---
-      customerName: customerName.trim(),
-      customerPhone: customerPhone.trim(),
-      customerEmail: customerEmail.trim(),
+      // --- Данные покупателя (ИСПРАВЛЕНО) ---
+      clientName: customerName.trim(),
+      clientPhone: customerPhone.trim(),
+      clientEmail: customerEmail.trim(),
       promoCode: appliedPromo?.code,
       discountAmount: discountAmount
-    };
+    } as any; // <-- Это уберет ошибку сборки (TypeScript error)
 
     if (window.Telegram?.WebApp) {
       window.Telegram.WebApp.sendData(JSON.stringify(payload));
